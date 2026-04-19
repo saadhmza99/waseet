@@ -171,5 +171,5 @@ export const postService = {
 
   // Note: Use followService.getPostsFromFollowing instead
   // This method is kept for backward compatibility but followService has the correct implementation
-},
+};
 
