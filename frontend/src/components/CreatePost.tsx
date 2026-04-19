@@ -1,29 +1,37 @@
 import { useState } from "react";
 import { Image, Smile, MapPin, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import avatarTony from "@/assets/avatar-tony.jpg";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
+import { storageService } from "@/services/storageService";
 
 interface CreatePostProps {
   onPostCreated?: (post: { text: string; images: string[]; beforeImage?: string; afterImage?: string }) => void;
 }
 
 const CreatePost = ({ onPostCreated }: CreatePostProps) => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [postText, setPostText] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [imageTags, setImageTags] = useState<{ [key: number]: 'avant' | 'après' | null }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
+      const filesArray = Array.from(files);
+      setSelectedFiles((prev) => [...prev, ...filesArray]);
+      
       const imageUrls: string[] = [];
-      Array.from(files).forEach((file) => {
+      filesArray.forEach((file) => {
         const reader = new FileReader();
         reader.onload = (event) => {
           if (event.target?.result) {
             imageUrls.push(event.target.result as string);
-            if (imageUrls.length === files.length) {
+            if (imageUrls.length === filesArray.length) {
               setSelectedImages((prev) => [...prev, ...imageUrls]);
             }
           }
@@ -35,6 +43,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
 
   const removeImage = (index: number) => {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setImageTags((prev) => {
       const newTags = { ...prev };
       delete newTags[index];
@@ -72,32 +81,53 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
     });
   };
 
-  const handleSubmit = () => {
-    if (postText.trim() || selectedImages.length > 0) {
-      // Prepare images with tags for before/after
-      const beforeImage = selectedImages.length === 2 && imageTags[0] === 'avant' 
-        ? selectedImages[0] 
-        : selectedImages.length === 2 && imageTags[1] === 'avant' 
-        ? selectedImages[1] 
-        : undefined;
-      
-      const afterImage = selectedImages.length === 2 && imageTags[0] === 'après' 
-        ? selectedImages[0] 
-        : selectedImages.length === 2 && imageTags[1] === 'après' 
-        ? selectedImages[1] 
-        : undefined;
+  const handleSubmit = async () => {
+    if ((!postText.trim() && selectedImages.length === 0) || isSubmitting || !user) return;
 
+    setIsSubmitting(true);
+    try {
+      // Upload images to Supabase Storage
+      let uploadedImageUrls: string[] = [];
+      let beforeImageUrl: string | undefined;
+      let afterImageUrl: string | undefined;
+      let singleImageUrl: string | undefined;
+
+      if (selectedFiles.length > 0) {
+        uploadedImageUrls = await storageService.uploadImages(selectedFiles, 'posts');
+        
+        // Determine before/after or single image
+        if (selectedImages.length === 2) {
+          const beforeIndex = imageTags[0] === 'avant' ? 0 : imageTags[1] === 'avant' ? 1 : -1;
+          const afterIndex = imageTags[0] === 'après' ? 0 : imageTags[1] === 'après' ? 1 : -1;
+          
+          if (beforeIndex >= 0) beforeImageUrl = uploadedImageUrls[beforeIndex];
+          if (afterIndex >= 0) afterImageUrl = uploadedImageUrls[afterIndex];
+        } else if (uploadedImageUrls.length === 1) {
+          singleImageUrl = uploadedImageUrls[0];
+        }
+      }
+
+      // Call parent callback with uploaded URLs
       onPostCreated?.({ 
         text: postText, 
-        images: selectedImages,
-        beforeImage,
-        afterImage
+        images: uploadedImageUrls,
+        beforeImage: beforeImageUrl,
+        afterImage: afterImageUrl,
+        singleImage: singleImageUrl,
       });
+
+      // Reset form
       setPostText("");
       setSelectedImages([]);
+      setSelectedFiles([]);
       setImageTags({});
       setIsExpanded(false);
       setIsOpen(false);
+    } catch (error) {
+      console.error("Error creating post:", error);
+      alert("Erreur lors de la création du post. Veuillez réessayer.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -125,7 +155,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       <div className="px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4">
         <div className="flex items-start gap-3">
           <img
-            src={avatarTony}
+            src={user?.user_metadata?.avatar_url || "/default-avatar.png"}
             alt="Profile"
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
           />
@@ -230,10 +260,10 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={!postText.trim() && selectedImages.length === 0}
+                  disabled={(!postText.trim() && selectedImages.length === 0) || isSubmitting}
                   className="text-sm"
                 >
-                  Publier
+                  {isSubmitting ? "Publication..." : "Publier"}
                 </Button>
               </div>
             </div>

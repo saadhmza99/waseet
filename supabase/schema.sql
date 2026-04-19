@@ -1,0 +1,552 @@
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Profiles table (extends auth.users)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  full_name TEXT,
+  profession TEXT,
+  location TEXT,
+  bio TEXT CHECK (char_length(bio) <= 165),
+  avatar_url TEXT,
+  cover_photo_url TEXT,
+  profile_type TEXT CHECK (profile_type IN ('craftsman', 'hunter')),
+  phone TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Posts table
+CREATE TABLE IF NOT EXISTS public.posts (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  before_image_url TEXT,
+  after_image_url TEXT,
+  single_image_url TEXT,
+  images JSONB DEFAULT '[]'::jsonb,
+  likes_count INTEGER DEFAULT 0,
+  comments_count INTEGER DEFAULT 0,
+  shares_count INTEGER DEFAULT 0,
+  is_sponsored BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Listings/Jobs table
+CREATE TABLE IF NOT EXISTS public.listings (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  profession TEXT,
+  location TEXT NOT NULL,
+  price_range TEXT,
+  image_url TEXT,
+  image_count INTEGER DEFAULT 0,
+  is_sponsored BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Post comments table
+CREATE TABLE IF NOT EXISTS public.post_comments (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Likes table (for posts)
+CREATE TABLE IF NOT EXISTS public.post_likes (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(post_id, user_id)
+);
+
+-- Post shares table
+CREATE TABLE IF NOT EXISTS public.post_shares (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(post_id, user_id)
+);
+
+-- Portfolio items table
+CREATE TABLE IF NOT EXISTS public.portfolio_items (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  image_url TEXT NOT NULL,
+  label TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Reviews table
+CREATE TABLE IF NOT EXISTS public.reviews (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  reviewer_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5) NOT NULL,
+  text TEXT,
+  photos JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Follows table
+CREATE TABLE IF NOT EXISTS public.follows (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  follower_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  following_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(follower_id, following_id),
+  CHECK (follower_id != following_id)
+);
+
+-- Saved posts table
+CREATE TABLE IF NOT EXISTS public.saved_posts (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id, post_id)
+);
+
+-- Saved listings table
+CREATE TABLE IF NOT EXISTS public.saved_listings (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  listing_id UUID REFERENCES public.listings(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id, listing_id)
+);
+
+-- Saved reels table
+CREATE TABLE IF NOT EXISTS public.saved_reels (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  reel_id UUID REFERENCES public.reels(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id, reel_id)
+);
+
+-- Reels table (videos from Cloudflare Stream)
+CREATE TABLE IF NOT EXISTS public.reels (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  cloudflare_video_id TEXT NOT NULL UNIQUE,
+  title TEXT,
+  description TEXT,
+  likes_count INTEGER DEFAULT 0,
+  comments_count INTEGER DEFAULT 0,
+  shares_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Reel likes table
+CREATE TABLE IF NOT EXISTS public.reel_likes (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  reel_id UUID REFERENCES public.reels(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(reel_id, user_id)
+);
+
+-- Reel comments table
+CREATE TABLE IF NOT EXISTS public.reel_comments (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  reel_id UUID REFERENCES public.reels(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Reel shares table
+CREATE TABLE IF NOT EXISTS public.reel_shares (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  reel_id UUID REFERENCES public.reels(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(reel_id, user_id)
+);
+
+-- Function to increment a column value
+CREATE OR REPLACE FUNCTION public.increment(
+  table_name TEXT,
+  column_name TEXT,
+  row_id UUID,
+  increment_value INTEGER DEFAULT 1
+)
+RETURNS void AS $$
+BEGIN
+  EXECUTE format('UPDATE %I SET %I = %I + $1 WHERE id = $2', table_name, column_name, column_name)
+  USING increment_value, row_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to decrement a column value
+CREATE OR REPLACE FUNCTION public.decrement(
+  table_name TEXT,
+  column_name TEXT,
+  row_id UUID,
+  decrement_value INTEGER DEFAULT 1
+)
+RETURNS void AS $$
+BEGIN
+  EXECUTE format('UPDATE %I SET %I = GREATEST(%I - $1, 0) WHERE id = $2', table_name, column_name, column_name)
+  USING decrement_value, row_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to automatically create profile on user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username, full_name)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'username', 'user_' || substr(NEW.id::text, 1, 8)),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', '')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to create profile on user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = TIMEZONE('utc'::text, NOW());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Triggers for updated_at
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_posts_updated_at ON public.posts;
+CREATE TRIGGER update_posts_updated_at
+  BEFORE UPDATE ON public.posts
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_listings_updated_at ON public.listings;
+CREATE TRIGGER update_listings_updated_at
+  BEFORE UPDATE ON public.listings
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_reels_updated_at ON public.reels;
+CREATE TRIGGER update_reels_updated_at
+  BEFORE UPDATE ON public.reels
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_reel_comments_updated_at ON public.reel_comments;
+CREATE TRIGGER update_reel_comments_updated_at
+  BEFORE UPDATE ON public.reel_comments
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Enable Row Level Security
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.post_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.post_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.post_shares ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.portfolio_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_reels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reel_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reel_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reel_shares ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for profiles
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+CREATE POLICY "Public profiles are viewable by everyone"
+  ON public.profiles FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+CREATE POLICY "Users can update their own profile"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+CREATE POLICY "Users can insert their own profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+-- RLS Policies for posts
+DROP POLICY IF EXISTS "Posts are viewable by everyone" ON public.posts;
+CREATE POLICY "Posts are viewable by everyone"
+  ON public.posts FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own posts" ON public.posts;
+CREATE POLICY "Users can create their own posts"
+  ON public.posts FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own posts" ON public.posts;
+CREATE POLICY "Users can update their own posts"
+  ON public.posts FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own posts" ON public.posts;
+CREATE POLICY "Users can delete their own posts"
+  ON public.posts FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for listings
+DROP POLICY IF EXISTS "Listings are viewable by everyone" ON public.listings;
+CREATE POLICY "Listings are viewable by everyone"
+  ON public.listings FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own listings" ON public.listings;
+CREATE POLICY "Users can create their own listings"
+  ON public.listings FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own listings" ON public.listings;
+CREATE POLICY "Users can update their own listings"
+  ON public.listings FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own listings" ON public.listings;
+CREATE POLICY "Users can delete their own listings"
+  ON public.listings FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for post_comments
+DROP POLICY IF EXISTS "Post comments are viewable by everyone" ON public.post_comments;
+CREATE POLICY "Post comments are viewable by everyone"
+  ON public.post_comments FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can create post comments" ON public.post_comments;
+CREATE POLICY "Authenticated users can create post comments"
+  ON public.post_comments FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own post comments" ON public.post_comments;
+CREATE POLICY "Users can update their own post comments"
+  ON public.post_comments FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own post comments" ON public.post_comments;
+CREATE POLICY "Users can delete their own post comments"
+  ON public.post_comments FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for post_likes
+DROP POLICY IF EXISTS "Likes are viewable by everyone" ON public.post_likes;
+CREATE POLICY "Likes are viewable by everyone"
+  ON public.post_likes FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can like posts" ON public.post_likes;
+CREATE POLICY "Authenticated users can like posts"
+  ON public.post_likes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can unlike their own likes" ON public.post_likes;
+CREATE POLICY "Users can unlike their own likes"
+  ON public.post_likes FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for post_shares
+DROP POLICY IF EXISTS "Post shares are viewable by everyone" ON public.post_shares;
+CREATE POLICY "Post shares are viewable by everyone"
+  ON public.post_shares FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can share posts" ON public.post_shares;
+CREATE POLICY "Authenticated users can share posts"
+  ON public.post_shares FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can unshare posts" ON public.post_shares;
+CREATE POLICY "Users can unshare posts"
+  ON public.post_shares FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for portfolio_items
+DROP POLICY IF EXISTS "Portfolio items are viewable by everyone" ON public.portfolio_items;
+CREATE POLICY "Portfolio items are viewable by everyone"
+  ON public.portfolio_items FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can manage their own portfolio" ON public.portfolio_items;
+CREATE POLICY "Users can manage their own portfolio"
+  ON public.portfolio_items FOR ALL
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for reviews
+DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;
+CREATE POLICY "Reviews are viewable by everyone"
+  ON public.reviews FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can create reviews" ON public.reviews;
+CREATE POLICY "Authenticated users can create reviews"
+  ON public.reviews FOR INSERT
+  WITH CHECK (auth.uid() = reviewer_id);
+
+-- RLS Policies for follows
+DROP POLICY IF EXISTS "Follows are viewable by everyone" ON public.follows;
+CREATE POLICY "Follows are viewable by everyone"
+  ON public.follows FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can follow others" ON public.follows;
+CREATE POLICY "Authenticated users can follow others"
+  ON public.follows FOR INSERT
+  WITH CHECK (auth.uid() = follower_id);
+
+DROP POLICY IF EXISTS "Users can unfollow" ON public.follows;
+CREATE POLICY "Users can unfollow"
+  ON public.follows FOR DELETE
+  USING (auth.uid() = follower_id);
+
+-- RLS Policies for saved_posts
+DROP POLICY IF EXISTS "Users can view their own saved posts" ON public.saved_posts;
+CREATE POLICY "Users can view their own saved posts"
+  ON public.saved_posts FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can save posts" ON public.saved_posts;
+CREATE POLICY "Users can save posts"
+  ON public.saved_posts FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can unsave posts" ON public.saved_posts;
+CREATE POLICY "Users can unsave posts"
+  ON public.saved_posts FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for saved_listings
+DROP POLICY IF EXISTS "Users can view their own saved listings" ON public.saved_listings;
+CREATE POLICY "Users can view their own saved listings"
+  ON public.saved_listings FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can save listings" ON public.saved_listings;
+CREATE POLICY "Users can save listings"
+  ON public.saved_listings FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can unsave listings" ON public.saved_listings;
+CREATE POLICY "Users can unsave listings"
+  ON public.saved_listings FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for saved_reels
+DROP POLICY IF EXISTS "Users can view their own saved reels" ON public.saved_reels;
+CREATE POLICY "Users can view their own saved reels"
+  ON public.saved_reels FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can save reels" ON public.saved_reels;
+CREATE POLICY "Users can save reels"
+  ON public.saved_reels FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can unsave reels" ON public.saved_reels;
+CREATE POLICY "Users can unsave reels"
+  ON public.saved_reels FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for reels
+DROP POLICY IF EXISTS "Reels are viewable by everyone" ON public.reels;
+CREATE POLICY "Reels are viewable by everyone"
+  ON public.reels FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own reels" ON public.reels;
+CREATE POLICY "Users can create their own reels"
+  ON public.reels FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own reels" ON public.reels;
+CREATE POLICY "Users can update their own reels"
+  ON public.reels FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own reels" ON public.reels;
+CREATE POLICY "Users can delete their own reels"
+  ON public.reels FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for reel_likes
+DROP POLICY IF EXISTS "Reel likes are viewable by everyone" ON public.reel_likes;
+CREATE POLICY "Reel likes are viewable by everyone"
+  ON public.reel_likes FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can like reels" ON public.reel_likes;
+CREATE POLICY "Authenticated users can like reels"
+  ON public.reel_likes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can unlike their own likes" ON public.reel_likes;
+CREATE POLICY "Users can unlike their own likes"
+  ON public.reel_likes FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for reel_comments
+DROP POLICY IF EXISTS "Reel comments are viewable by everyone" ON public.reel_comments;
+CREATE POLICY "Reel comments are viewable by everyone"
+  ON public.reel_comments FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can create reel comments" ON public.reel_comments;
+CREATE POLICY "Authenticated users can create reel comments"
+  ON public.reel_comments FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own reel comments" ON public.reel_comments;
+CREATE POLICY "Users can update their own reel comments"
+  ON public.reel_comments FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own reel comments" ON public.reel_comments;
+CREATE POLICY "Users can delete their own reel comments"
+  ON public.reel_comments FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- RLS Policies for reel_shares
+DROP POLICY IF EXISTS "Reel shares are viewable by everyone" ON public.reel_shares;
+CREATE POLICY "Reel shares are viewable by everyone"
+  ON public.reel_shares FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can share reels" ON public.reel_shares;
+CREATE POLICY "Authenticated users can share reels"
+  ON public.reel_shares FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can unshare reels" ON public.reel_shares;
+CREATE POLICY "Users can unshare reels"
+  ON public.reel_shares FOR DELETE
+  USING (auth.uid() = user_id);
+

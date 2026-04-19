@@ -1,110 +1,137 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, Share2, Heart, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import avatarAnna from "@/assets/avatar-anna.jpg";
-import avatarMike from "@/assets/avatar-mike.jpg";
-import avatarTony from "@/assets/avatar-tony.jpg";
-
-interface Reel {
-  id: number;
-  video: string;
-  username: string;
-  avatar: string;
-  description: string;
-  likes: number;
-  comments: number;
-  shares: number;
-}
-
-const reels: Reel[] = [
-  {
-    id: 1,
-    video: "/reels/ssstik.io_@proeraplumbing_1771211708102.mp4",
-    username: "proeraplumbing",
-    avatar: avatarMike,
-    description: "Plumbing work in progress 🔧",
-    likes: 1250,
-    comments: 89,
-    shares: 45,
-  },
-  {
-    id: 2,
-    video: "/reels/ssstik.io_@svd_cabinets_1771211805783.mp4",
-    username: "svd_cabinets",
-    avatar: avatarAnna,
-    description: "Custom cabinet installation ✨",
-    likes: 2100,
-    comments: 156,
-    shares: 78,
-  },
-  {
-    id: 3,
-    video: "/reels/ssstik.io_@svd_cabinets_1771211836066.mp4",
-    username: "svd_cabinets",
-    avatar: avatarAnna,
-    description: "Beautiful kitchen transformation 🏠",
-    likes: 3400,
-    comments: 234,
-    shares: 120,
-  },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { reelService } from "@/services/reelService";
+import { savedService } from "@/services/savedService";
+import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 
 const Reels = () => {
-  const [currentReelIndex, setCurrentReelIndex] = useState(0);
-  const [likedReels, setLikedReels] = useState<Set<number>>(new Set());
-  const [savedReels, setSavedReels] = useState<Set<number>>(new Set());
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [reels, setReels] = useState<any[]>([]);
+  const [currentReelIndex, setCurrentReelIndex] = useState(0);
+  const [likedReels, setLikedReels] = useState<Set<string>>(new Set());
+  const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const currentReel = reels[currentReelIndex];
-
-  // Auto-play current video
+  // Load reels from Supabase
   useEffect(() => {
-    const currentVideo = videoRefs.current[currentReelIndex];
-    if (currentVideo) {
-      currentVideo.play().catch(() => {
-        // Auto-play might be blocked by browser
-      });
-    }
-
-    // Pause other videos
-    videoRefs.current.forEach((video, index) => {
-      if (video && index !== currentReelIndex) {
-        video.pause();
+    const loadReels = async () => {
+      try {
+        setLoading(true);
+        const reelsData = await reelService.getReels(50, 0);
+        setReels(reelsData || []);
+        
+        // Check liked and saved status
+        if (user && reelsData) {
+          const likedPromises = reelsData.map((reel) => 
+            // TODO: Check if reel is liked
+            Promise.resolve(false)
+          );
+          const savedPromises = reelsData.map((reel) => 
+            savedService.isReelSaved(user.id, reel.id)
+          );
+          
+          const [likedResults, savedResults] = await Promise.all([
+            Promise.all(likedPromises),
+            Promise.all(savedPromises),
+          ]);
+          
+          const likedSet = new Set<string>();
+          const savedSet = new Set<string>();
+          reelsData.forEach((reel, index) => {
+            if (likedResults[index]) likedSet.add(reel.id);
+            if (savedResults[index]) savedSet.add(reel.id);
+          });
+          setLikedReels(likedSet);
+          setSavedReels(savedSet);
+        }
+      } catch (error) {
+        console.error("Error loading reels:", error);
+      } finally {
+        setLoading(false);
       }
-    });
-  }, [currentReelIndex]);
+    };
 
-  const handleLike = (reelId: number) => {
-    setLikedReels((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(reelId)) {
-        newSet.delete(reelId);
+    loadReels();
+  }, [user]);
+
+  const handleLike = async (reelId: string) => {
+    if (!user) return;
+    
+    try {
+      if (likedReels.has(reelId)) {
+        await reelService.unlikeReel(reelId, user.id);
+        setLikedReels((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(reelId);
+          return newSet;
+        });
       } else {
-        newSet.add(reelId);
+        await reelService.likeReel(reelId, user.id);
+        setLikedReels((prev) => new Set(prev).add(reelId));
       }
-      return newSet;
-    });
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
   };
 
-  const handleSave = (reelId: number) => {
-    setSavedReels((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(reelId)) {
-        newSet.delete(reelId);
+  const handleSave = async (reelId: string) => {
+    if (!user) return;
+    
+    try {
+      if (savedReels.has(reelId)) {
+        await savedService.unsaveReel(user.id, reelId);
+        setSavedReels((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(reelId);
+          return newSet;
+        });
       } else {
-        newSet.add(reelId);
+        await savedService.saveReel(user.id, reelId);
+        setSavedReels((prev) => new Set(prev).add(reelId));
       }
-      return newSet;
-    });
+    } catch (error) {
+      console.error("Error toggling save:", error);
+    }
+  };
+
+  const handleShare = async (reelId: string) => {
+    if (!user) return;
+    
+    try {
+      await reelService.shareReel(reelId, user.id);
+      
+      // Also try native share
+      if (navigator.share && currentReel) {
+        navigator.share({
+          title: currentReel.title || currentReel.description,
+          text: currentReel.description,
+          url: window.location.href,
+        });
+      }
+    } catch (error) {
+      console.error("Error sharing reel:", error);
+    }
+  };
+
+  const formatTimeAgo = (date: string) => {
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
+    } catch {
+      return "récemment";
+    }
   };
 
   const handleScroll = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY;
     
-    if (delta > 0 && currentReelIndex < reels.length - 1) {
+    if (delta > 0 && currentReelIndex < playableReels.length - 1) {
       setCurrentReelIndex(currentReelIndex + 1);
     } else if (delta < 0 && currentReelIndex > 0) {
       setCurrentReelIndex(currentReelIndex - 1);
@@ -124,7 +151,7 @@ const Reels = () => {
     const diff = handleTouchStart.current - handleTouchMove.current;
 
     if (Math.abs(diff) > 50) {
-      if (diff > 0 && currentReelIndex < reels.length - 1) {
+      if (diff > 0 && currentReelIndex < playableReels.length - 1) {
         setCurrentReelIndex(currentReelIndex + 1);
       } else if (diff < 0 && currentReelIndex > 0) {
         setCurrentReelIndex(currentReelIndex - 1);
@@ -132,9 +159,30 @@ const Reels = () => {
     }
   };
 
-  const isLiked = likedReels.has(currentReel.id);
-  const isSaved = savedReels.has(currentReel.id);
-  const likeCount = isLiked ? currentReel.likes + 1 : currentReel.likes;
+  const playableReels = reels.filter((reel) => Boolean(reel.cloudflare_video_id));
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Chargement des reels...</div>
+      </div>
+    );
+  }
+
+  if (playableReels.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Aucun reel Cloudflare disponible pour le moment</div>
+      </div>
+    );
+  }
+
+  const safeCurrentIndex = Math.min(currentReelIndex, playableReels.length - 1);
+  const currentReel = playableReels[safeCurrentIndex];
+  const profile = currentReel?.profiles || {};
+  const isLiked = currentReel ? likedReels.has(currentReel.id) : false;
+  const isSaved = currentReel ? savedReels.has(currentReel.id) : false;
+  const likeCount = currentReel?.likes_count || 0;
 
   return (
     <div 
@@ -145,7 +193,7 @@ const Reels = () => {
       ref={containerRef}
     >
       <div className="relative w-full h-full">
-        {reels.map((reel, index) => (
+        {playableReels.map((reel, index) => (
           <div
             key={reel.id}
             className={`absolute inset-0 transition-transform duration-500 ${
@@ -157,17 +205,21 @@ const Reels = () => {
             }`}
           >
             <div className="relative w-full h-full flex items-center justify-center">
-              {/* Video */}
-              <video
-                ref={(el) => {
-                  videoRefs.current[index] = el;
-                }}
-                src={reel.video}
-                className="w-full h-full object-contain bg-black"
-                loop
-                muted
-                playsInline
-              />
+              {/* Video - Cloudflare Stream */}
+              {reel.cloudflare_video_id ? (
+                <CloudflareVideoPlayer
+                  videoId={reel.cloudflare_video_id}
+                  className="w-full h-full"
+                  autoPlay={index === safeCurrentIndex}
+                  loop={true}
+                  muted={true}
+                  controls={false}
+                />
+              ) : (
+                <div className="w-full h-full bg-black flex items-center justify-center text-white">
+                  Vidéo non disponible
+                </div>
+              )}
 
               {/* Overlay Content */}
               <div className="absolute inset-0 flex">
@@ -175,19 +227,19 @@ const Reels = () => {
                 <div className="flex-1 flex flex-col justify-end p-4 sm:p-6 pb-20 sm:pb-24">
                   <div className="flex items-center gap-3 mb-3">
                     <img
-                      src={reel.avatar}
-                      alt={reel.username}
+                      src={profile.avatar_url || ""}
+                      alt={profile.username || ""}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white object-cover cursor-pointer"
-                      onClick={() => navigate(`/profile/${reel.username}`)}
+                      onClick={() => navigate(`/profile/${profile.username || ""}`)}
                     />
                     <div>
                       <p className="text-white font-semibold text-sm sm:text-base">
-                        {reel.username}
+                        {profile.username || ""}
                       </p>
                     </div>
                   </div>
                   <p className="text-white text-sm sm:text-base max-w-md">
-                    {reel.description}
+                    {reel.description || reel.title || ""}
                   </p>
                 </div>
 
@@ -216,35 +268,28 @@ const Reels = () => {
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
                       onClick={() => {
-                        // Navigate to comments or open comment modal
-                        console.log("Open comments");
+                        // TODO: Open comment modal
+                        console.log("Open comments for reel", reel.id);
                       }}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
                     >
                       <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </button>
                     <span className="text-white text-xs sm:text-sm font-semibold">
-                      {reel.comments >= 1000 ? `${(reel.comments / 1000).toFixed(1)}k` : reel.comments}
+                      {(reel.comments_count || 0) >= 1000 ? `${((reel.comments_count || 0) / 1000).toFixed(1)}k` : (reel.comments_count || 0)}
                     </span>
                   </div>
 
                   {/* Share */}
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
-                      onClick={() => {
-                        if (navigator.share) {
-                          navigator.share({
-                            title: reel.description,
-                            url: window.location.href,
-                          });
-                        }
-                      }}
+                      onClick={() => handleShare(reel.id)}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
                     >
                       <Share2 className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </button>
                     <span className="text-white text-xs sm:text-sm font-semibold">
-                      {reel.shares >= 1000 ? `${(reel.shares / 1000).toFixed(1)}k` : reel.shares}
+                      {(reel.shares_count || 0) >= 1000 ? `${((reel.shares_count || 0) / 1000).toFixed(1)}k` : (reel.shares_count || 0)}
                     </span>
                   </div>
 
@@ -270,11 +315,11 @@ const Reels = () => {
 
       {/* Reel Indicator */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        {reels.map((_, index) => (
+        {playableReels.map((_, index) => (
           <div
             key={index}
             className={`h-1 rounded-full transition-all ${
-              index === currentReelIndex
+              index === safeCurrentIndex
                 ? "w-8 bg-white"
                 : "w-1 bg-white/50"
             }`}

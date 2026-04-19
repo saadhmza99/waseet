@@ -1,24 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
-import avatarSarah from "@/assets/avatar-sarah.jpg";
-import avatarMark from "@/assets/avatar-mark.jpg";
-import avatarLaura from "@/assets/avatar-laura.jpg";
-import avatarAnna from "@/assets/avatar-anna.jpg";
-import avatarMike from "@/assets/avatar-mike.jpg";
-import avatarTony from "@/assets/avatar-tony.jpg";
-import bathroomRemodel from "@/assets/bathroom-remodel.jpg";
-import paintingWork from "@/assets/painting-work.jpg";
-import deckRenovation from "@/assets/deck-renovation.jpg";
-import roofRepair from "@/assets/roof-repair.jpg";
-import faucetInstall from "@/assets/faucet-install.jpg";
-import kitchenBefore from "@/assets/kitchen-before.jpg";
-import kitchenAfter from "@/assets/kitchen-after.jpg";
+import { useAuth } from "@/contexts/AuthContext";
+import { savedService } from "@/services/savedService";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 
 const tabs = ["Posts", "Annonces", "Reels"] as const;
 
 const Saved = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Posts");
+  const [savedPosts, setSavedPosts] = useState<any[]>([]);
+  const [savedListings, setSavedListings] = useState<any[]>([]);
+  const [savedReels, setSavedReels] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSaved = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const [posts, listings, reels] = await Promise.all([
+          savedService.getSavedPosts(user.id),
+          savedService.getSavedListings(user.id),
+          savedService.getSavedReels(user.id),
+        ]);
+        setSavedPosts(posts || []);
+        setSavedListings(listings || []);
+        setSavedReels(reels || []);
+      } catch (error) {
+        console.error("Error loading saved items:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSaved();
+  }, [user]);
+
+  const formatTimeAgo = (date: string) => {
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
+    } catch {
+      return "récemment";
+    }
+  };
 
   return (
     <div className="pb-20">
@@ -47,100 +78,80 @@ const Saved = () => {
 
           {/* Tab content */}
           <div className="p-4 sm:p-6">
-            {activeTab === "Posts" && (
-              <div className="space-y-4">
-                <FeedPost
-                  avatar={avatarAnna}
-                  username="Anna_Designs"
-                  location="Dubai, UAE"
-                  timeAgo="il ya 2 heures"
-                  title="Rénovation complète de cuisine - Avant et après"
-                  description="Nous avons complètement transformé cette cuisine avec des armoires sur mesure, un nouveau comptoir en granit et des appareils modernes. Le projet a pris 3 semaines et le résultat est incroyable !"
-                  beforeImage={kitchenBefore}
-                  afterImage={kitchenAfter}
-                  likes={124}
-                  comments={18}
-                  shares={5}
-                />
-                <FeedPost
-                  avatar={avatarTony}
-                  username="Tony_McBuild"
-                  location="Chicago, IL"
-                  timeAgo="il ya 5 heures"
-                  title="Nouvelle terrasse en bois composite"
-                  description="Installation d'une terrasse en bois composite de qualité supérieure. Résistant aux intempéries et nécessite peu d'entretien. Parfait pour les soirées d'été !"
-                  singleImage={deckRenovation}
-                  likes={89}
-                  comments={12}
-                  shares={3}
-                />
-              </div>
-            )}
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">Chargement...</div>
+            ) : (
+              <>
+                {activeTab === "Posts" && (
+                  <div className="space-y-4">
+                    {savedPosts.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">Aucun post enregistré</div>
+                    ) : (
+                      savedPosts.map((saved) => {
+                        const post = saved.posts;
+                        const profile = post?.profiles || {};
+                        return (
+                          <FeedPost
+                            key={post.id}
+                            postId={post.id}
+                            avatar={profile.avatar_url || ""}
+                            username={profile.username || ""}
+                            location={profile.location || ""}
+                            timeAgo={formatTimeAgo(post.created_at)}
+                            title={post.title}
+                            description={post.description}
+                            beforeImage={post.before_image_url}
+                            afterImage={post.after_image_url}
+                            singleImage={post.single_image_url}
+                            images={post.images || []}
+                            likes={post.likes_count || 0}
+                            comments={post.comments_count || 0}
+                            shares={post.shares_count || 0}
+                          />
+                        );
+                      })
+                    )}
+                  </div>
+                )}
 
-            {activeTab === "Annonces" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <ListingCard
-                  avatar={avatarLaura}
-                  username="Laura_Design"
-                  timeAgo="il ya 5 heures"
-                  image={faucetInstall}
-                  imageCount={8}
-                  location="Plomberie dans Jumeirah, Dubai"
-                  title="Installation de robinetterie moderne"
-                  profession="Plombier"
-                  priceRange="$100 - $250"
-                />
-                <ListingCard
-                  avatar={avatarSarah}
-                  username="Sarah_Homeowner"
-                  timeAgo="il ya 1 heure"
-                  image={bathroomRemodel}
-                  imageCount={12}
-                  location="Plomberie dans Dubai Marina, Dubai"
-                  title="Réparation plomberie salle de bain"
-                  profession="Plombier"
-                  priceRange="$200 - $400"
-                />
-                <ListingCard
-                  avatar={avatarMark}
-                  username="Mark_Johnson"
-                  timeAgo="il ya 3 heures"
-                  image={roofRepair}
-                  imageCount={9}
-                  location="Électricité dans Downtown Dubai, Dubai"
-                  title="Mise à niveau tableau électrique"
-                  profession="Électricien"
-                  priceRange="$400 - $800"
-                />
-                <ListingCard
-                  avatar={avatarSarah}
-                  username="Sarah_Homeowner"
-                  timeAgo="il ya 1 heure"
-                  image={deckRenovation}
-                  imageCount={10}
-                  location="Menuiserie dans Dubai Marina, Dubai"
-                  title="Rénovation terrasse en bois"
-                  profession="Charpentier"
-                  priceRange="$500 - $1,000"
-                />
-                <ListingCard
-                  avatar={avatarMark}
-                  username="Mark_Johnson"
-                  timeAgo="il ya 3 heures"
-                  image={roofRepair}
-                  imageCount={6}
-                  location="Toiture dans Downtown Dubai, Dubai"
-                  title="Service réparation toiture"
-                  profession="Couvreur"
-                  priceRange="$300 - $600"
-                />
-              </div>
-            )}
+                {activeTab === "Annonces" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {savedListings.length === 0 ? (
+                      <div className="col-span-full text-center py-8 text-muted-foreground">Aucune annonce enregistrée</div>
+                    ) : (
+                      savedListings.map((saved) => {
+                        const listing = saved.listings;
+                        const profile = listing?.profiles || {};
+                        return (
+                          <ListingCard
+                            key={listing.id}
+                            avatar={profile.avatar_url || ""}
+                            username={profile.username || ""}
+                            timeAgo={formatTimeAgo(listing.created_at)}
+                            image={listing.image_url || ""}
+                            location={listing.location}
+                            title={listing.title}
+                            profession={listing.profession}
+                            priceRange={listing.price_range || ""}
+                          />
+                        );
+                      })
+                    )}
+                  </div>
+                )}
 
-            {activeTab === "Reels" && (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Aucun reel enregistré pour le moment</p>
-              </div>
+                {activeTab === "Reels" && (
+                  <div className="text-center py-8">
+                    {savedReels.length === 0 ? (
+                      <p className="text-muted-foreground">Aucun reel enregistré pour le moment</p>
+                    ) : (
+                      <div className="text-muted-foreground">
+                        {savedReels.length} reel{savedReels.length > 1 ? "s" : ""} enregistré{savedReels.length > 1 ? "s" : ""}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

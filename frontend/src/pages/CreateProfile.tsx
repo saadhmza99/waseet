@@ -4,10 +4,14 @@ import { ArrowLeft, UserPlus, Hammer, Building2, Mail, Lock, User, Phone, MapPin
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/AuthContext";
+import { profileService } from "@/services/profileService";
+import { toast } from "sonner";
 
 const CreateProfile = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { signUp, user } = useAuth();
   const [profileType, setProfileType] = useState<"craftsman" | "hunter" | null>(
     searchParams.get("type") === "craftsman" ? "craftsman" : searchParams.get("type") === "hunter" ? "hunter" : null
   );
@@ -22,17 +26,54 @@ const CreateProfile = () => {
   });
   const MAX_BIO_LENGTH = 165;
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
     
-    // Simulate profile creation
-    setTimeout(() => {
+    try {
+      // Sign up user
+      const { error: signUpError } = await signUp(formData.email, formData.password);
+      
+      if (signUpError) {
+        setError(signUpError.message);
+        toast.error(signUpError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      // Wait for user to be available
+      if (!user) {
+        // User will be created by trigger, but we need to wait a bit
+        setTimeout(async () => {
+          const currentUser = (await import('@/lib/supabase')).supabase.auth.getUser();
+          const { data: { user: newUser } } = await currentUser;
+          
+          if (newUser) {
+            // Create profile with additional data
+            await profileService.createProfile(newUser.id, {
+              username: formData.name.toLowerCase().replace(/\s+/g, '_'),
+              full_name: formData.name,
+              profession: formData.profession,
+              location: formData.location,
+              bio: formData.bio,
+              phone: formData.phone,
+              profile_type: profileType!,
+            });
+            
+            toast.success("Profile created successfully!");
+            navigate("/");
+          }
+        }, 1000);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
+      setError(errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
-      // In production, handle actual profile creation
-      navigate("/");
-    }, 1000);
+    }
   };
 
   if (!profileType) {
@@ -229,6 +270,12 @@ const CreateProfile = () => {
               </div>
             </div>
           </div>
+
+          {error && (
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              {error}
+            </div>
+          )}
 
           <div className="pt-4">
             <Button

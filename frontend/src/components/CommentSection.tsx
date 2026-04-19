@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import avatarTony from "@/assets/avatar-tony.jpg";
 
 interface Comment {
-  id: number;
+  id: string | number;
   avatar: string;
   username: string;
   text: string;
@@ -13,32 +12,48 @@ interface Comment {
 
 interface CommentSectionProps {
   comments: Comment[];
+  onAddComment?: (content: string) => Promise<void>;
+  postId?: string;
 }
 
-const CommentSection = ({ comments: initialComments }: CommentSectionProps) => {
+const CommentSection = ({ comments: initialComments, onAddComment }: CommentSectionProps) => {
   const navigate = useNavigate();
   const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleProfileClick = (username: string) => {
-    if (username !== "Vous") {
-      navigate(`/profile/${username}`);
-    }
+    navigate(`/profile/${username}`);
   };
 
-  const handleSubmit = () => {
-    if (!newComment.trim()) return;
-    setComments([
-      ...comments,
-      {
-        id: Date.now(),
-        avatar: avatarTony,
-        username: "Vous",
-        text: newComment.trim(),
-        timeAgo: "À l'instant",
-      },
-    ]);
-    setNewComment("");
+  const handleSubmit = async () => {
+    if (!newComment.trim() || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      if (onAddComment) {
+        await onAddComment(newComment.trim());
+        setNewComment("");
+        // Comments will be updated by parent component
+      } else {
+        // Fallback for local state
+        setComments([
+          ...comments,
+          {
+            id: Date.now(),
+            avatar: "",
+            username: "Vous",
+            text: newComment.trim(),
+            timeAgo: "À l'instant",
+          },
+        ]);
+        setNewComment("");
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -49,23 +64,22 @@ const CommentSection = ({ comments: initialComments }: CommentSectionProps) => {
           <div key={c.id} className="flex gap-3 py-3 border-b border-border last:border-b-0">
             <button
               onClick={() => handleProfileClick(c.username)}
-              disabled={c.username === "Vous"}
-              className={`flex-shrink-0 mt-0.5 ${c.username !== "Vous" ? "hover:opacity-80 transition-opacity cursor-pointer" : "cursor-default"}`}
+              className="flex-shrink-0 mt-0.5 hover:opacity-80 transition-opacity cursor-pointer"
             >
-              <img src={c.avatar} alt={c.username} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" />
+              <img 
+                src={c.avatar || "/default-avatar.png"} 
+                alt={c.username} 
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" 
+              />
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 mb-1">
-                {c.username !== "Vous" ? (
-                  <button
-                    onClick={() => handleProfileClick(c.username)}
-                    className="font-semibold text-sm sm:text-base text-card-foreground hover:opacity-80 transition-opacity text-left"
-                  >
-                    {c.username}
-                  </button>
-                ) : (
-                  <span className="font-semibold text-sm sm:text-base text-card-foreground">{c.username}</span>
-                )}
+                <button
+                  onClick={() => handleProfileClick(c.username)}
+                  className="font-semibold text-sm sm:text-base text-card-foreground hover:opacity-80 transition-opacity text-left"
+                >
+                  {c.username}
+                </button>
                 <span className="text-xs sm:text-sm text-muted-foreground">{c.timeAgo}</span>
               </div>
               <p className="text-sm sm:text-base text-card-foreground leading-relaxed">{c.text}</p>
@@ -88,8 +102,8 @@ const CommentSection = ({ comments: initialComments }: CommentSectionProps) => {
         />
           <button
             onClick={handleSubmit}
-            className="text-accent hover:opacity-70 transition-opacity p-2"
-            disabled={!newComment.trim()}
+            className="text-accent hover:opacity-70 transition-opacity p-2 disabled:opacity-50"
+            disabled={!newComment.trim() || isSubmitting}
           >
             <Send className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>

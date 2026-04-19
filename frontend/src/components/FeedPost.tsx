@@ -2,10 +2,15 @@ import { useState, useRef, useEffect } from "react";
 import { ThumbsUp, MessageCircle, Share2, MoreHorizontal, Sparkles, X, ChevronLeft, ChevronRight, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CommentSection from "./CommentSection";
-import avatarSarah from "@/assets/avatar-sarah.jpg";
-import avatarMark from "@/assets/avatar-mark.jpg";
+import { useAuth } from "@/contexts/AuthContext";
+import { postService } from "@/services/postService";
+import { savedService } from "@/services/savedService";
+import { commentService } from "@/services/commentService";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 
 interface FeedPostProps {
+  postId?: string;
   avatar: string;
   username: string;
   location: string;
@@ -23,6 +28,7 @@ interface FeedPostProps {
 }
 
 const FeedPost = ({
+  postId,
   avatar,
   username,
   location,
@@ -39,14 +45,26 @@ const FeedPost = ({
   isSponsored = false,
 }: FeedPostProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [showComments, setShowComments] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(likes);
+  const [commentCount, setCommentCount] = useState(comments);
+  const [shareCount, setShareCount] = useState(shares);
   const [isSaved, setIsSaved] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [showAllImages, setShowAllImages] = useState(false);
   const commentsModalRef = useRef<HTMLDivElement>(null);
   const postPreviewRef = useRef<HTMLDivElement>(null);
+
+  // Check if post is liked/saved on mount
+  useEffect(() => {
+    if (postId && user) {
+      // Check saved status
+      savedService.isPostSaved(user.id, postId).then(setIsSaved);
+      // TODO: Check liked status from post_likes table
+    }
+  }, [postId, user]);
   
   // Combine all image sources into one array
   const allImages: string[] = [];
@@ -66,14 +84,79 @@ const FeedPost = ({
     navigate(`/profile/${username}`);
   };
 
-  const sampleComments = [
-    { id: 1, avatar: avatarSarah, username: "Sarah_Homeowner", text: "Amazing work! How long did this take?", timeAgo: "1h ago" },
-    { id: 2, avatar: avatarMark, username: "Mark_Johnson", text: "Really impressive craftsmanship 👏", timeAgo: "45m ago" },
-  ];
+  const [postComments, setPostComments] = useState<any[]>([]);
 
-  const handleLike = () => {
-    setLiked(!liked);
-    setLikeCount((c) => (liked ? c - 1 : c + 1));
+  // Load comments when modal opens
+  useEffect(() => {
+    if (showComments && postId) {
+      commentService.getPostComments(postId).then(setPostComments).catch(console.error);
+    }
+  }, [showComments, postId]);
+
+  const handleLike = async () => {
+    if (!postId || !user) return;
+    
+    try {
+      if (liked) {
+        await postService.unlikePost(postId, user.id);
+        setLiked(false);
+        setLikeCount((c) => Math.max(0, c - 1));
+      } else {
+        await postService.likePost(postId, user.id);
+        setLiked(true);
+        setLikeCount((c) => c + 1);
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!postId || !user) return;
+    
+    try {
+      await postService.sharePost(postId, user.id);
+      setShareCount((c) => c + 1);
+      
+      // Also try native share
+      if (navigator.share) {
+        navigator.share({
+          title: title,
+          text: description,
+          url: window.location.href,
+        });
+      }
+    } catch (error) {
+      console.error("Error sharing post:", error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!postId || !user) return;
+    
+    try {
+      if (isSaved) {
+        await savedService.unsavePost(user.id, postId);
+        setIsSaved(false);
+      } else {
+        await savedService.savePost(user.id, postId);
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error);
+    }
+  };
+
+  const handleAddComment = async (content: string) => {
+    if (!postId || !user) return;
+    
+    try {
+      const newComment = await commentService.createPostComment(postId, user.id, content);
+      setPostComments((prev) => [...prev, newComment]);
+      setCommentCount((c) => c + 1);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+    }
   };
 
   // Auto-scroll to show bottom 1/5 of post and comments when modal opens
@@ -288,13 +371,16 @@ const FeedPost = ({
           <span className="hidden sm:inline">{comments} Commentaires</span>
           <span className="sm:hidden">{comments}</span>
         </button>
-        <button className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground text-sm sm:text-base">
+        <button 
+          onClick={handleShare}
+          className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground text-sm sm:text-base"
+        >
           <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="hidden sm:inline">{shares} Partages</span>
-          <span className="sm:hidden">{shares}</span>
+          <span className="hidden sm:inline">{shareCount} Partages</span>
+          <span className="sm:hidden">{shareCount}</span>
         </button>
         <button
-          onClick={() => setIsSaved(!isSaved)}
+          onClick={handleSave}
           className={`flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-medium transition-colors ${
             isSaved ? "text-accent" : "text-muted-foreground"
           }`}
@@ -366,7 +452,17 @@ const FeedPost = ({
               </div>
 
               {/* Comments Section */}
-              <CommentSection comments={sampleComments} />
+              <CommentSection 
+                comments={postComments.map((c) => ({
+                  id: c.id,
+                  avatar: c.profiles?.avatar_url || "",
+                  username: c.profiles?.username || "",
+                  text: c.content,
+                  timeAgo: formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: fr }),
+                }))}
+                onAddComment={handleAddComment}
+                postId={postId}
+              />
             </div>
           </div>
         </div>

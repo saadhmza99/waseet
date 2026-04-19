@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+public/reels/*.mp4
+public/reels/*.mov
+public/reels/*.webm
 
 # Editor directories and files
 .vscode/*
