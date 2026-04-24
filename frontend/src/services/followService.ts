@@ -19,6 +19,24 @@ export const followService = {
     return data;
   },
 
+  // Get users that follow current user
+  async getFollowers(userId: string) {
+    const { data, error } = await supabase
+      .from('follows')
+      .select(`
+        follower_id,
+        profiles:follower_id (
+          id,
+          username,
+          avatar_url
+        )
+      `)
+      .eq('following_id', userId);
+
+    if (error) throw error;
+    return data;
+  },
+
   // Get posts from users that the current user follows
   async getPostsFromFollowing(userId: string, limit = 100) {
     // First get the list of users we follow

@@ -7,6 +7,7 @@ export interface ProfileData {
   location?: string;
   bio?: string;
   phone?: string;
+  avatar_url?: string;
   profile_type: 'craftsman' | 'hunter';
 }
 

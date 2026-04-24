@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { moderationService } from "@/services/moderationService";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 const tabs = [
   { label: "Fil d'actualité", icon: Home, path: "/" },
@@ -26,7 +27,7 @@ const AppHeader = () => {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const isLoggedIn = Boolean(user);
-  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || "/default-avatar.png";
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || getDefaultAvatar(profile?.profile_type);
   const accountLabel = profile?.username || user?.email || "Mon compte";
   const [isModerator, setIsModerator] = useState(false);
 

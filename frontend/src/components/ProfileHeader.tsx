@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { ArrowLeft, Briefcase, Star, UserPlus, UserCheck } from "lucide-react";
+import { ArrowLeft, Briefcase, Edit, Star, UserPlus, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InviteToJobModal from "./InviteToJobModal";
 
@@ -9,10 +8,15 @@ interface ProfileHeaderProps {
   profession: string;
   location: string;
   posts: number;
-  followers: string;
+  followers: number;
   rating: number;
   coverPhoto?: string;
   bio?: string;
+  isOwnProfile?: boolean;
+  isFollowing?: boolean;
+  onToggleFollow?: () => void;
+  onFollowersClick?: () => void;
+  onEditProfile?: () => void;
 }
 
 const ProfileHeader = ({
@@ -25,9 +29,13 @@ const ProfileHeader = ({
   rating,
   coverPhoto,
   bio,
+  isOwnProfile = false,
+  isFollowing = false,
+  onToggleFollow,
+  onFollowersClick,
+  onEditProfile,
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
-  const [isFollowing, setIsFollowing] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   return (
@@ -72,10 +80,14 @@ const ProfileHeader = ({
           <p className="text-xl sm:text-2xl md:text-3xl font-bold">{posts}</p>
           <p className="text-xs sm:text-sm opacity-70">Posts</p>
         </div>
-        <div className="px-4 sm:px-6 md:px-8 text-center">
+        <button
+          className="px-4 sm:px-6 md:px-8 text-center hover:opacity-80 transition-opacity"
+          onClick={onFollowersClick}
+          type="button"
+        >
           <p className="text-xl sm:text-2xl md:text-3xl font-bold">{followers}</p>
           <p className="text-xs sm:text-sm opacity-70">Followers</p>
-        </div>
+        </button>
         <div className="px-4 sm:px-6 md:px-8 text-center flex flex-col items-center">
           <div className="flex items-center gap-1">
             <p className="text-xl sm:text-2xl md:text-3xl font-bold">{rating}</p>
@@ -96,33 +108,45 @@ const ProfileHeader = ({
 
       {/* Action Buttons */}
       <div className="flex gap-3 sm:gap-4 px-4 sm:px-6 md:px-8 mt-4 sm:mt-6 max-w-md mx-auto">
-        <button
-          onClick={() => setIsFollowing(!isFollowing)}
-          className={`flex-1 flex items-center justify-center gap-2 font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base transition-colors ${
-            isFollowing
-              ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          }`}
-        >
-          {isFollowing ? (
-            <>
-              <UserCheck className="w-4 h-4 sm:w-5 sm:h-5" />
-              Suivi
-            </>
-          ) : (
-            <>
-              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-              Suivre
-            </>
-          )}
-        </button>
-        <button
-          onClick={() => setShowInviteModal(true)}
-          className="flex-1 flex items-center justify-center gap-2 bg-card text-primary font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base hover:bg-card/90 transition-colors"
-        >
-          <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
-          Invite to Job
-        </button>
+        {isOwnProfile ? (
+          <button
+            onClick={onEditProfile}
+            className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base hover:bg-primary/90 transition-colors"
+          >
+            <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
+            Edit profile
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={onToggleFollow}
+              className={`flex-1 flex items-center justify-center gap-2 font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base transition-colors ${
+                isFollowing
+                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              }`}
+            >
+              {isFollowing ? (
+                <>
+                  <UserCheck className="w-4 h-4 sm:w-5 sm:h-5" />
+                  Suivi
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  Suivre
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="flex-1 flex items-center justify-center gap-2 bg-card text-primary font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base hover:bg-card/90 transition-colors"
+            >
+              <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
+              Invite to Job
+            </button>
+          </>
+        )}
       </div>
       </div>
 
