@@ -16,8 +16,8 @@ import { reelService } from "@/services/reelService";
 import { savedService } from "@/services/savedService";
 import CommentSection from "@/components/CommentSection";
 import {
-  CloudflareVideoPlayer,
-  streamIframePostCommand,
+  CloudflareHLSPlayer,
+  streamHtmlVideoCommand,
 } from "@/components/CloudflareVideoPlayer";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -268,11 +268,11 @@ const Reels = () => {
     }
   };
 
-  const togglePlayback = async (reelId: string) => {
-    const el = document.getElementById(`cf-reel-iframe-${reelId}`) as HTMLIFrameElement | null;
-    const nowPaused = Boolean(pausedByUser[reelId]);
-    await streamIframePostCommand(el, nowPaused ? "play" : "pause");
-    setPausedByUser((prev) => ({ ...prev, [reelId]: !nowPaused }));
+  const togglePlayback = (reelId: string) => {
+    const el = document.getElementById(`cf-reel-video-${reelId}`) as HTMLVideoElement | null;
+    const currentlyPaused = el ? el.paused : Boolean(pausedByUser[reelId]);
+    streamHtmlVideoCommand(el, currentlyPaused ? "play" : "pause");
+    setPausedByUser((prev) => ({ ...prev, [reelId]: !currentlyPaused }));
   };
 
   const revealPlaybackUi = () => {
@@ -288,10 +288,8 @@ const Reels = () => {
   };
 
   const handleReelVideoTap = (reelId: string) => {
-    void (async () => {
-      await togglePlayback(reelId);
-      revealPlaybackUi();
-    })();
+    togglePlayback(reelId);
+    revealPlaybackUi();
   };
 
   const handleDownloadReel = (cloudflareVideoId: string) => {
@@ -384,13 +382,11 @@ const Reels = () => {
     const list = reels.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim()));
     if (!list.length) return;
     const idx = Math.min(currentReelIndex, list.length - 1);
-    void Promise.all(
-      list.map((r, i) => {
-        if (i === idx) return Promise.resolve();
-        const el = document.getElementById(`cf-reel-iframe-${r.id}`) as HTMLIFrameElement | null;
-        return streamIframePostCommand(el, "pause");
-      })
-    );
+    list.forEach((r, i) => {
+      if (i === idx) return;
+      const el = document.getElementById(`cf-reel-video-${r.id}`) as HTMLVideoElement | null;
+      streamHtmlVideoCommand(el, "pause");
+    });
   }, [currentReelIndex, reels]);
 
   const handleUploadReel = async () => {
@@ -528,14 +524,15 @@ const Reels = () => {
             <div className="relative h-full w-full min-h-0 bg-black">
               {reel.cloudflare_video_id ? (
                 <div className="absolute inset-0 min-h-0">
-                  <CloudflareVideoPlayer
-                    iframeDomId={`cf-reel-iframe-${reel.id}`}
+                  <CloudflareHLSPlayer
+                    videoDomId={`cf-reel-video-${reel.id}`}
                     videoId={String(reel.cloudflare_video_id).trim()}
                     className="h-full w-full min-h-0"
                     autoPlay={index === safeCurrentIndex}
                     loop={true}
                     muted={true}
-                    controls={true}
+                    controls={false}
+                    objectFit="cover"
                   />
                 </div>
               ) : (

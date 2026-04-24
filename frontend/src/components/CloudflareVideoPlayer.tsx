@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import Hls from 'hls.js';
 import { streamService } from '@/services/streamService';
 
 interface CloudflareVideoPlayerProps {
@@ -117,6 +118,16 @@ export async function streamIframePostCommand(
   postMessagePlayPauseFallback(iframe, action);
 }
 
+/** Reliable play/pause for same-origin `<video>` (e.g. HLS reels). */
+export function streamHtmlVideoCommand(
+  video: HTMLVideoElement | null,
+  action: 'play' | 'pause'
+): void {
+  if (!video) return;
+  if (action === 'play') void video.play().catch(() => {});
+  else video.pause();
+}
+
 /**
  * Cloudflare Stream Video Player Component
  * Uses Cloudflare Stream's iframe embed for optimal playback
@@ -169,35 +180,78 @@ export const CloudflareVideoPlayer = ({
   );
 };
 
+export type CloudflareHLSPlayerProps = CloudflareVideoPlayerProps & {
+  /** DOM id for `document.getElementById` (reels play/pause). */
+  videoDomId?: string;
+  objectFit?: 'contain' | 'cover';
+};
+
 /**
- * Alternative: Native HTML5 video player using HLS
- * Use this if you need more control over the video player
+ * Native `<video>` + HLS (hls.js where needed). Use for reels when iframe/SDK pause is unreliable.
  */
 export const CloudflareHLSPlayer = ({
   videoId,
+  videoDomId,
   className = '',
   autoPlay = true,
   loop = true,
   muted = true,
   controls = false,
-}: CloudflareVideoPlayerProps) => {
+  objectFit = 'contain',
+}: CloudflareHLSPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const resolvedId =
+    videoDomId ||
+    `cf-hls-${String(videoId || '')
+      .trim()
+      .replace(/[^a-zA-Z0-9-_]/g, '')}`;
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    const src = streamService.getVideoPlaybackUrl(videoId);
+    hlsRef.current?.destroy();
+    hlsRef.current = null;
+    video.removeAttribute('src');
+    video.load();
 
-    // Use HLS.js for HLS playback if needed
-    const playbackUrl = streamService.getVideoPlaybackUrl(videoId);
-    video.src = playbackUrl;
-
-    if (autoPlay) {
-      video.play().catch(console.error);
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+      });
+      hlsRef.current = hls;
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) console.error('HLS fatal error', data);
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src;
+    } else {
+      video.src = src;
     }
-  }, [videoId, autoPlay]);
+
+    return () => {
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [videoId]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (autoPlay) void video.play().catch(() => {});
+    else video.pause();
+  }, [autoPlay]);
 
   return (
     <video
+      id={resolvedId}
       ref={videoRef}
       className={className}
       loop={loop}
@@ -207,7 +261,7 @@ export const CloudflareHLSPlayer = ({
       style={{
         width: '100%',
         height: '100%',
-        objectFit: 'contain',
+        objectFit,
       }}
     />
   );
