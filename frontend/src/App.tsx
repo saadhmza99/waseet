@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AppLanguageProvider } from "@/contexts/AppLanguageContext";
 import AppHeader from "@/components/AppHeader";
 import TabNav from "@/components/TabNav";
 import SearchBar from "@/components/SearchBar";
@@ -15,6 +16,8 @@ import Profile from "./pages/Profile";
 import JobDetail from "./pages/JobDetail";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
+import ChangePassword from "./pages/ChangePassword.tsx";
+import PrivacySettings from "./pages/PrivacySettings.tsx";
 import CreateProfile from "./pages/CreateProfile";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
@@ -26,6 +29,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <AppLanguageProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -44,6 +48,8 @@ const App = () => (
             <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
               <Route path="/login" element={<Login />} />
               <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+              <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
+              <Route path="/privacy-settings" element={<RequireAuth><PrivacySettings /></RequireAuth>} />
               <Route path="/admin/moderation" element={<RequireAuth><AdminModeration /></RequireAuth>} />
               <Route path="/create-profile" element={<CreateProfile />} />
               <Route path="/contact" element={<Contact />} />
@@ -53,6 +59,7 @@ const App = () => (
         </div>
       </BrowserRouter>
     </TooltipProvider>
+    </AppLanguageProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

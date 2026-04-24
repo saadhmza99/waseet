@@ -16,6 +16,11 @@ import {
   Shield,
   Wrench,
   Utensils,
+  Languages,
+  Stethoscope,
+  Smile,
+  Glasses,
+  Shirt,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -41,6 +46,11 @@ const categories = [
   { label: "Soudeur", value: "soudeur", icon: Shield },
   { label: "Mecanicien", value: "mecanicien", icon: Wrench },
   { label: "Culinaire", value: "culinaire", icon: Utensils },
+  { label: "Translator", value: "translator", icon: Languages },
+  { label: "Doctor", value: "doctor", icon: Stethoscope },
+  { label: "Dentist", value: "dentist", icon: Smile },
+  { label: "Optique", value: "optique", icon: Glasses },
+  { label: "Clothing", value: "clothing", icon: Shirt },
   { label: "Autre", value: "autre", icon: Briefcase },
 ];
 

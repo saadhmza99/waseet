@@ -88,7 +88,8 @@ export const postService = {
       .select()
       .single();
 
-    if (error && error.code !== '23505') throw error; // Ignore duplicate like
+    if (error && error.code !== '23505') throw error;
+    if (!data) return null; // Already liked, do not increment
 
     // Update likes count
     await supabase.rpc('increment', {
@@ -128,7 +129,8 @@ export const postService = {
       .select()
       .single();
 
-    if (error && error.code !== '23505') throw error; // Ignore duplicate share
+    if (error && error.code !== '23505') throw error;
+    if (!data) return null; // Already shared, do not increment
 
     // Update shares count
     await supabase.rpc('increment', {
@@ -218,6 +220,17 @@ export const postService = {
 
     if (error) throw error;
     return (data?.permission as PostCommentPermission) || 'anyone';
+  },
+
+  async isPostLiked(postId: string, userId: string): Promise<boolean> {
+    const { data } = await supabase
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    return !!data;
   },
 
   // Note: Use followService.getPostsFromFollowing instead

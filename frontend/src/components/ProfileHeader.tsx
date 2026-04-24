@@ -6,6 +6,7 @@ import InviteToJobModal from "./InviteToJobModal";
 interface ProfileHeaderProps {
   profileId?: string;
   avatar: string;
+  fullName?: string;
   username: string;
   profession: string;
   location: string;
@@ -24,6 +25,7 @@ interface ProfileHeaderProps {
 const ProfileHeader = ({
   profileId,
   avatar,
+  fullName,
   username,
   profession,
   location,
@@ -61,7 +63,7 @@ const ProfileHeader = ({
           <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
         <div className="flex-1 text-center">
-          <h1 className="font-bold text-lg sm:text-xl md:text-2xl">{username}</h1>
+          <h1 className="font-bold text-lg sm:text-xl md:text-2xl">{fullName || username}</h1>
           <p className="text-sm sm:text-base opacity-80">
             {profession} • {location}
           </p>
@@ -70,11 +72,14 @@ const ProfileHeader = ({
       </div>
 
       <div className="flex justify-center mb-4 sm:mb-6">
-        <img
-          src={avatar}
-          alt={username}
-          className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-nav-foreground/30 object-cover"
-        />
+        <div className="flex flex-col items-center">
+          <img
+            src={avatar}
+            alt={username}
+            className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-nav-foreground/30 object-cover"
+          />
+          <p className="mt-2 text-sm sm:text-base opacity-90">@{username}</p>
+        </div>
       </div>
 
       {/* Stats */}

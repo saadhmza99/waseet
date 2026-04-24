@@ -16,18 +16,20 @@ import { getDefaultAvatar } from "@/lib/avatar";
 import { notificationService } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useAppLanguage } from "@/contexts/AppLanguageContext";
 
 const tabs = [
-  { label: "Fil d'actualité", icon: Home, path: "/" },
-  { label: "Explorer", icon: MapPin, path: "/explore" },
-  { label: "Reels", icon: Video, path: "/reels" },
-  { label: "Enregistrés", icon: Bookmark, path: "/saved" },
+  { key: "feed", label: "Fil d'actualité", icon: Home, path: "/" },
+  { key: "explore", label: "Explorer", icon: MapPin, path: "/explore" },
+  { key: "reels", label: "Reels", icon: Video, path: "/reels" },
+  { key: "saved", label: "Enregistrés", icon: Bookmark, path: "/saved" },
 ];
 
 const AppHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { t } = useAppLanguage();
   const { profile } = useProfile();
   const isLoggedIn = Boolean(user);
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || getDefaultAvatar(profile?.profile_type);
@@ -167,22 +169,22 @@ const AppHeader = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>Voir mon profil</span>
+                    <span>{t("profile", "Voir mon profil")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <Settings className="mr-2 h-4 w-4" />
-                    <span>Paramètres</span>
+                    <span>{t("settings", "Paramètres")}</span>
                   </DropdownMenuItem>
                   {isModerator && (
                     <DropdownMenuItem onClick={() => navigate("/admin/moderation")}>
                       <Settings className="mr-2 h-4 w-4" />
-                      <span>Modération</span>
+                    <span>{t("moderation", "Modération")}</span>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Déconnexion</span>
+                    <span>{t("logout", "Déconnexion")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -198,11 +200,11 @@ const AppHeader = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogin}>
                     <LogIn className="mr-2 h-4 w-4" />
-                    <span>Connexion</span>
+                    <span>{t("login", "Connexion")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/create-profile")}>
                     <UserPlus className="mr-2 h-4 w-4" />
-                    <span>Créer un profil</span>
+                    <span>{t("createProfile", "Créer un profil")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -223,7 +225,7 @@ const AppHeader = () => {
                 const isActive = location.pathname === tab.path;
                 return (
                   <button
-                    key={tab.label}
+                    key={tab.key}
                     onClick={() => navigate(tab.path)}
                     className={`flex items-center gap-2 px-6 py-3 text-base font-medium transition-colors rounded-lg ${
                       isActive
@@ -232,7 +234,7 @@ const AppHeader = () => {
                     }`}
                   >
                     <tab.icon className="w-5 h-5" />
-                    <span>{tab.label}</span>
+                    <span>{t(tab.key, tab.label)}</span>
                   </button>
                 );
               })}
@@ -297,22 +299,22 @@ const AppHeader = () => {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate("/profile")}>
               <User className="mr-2 h-4 w-4" />
-              <span>View my profile</span>
+              <span>{t("profile", "View my profile")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/settings")}>
               <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
+              <span>{t("settings", "Settings")}</span>
             </DropdownMenuItem>
             {isModerator && (
               <DropdownMenuItem onClick={() => navigate("/admin/moderation")}>
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Moderation</span>
+                <span>{t("moderation", "Moderation")}</span>
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Log Out</span>
+              <span>{t("logout", "Log Out")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -328,11 +330,11 @@ const AppHeader = () => {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogin}>
               <LogIn className="mr-2 h-4 w-4" />
-              <span>Log In</span>
+              <span>{t("login", "Log In")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/create-profile")}>
               <UserPlus className="mr-2 h-4 w-4" />
-              <span>Create Profile</span>
+              <span>{t("createProfile", "Create Profile")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

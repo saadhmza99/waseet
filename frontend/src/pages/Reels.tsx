@@ -8,6 +8,11 @@ import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { streamService } from "@/services/streamService";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 
 const Reels = () => {
   const { user } = useAuth();
@@ -17,6 +22,10 @@ const Reels = () => {
   const [likedReels, setLikedReels] = useState<Set<string>>(new Set());
   const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [uploading, setUploading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Load reels from Supabase
@@ -162,6 +171,32 @@ const Reels = () => {
 
   const playableReels = reels.filter((reel) => Boolean(reel.cloudflare_video_id));
 
+  const handleUploadReel = async () => {
+    if (!user || !videoFile) return;
+    setUploading(true);
+    try {
+      const uploaded = await streamService.uploadVideo(videoFile, { title, description });
+      const videoId = uploaded?.result?.uid || uploaded?.uid;
+      if (!videoId) throw new Error("Upload failed");
+      await reelService.createReel(user.id, {
+        cloudflare_video_id: videoId,
+        title,
+        description,
+      });
+      const reelsData = await reelService.getReels(50, 0);
+      setReels(reelsData || []);
+      setVideoFile(null);
+      setTitle("");
+      setDescription("");
+      toast({ title: "Reel ajoute", description: "Votre reel est maintenant publie." });
+    } catch (error) {
+      console.error("Error uploading reel:", error);
+      toast({ title: "Erreur", description: "Impossible d'ajouter ce reel." });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
@@ -194,6 +229,37 @@ const Reels = () => {
       ref={containerRef}
     >
       <div className="relative w-full h-full">
+        {user && (
+          <div className="absolute top-4 left-4 z-20 w-[320px] max-w-[90vw] rounded-lg bg-black/40 backdrop-blur-md p-3 space-y-2">
+            <p className="text-white text-sm font-semibold">Ajouter un reel</p>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Titre"
+              className="bg-black/40 text-white border-white/20"
+            />
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description"
+              className="bg-black/40 text-white border-white/20"
+              rows={2}
+            />
+            <Input
+              type="file"
+              accept="video/*"
+              onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+              className="bg-black/40 text-white border-white/20"
+            />
+            <Button
+              onClick={handleUploadReel}
+              disabled={!videoFile || uploading}
+              className="w-full"
+            >
+              {uploading ? "Upload..." : "Publier reel"}
+            </Button>
+          </div>
+        )}
         {playableReels.map((reel, index) => (
           <div
             key={reel.id}

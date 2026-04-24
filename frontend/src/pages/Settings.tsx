@@ -13,6 +13,7 @@ import { storageService } from "@/services/storageService";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
 import { userSettingsService } from "@/services/userSettingsService";
+import { useAppLanguage } from "@/contexts/AppLanguageContext";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -28,8 +29,49 @@ const Settings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [language, setLanguage] = useState("English");
   const [region, setRegion] = useState("UAE");
+  const [showPhone, setShowPhone] = useState(false);
+  const [allowDirectMessages, setAllowDirectMessages] = useState(true);
+  const [showActivityStatus, setShowActivityStatus] = useState(true);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const MAX_BIO_LENGTH = 165;
+  const { setLanguage: setAppLanguage } = useAppLanguage();
+  const languageOptions = [
+    "English",
+    "Francais",
+    "Arabic",
+    "Spanish",
+    "German",
+    "Italian",
+    "Portuguese",
+    "Chinese",
+    "Japanese",
+    "Korean",
+    "Hindi",
+    "Turkish",
+    "Russian",
+  ];
+  const regionOptions = [
+    "UAE",
+    "Saudi Arabia",
+    "Qatar",
+    "Kuwait",
+    "Bahrain",
+    "Oman",
+    "Morocco",
+    "Algeria",
+    "Tunisia",
+    "Egypt",
+    "France",
+    "Spain",
+    "United Kingdom",
+    "United States",
+    "Canada",
+    "India",
+    "China",
+    "Japan",
+    "Brazil",
+    "Australia",
+  ];
 
   useEffect(() => {
     if (!profile) return;
@@ -48,13 +90,21 @@ const Settings = () => {
         setDarkMode(settings.dark_mode_enabled);
         setLanguage(settings.language);
         setRegion(settings.region);
+        setShowPhone(settings.show_phone);
+        setAllowDirectMessages(settings.allow_direct_messages);
+        setShowActivityStatus(settings.show_activity_status);
+        setAppLanguage(settings.language);
       } catch (error) {
         console.error("Error loading user settings:", error);
       }
     };
 
     loadPreferences();
-  }, [user?.id]);
+  }, [user?.id, setAppLanguage]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
 
   const avatarPreview = avatarFile
     ? URL.createObjectURL(avatarFile)
@@ -106,7 +156,11 @@ const Settings = () => {
         dark_mode_enabled: darkMode,
         language,
         region,
+        show_phone: showPhone,
+        allow_direct_messages: allowDirectMessages,
+        show_activity_status: showActivityStatus,
       });
+      setAppLanguage(language);
       toast({
         title: "Préférences sauvegardées",
         description: "Vos paramètres ont été enregistrés en base.",
@@ -287,10 +341,10 @@ const Settings = () => {
             <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/change-password")}>
               Change Password
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/privacy-settings")}>
               Privacy Settings
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button variant="outline" className="w-full justify-start" disabled>
               Two-Factor Authentication
             </Button>
           </div>
@@ -330,23 +384,40 @@ const Settings = () => {
               <Label htmlFor="language" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
                 Language
               </Label>
-              <Input
+              <select
                 id="language"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                placeholder="English"
-              />
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {languageOptions.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <Label htmlFor="region" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
                 Region
               </Label>
-              <Input
+              <select
                 id="region"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
-                placeholder="UAE"
-              />
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {regionOptions.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !user}>
+                {isSavingPreferences ? "Enregistrement..." : "Appliquer langue et region"}
+              </Button>
             </div>
           </div>
         </div>

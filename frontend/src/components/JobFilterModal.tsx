@@ -16,6 +16,11 @@ import {
   Shield,
   Wrench,
   Utensils,
+  Languages,
+  Stethoscope,
+  Smile,
+  Glasses,
+  Shirt,
 } from "lucide-react";
 
 interface JobFilterModalProps {
@@ -36,6 +41,11 @@ const professions = [
   { label: "Soudeur", icon: Shield },
   { label: "Mecanicien", icon: Wrench },
   { label: "Culinaire", icon: Utensils },
+  { label: "Translator", icon: Languages },
+  { label: "Doctor", icon: Stethoscope },
+  { label: "Dentist", icon: Smile },
+  { label: "Optique", icon: Glasses },
+  { label: "Clothing", icon: Shirt },
   { label: "Autre", icon: Briefcase },
 ];
 

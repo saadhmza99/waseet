@@ -6,6 +6,9 @@ export interface UserSettingsData {
   dark_mode_enabled: boolean;
   language: string;
   region: string;
+  show_phone: boolean;
+  allow_direct_messages: boolean;
+  show_activity_status: boolean;
 }
 
 export const defaultUserSettings: UserSettingsData = {
@@ -14,6 +17,9 @@ export const defaultUserSettings: UserSettingsData = {
   dark_mode_enabled: false,
   language: "English",
   region: "UAE",
+  show_phone: false,
+  allow_direct_messages: true,
+  show_activity_status: true,
 };
 
 export const userSettingsService = {
@@ -33,6 +39,9 @@ export const userSettingsService = {
       dark_mode_enabled: data.dark_mode_enabled,
       language: data.language,
       region: data.region,
+      show_phone: data.show_phone ?? false,
+      allow_direct_messages: data.allow_direct_messages ?? true,
+      show_activity_status: data.show_activity_status ?? true,
     };
   },
 

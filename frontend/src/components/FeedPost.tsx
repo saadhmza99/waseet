@@ -90,11 +90,16 @@ const FeedPost = ({
   // Check if post is liked/saved on mount
   useEffect(() => {
     if (postId && user) {
-      // Check saved status
       savedService.isPostSaved(user.id, postId).then(setIsSaved);
-      // TODO: Check liked status from post_likes table
+      postService.isPostLiked(postId, user.id).then(setLiked);
     }
   }, [postId, user]);
+
+  useEffect(() => {
+    setLikeCount(likes);
+    setCommentCount(comments);
+    setShareCount(shares);
+  }, [likes, comments, shares, postId]);
 
   useEffect(() => {
     if (!postId || !isOwnPost) return;
@@ -151,7 +156,11 @@ const FeedPost = ({
         setLiked(false);
         setLikeCount((c) => Math.max(0, c - 1));
       } else {
-        await postService.likePost(postId, user.id);
+        const inserted = await postService.likePost(postId, user.id);
+        if (!inserted) {
+          setLiked(true);
+          return;
+        }
         setLiked(true);
         setLikeCount((c) => c + 1);
         if (postUserId && postUserId !== user.id) {
@@ -177,8 +186,10 @@ const FeedPost = ({
     }
     
     try {
-      await postService.sharePost(postId, user.id);
-      setShareCount((c) => c + 1);
+      const inserted = await postService.sharePost(postId, user.id);
+      if (inserted) {
+        setShareCount((c) => c + 1);
+      }
       if (postUserId && postUserId !== user.id) {
         await notificationService.createNotification({
           actorUserId: user.id,

@@ -8,7 +8,14 @@ import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
 
 interface CreatePostProps {
-  onPostCreated?: (post: { text: string; images: string[]; beforeImage?: string; afterImage?: string }) => void;
+  onPostCreated?: (post: {
+    text: string;
+    images: string[];
+    beforeImage?: string;
+    afterImage?: string;
+    singleImage?: string;
+    portfolioImageUrls?: string[];
+  }) => void;
 }
 
 const CreatePost = ({ onPostCreated }: CreatePostProps) => {
@@ -20,6 +27,8 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [imageTags, setImageTags] = useState<{ [key: number]: 'avant' | 'après' | null }>({});
+  const [saveToPortfolio, setSaveToPortfolio] = useState(false);
+  const [portfolioSelection, setPortfolioSelection] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,6 +71,17 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       });
       return reindexed;
     });
+    setPortfolioSelection((prev) =>
+      prev
+        .filter((i) => i !== index)
+        .map((i) => (i > index ? i - 1 : i))
+    );
+  };
+
+  const togglePortfolioImage = (index: number) => {
+    setPortfolioSelection((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    );
   };
 
   const toggleImageTag = (index: number, tag: 'avant' | 'après') => {
@@ -117,6 +137,9 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
         beforeImage: beforeImageUrl,
         afterImage: afterImageUrl,
         singleImage: singleImageUrl,
+        portfolioImageUrls: saveToPortfolio
+          ? uploadedImageUrls.filter((_, i) => portfolioSelection.includes(i))
+          : [],
       });
 
       // Reset form
@@ -124,6 +147,8 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       setSelectedImages([]);
       setSelectedFiles([]);
       setImageTags({});
+      setSaveToPortfolio(false);
+      setPortfolioSelection([]);
       setIsExpanded(false);
       setIsOpen(false);
     } catch (error) {
@@ -181,7 +206,31 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
 
             {/* Selected Images Preview */}
             {selectedImages.length > 0 && (
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <>
+                <div className="mt-3 rounded-lg border border-border p-3 bg-secondary/20">
+                  <label className="flex items-center gap-2 text-sm text-card-foreground">
+                    <input
+                      type="checkbox"
+                      checked={saveToPortfolio}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setSaveToPortfolio(checked);
+                        if (checked) {
+                          setPortfolioSelection(selectedImages.map((_, i) => i));
+                        } else {
+                          setPortfolioSelection([]);
+                        }
+                      }}
+                    />
+                    Sauvegarder des photos dans votre portfolio
+                  </label>
+                  {saveToPortfolio && selectedImages.length > 1 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cochez les photos que vous voulez ajouter au portfolio.
+                    </p>
+                  )}
+                </div>
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {selectedImages.map((image, index) => (
                   <div key={index} className="relative group">
                     <img
@@ -189,6 +238,16 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
                       alt={`Preview ${index + 1}`}
                       className="w-full h-32 sm:h-40 object-cover rounded-lg"
                     />
+                    {saveToPortfolio && (
+                      <label className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1 z-10">
+                        <input
+                          type="checkbox"
+                          checked={portfolioSelection.includes(index)}
+                          onChange={() => togglePortfolioImage(index)}
+                        />
+                        Portfolio
+                      </label>
+                    )}
                     <button
                       onClick={() => removeImage(index)}
                       className="absolute top-2 right-2 bg-foreground/70 hover:bg-foreground/90 text-background rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
@@ -228,7 +287,8 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
                     )}
                   </div>
                 ))}
-              </div>
+                </div>
+              </>
             )}
 
             {/* Action Buttons */}
@@ -260,6 +320,10 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
                   onClick={() => {
                     setPostText("");
                     setSelectedImages([]);
+                    setSelectedFiles([]);
+                    setImageTags({});
+                    setSaveToPortfolio(false);
+                    setPortfolioSelection([]);
                     setIsExpanded(false);
                     setIsOpen(false);
                   }}

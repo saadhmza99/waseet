@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import ProfileHeader from "@/components/ProfileHeader";
@@ -13,6 +13,9 @@ import { profileService } from "@/services/profileService";
 import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import { reviewService } from "@/services/reviewService";
+import { reelService } from "@/services/reelService";
+import { portfolioService } from "@/services/portfolioService";
+import { streamService } from "@/services/streamService";
 import { moderationService } from "@/services/moderationService";
 import { followService } from "@/services/followService";
 import { storageService } from "@/services/storageService";
@@ -28,19 +31,40 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
+import PortfolioGrid from "@/components/PortfolioGrid";
 
-const tabs = ["Portfolio", "Posts", "Annonces", "Avis"] as const;
+const tabs = ["Portfolio", "Posts", "Annonces", "Reels", "Avis"] as const;
+const tabToQuery: Record<(typeof tabs)[number], string> = {
+  Portfolio: "portfolio",
+  Posts: "posts",
+  Annonces: "annonces",
+  Reels: "reels",
+  Avis: "avis",
+};
+
+const queryToTab: Record<string, (typeof tabs)[number]> = {
+  portfolio: "Portfolio",
+  posts: "Posts",
+  annonces: "Annonces",
+  reels: "Reels",
+  avis: "Avis",
+};
 
 const Profile = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { profile: currentProfile } = useProfile();
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Portfolio");
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>(
+    queryToTab[searchParams.get("tab") || ""] || "Portfolio"
+  );
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [reels, setReels] = useState<any[]>([]);
+  const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isBlockedProfile, setIsBlockedProfile] = useState(false);
   const [followers, setFollowers] = useState<any[]>([]);
@@ -57,19 +81,38 @@ const Profile = () => {
   });
   const [listingImageFile, setListingImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState({
+    fullName: "",
     username: "",
     bio: "",
   });
+  const [reelVideoFile, setReelVideoFile] = useState<File | null>(null);
+  const [reelTitle, setReelTitle] = useState("");
+  const [reelDescription, setReelDescription] = useState("");
+  const [uploadingReel, setUploadingReel] = useState(false);
+  const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const tabsContentRef = useRef<HTMLDivElement>(null);
+  const portfolioFileInputRef = useRef<HTMLInputElement>(null);
   const previousTabRef = useRef<(typeof tabs)[number]>("Portfolio");
+
+  useEffect(() => {
+    const fromQuery = queryToTab[searchParams.get("tab") || ""];
+    if (fromQuery && fromQuery !== activeTab) {
+      setActiveTab(fromQuery);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (activeTab !== previousTabRef.current && tabsContentRef.current) {
       const scrollY = window.scrollY;
       window.scrollTo(0, scrollY);
       previousTabRef.current = activeTab;
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", tabToQuery[activeTab]);
+        return next;
+      });
     }
   }, [activeTab]);
 
@@ -90,10 +133,12 @@ const Profile = () => {
           return;
         }
 
-        const [postsData, listingsData, reviewsData, blockedIds, followersData] = await Promise.all([
+        const [postsData, listingsData, reviewsData, reelsData, portfolioData, blockedIds, followersData] = await Promise.all([
           postService.getPostsByUser(profileData.id),
           listingService.getListingsByUser(profileData.id),
           reviewService.getReviewsByUser(profileData.id),
+          reelService.getReelsByUser(profileData.id),
+          portfolioService.getPortfolioItemsByUser(profileData.id),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           followService.getFollowers(profileData.id),
         ]);
@@ -102,12 +147,15 @@ const Profile = () => {
 
         setProfile(profileData);
         setEditForm({
+          fullName: profileData.full_name || "",
           username: profileData.username || "",
           bio: profileData.bio || "",
         });
         setPosts(postsData || []);
         setListings(listingsData || []);
         setReviews(reviewsData || []);
+        setReels(reelsData || []);
+        setPortfolioItems(portfolioData || []);
         setFollowers(followersData || []);
         if (user && user.id !== profileData.id) {
           const following = await followService.isFollowing(user.id, profileData.id);
@@ -180,8 +228,17 @@ const Profile = () => {
         single_image_url: postData.singleImage,
         images: postData.images || [],
       });
+      if (postData.portfolioImageUrls?.length) {
+        await portfolioService.addPortfolioItems(
+          user.id,
+          postData.portfolioImageUrls,
+          postData.text?.split("\n")[0] || "Portfolio"
+        );
+      }
       const postsData = await postService.getPostsByUser(user.id);
+      const portfolioData = await portfolioService.getPortfolioItemsByUser(user.id);
       setPosts(postsData || []);
+      setPortfolioItems(portfolioData || []);
       toast({ title: "Post publié", description: "Votre post a été publié avec succès." });
     } catch (error) {
       console.error("Error creating post:", error);
@@ -225,16 +282,25 @@ const Profile = () => {
     if (!user || !isOwnProfile) return;
     setSavingProfile(true);
     try {
+      const nextUsername = editForm.username.trim().toLowerCase();
+      if (nextUsername && nextUsername !== (profile.username || "").toLowerCase()) {
+        const existingProfile = await profileService.getProfileByUsername(nextUsername).catch(() => null);
+        if (existingProfile && existingProfile.id !== user.id) {
+          toast({ title: "Username indisponible", description: "Ce username est deja pris." });
+          setSavingProfile(false);
+          return;
+        }
+      }
       let avatarUrl = profile.avatar_url;
       if (profileImageFile) {
         avatarUrl = await storageService.uploadImage(profileImageFile, "avatars");
       }
       const updated = await profileService.updateProfile(user.id, {
-        username: editForm.username.trim() || profile.username,
+        username: nextUsername || profile.username,
+        full_name: editForm.fullName.trim() || profile.full_name,
         bio: editForm.bio.slice(0, 165),
         profession: profile.profession,
         location: profile.location,
-        full_name: profile.full_name,
         phone: profile.phone,
         profile_type: profile.profile_type,
         avatar_url: avatarUrl,
@@ -248,6 +314,71 @@ const Profile = () => {
       toast({ title: "Erreur", description: "Impossible de mettre à jour le profil." });
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleCreateReel = async () => {
+    if (!user || !isOwnProfile || !reelVideoFile) return;
+    setUploadingReel(true);
+    try {
+      const uploadResult = await streamService.uploadVideo(reelVideoFile, {
+        title: reelTitle,
+        description: reelDescription,
+      });
+      const videoId = uploadResult?.result?.uid || uploadResult?.uid;
+      if (!videoId) {
+        throw new Error("Video upload failed");
+      }
+      await reelService.createReel(user.id, {
+        cloudflare_video_id: videoId,
+        title: reelTitle.trim(),
+        description: reelDescription.trim(),
+      });
+      const reelsData = await reelService.getReelsByUser(user.id);
+      setReels(reelsData || []);
+      setReelVideoFile(null);
+      setReelTitle("");
+      setReelDescription("");
+      toast({ title: "Reel publie", description: "Votre reel a ete ajoute." });
+    } catch (error) {
+      console.error("Error creating reel:", error);
+      toast({ title: "Erreur", description: "Impossible d'ajouter ce reel." });
+    } finally {
+      setUploadingReel(false);
+    }
+  };
+
+  const buildSectionLink = (section: (typeof tabs)[number]) => {
+    const usernameOrId = profile?.username || profile?.id;
+    return `${window.location.origin}/profile/${encodeURIComponent(usernameOrId)}?tab=${tabToQuery[section]}`;
+  };
+
+  const copySectionLink = async (section: (typeof tabs)[number], title: string) => {
+    try {
+      await navigator.clipboard.writeText(buildSectionLink(section));
+      toast({ title: "Lien copié", description: `Lien de la section ${title} copié.` });
+    } catch {
+      toast({ title: "Erreur", description: "Impossible de copier le lien." });
+    }
+  };
+
+  const handleUploadPortfolioImages = async (files: FileList | null) => {
+    if (!files || !files.length || !user || !isOwnProfile) return;
+    setUploadingPortfolio(true);
+    try {
+      const urls = await storageService.uploadImages(Array.from(files), "portfolio");
+      await portfolioService.addPortfolioItems(user.id, urls, "Portfolio");
+      const portfolioData = await portfolioService.getPortfolioItemsByUser(user.id);
+      setPortfolioItems(portfolioData || []);
+      toast({ title: "Portfolio mis à jour", description: "Images ajoutées au portfolio." });
+    } catch (error) {
+      console.error("Error uploading portfolio images:", error);
+      toast({ title: "Erreur", description: "Impossible d'ajouter les images au portfolio." });
+    } finally {
+      setUploadingPortfolio(false);
+      if (portfolioFileInputRef.current) {
+        portfolioFileInputRef.current.value = "";
+      }
     }
   };
 
@@ -268,6 +399,7 @@ const Profile = () => {
       <ProfileHeader
         profileId={profile.id}
         avatar={profileAvatar}
+        fullName={profile.full_name || profile.username}
         username={profile.username || "Utilisateur"}
         profession={profile.profession || "Profession non définie"}
         location={profile.location || "Localisation non définie"}
@@ -284,7 +416,8 @@ const Profile = () => {
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
         <div ref={tabsContentRef} className="bg-card rounded-lg border border-border mt-4">
-          <div className="flex border-b border-border overflow-x-auto">
+          <div className="flex items-center justify-between border-b border-border px-2 sm:px-4">
+            <div className="flex overflow-x-auto flex-1">
             {tabs.map((tab) => (
               <button
                 key={tab}
@@ -298,11 +431,59 @@ const Profile = () => {
                 {tab}
               </button>
             ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => copySectionLink(activeTab, activeTab)}
+              className="ml-2 whitespace-nowrap"
+            >
+              Share section
+            </Button>
           </div>
 
           {activeTab === "Portfolio" && (
-            <div className="px-4 sm:px-6 md:px-8 py-8 text-center text-muted-foreground">
-              Le portfolio sera rempli avec les données réelles de vos projets.
+            <div className="px-4 sm:px-6 md:px-8 py-6">
+              <div className="flex flex-wrap gap-2 mb-4">
+                {isOwnProfile && (
+                  <>
+                    <input
+                      ref={portfolioFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => handleUploadPortfolioImages(e.target.files)}
+                    />
+                    <Button
+                      onClick={() => portfolioFileInputRef.current?.click()}
+                      disabled={uploadingPortfolio}
+                    >
+                      {uploadingPortfolio ? "Upload..." : "Upload images to portfolio"}
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => copySectionLink("Portfolio", "Portfolio")}
+                >
+                  Share portfolio
+                </Button>
+              </div>
+              {portfolioItems.length === 0 ? (
+                <div className="text-center text-muted-foreground">
+                  Aucune photo dans le portfolio pour le moment.
+                </div>
+              ) : (
+                <PortfolioGrid
+                  items={portfolioItems.map((item) => ({
+                    image: item.image_url,
+                    label: item.label || "Portfolio",
+                  }))}
+                  username={profile.username || "Utilisateur"}
+                  avatar={profileAvatar}
+                />
+              )}
             </div>
           )}
 
@@ -419,6 +600,50 @@ const Profile = () => {
             </div>
           )}
 
+          {activeTab === "Reels" && (
+            <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">
+              {isOwnProfile && (
+                <div className="grid gap-3 rounded-lg border border-border p-4 bg-card mb-4">
+                  <h3 className="font-semibold text-card-foreground">Ajouter un reel</h3>
+                  <Input
+                    placeholder="Titre du reel (optionnel)"
+                    value={reelTitle}
+                    onChange={(e) => setReelTitle(e.target.value)}
+                  />
+                  <Textarea
+                    placeholder="Description"
+                    value={reelDescription}
+                    onChange={(e) => setReelDescription(e.target.value)}
+                    rows={3}
+                  />
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setReelVideoFile(e.target.files?.[0] || null)}
+                  />
+                  <div className="flex justify-end">
+                    <Button onClick={handleCreateReel} disabled={!reelVideoFile || uploadingReel}>
+                      {uploadingReel ? "Upload..." : "Publier reel"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {reels.length === 0 ? (
+                <div className="py-6 text-center text-muted-foreground">Aucun reel publie.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  {reels.map((reel) => (
+                    <div key={reel.id} className="rounded-lg border border-border p-3">
+                      <p className="font-semibold text-card-foreground mb-1">{reel.title || "Reel"}</p>
+                      <p className="text-sm text-muted-foreground mb-2">{reel.description || ""}</p>
+                      <p className="text-xs text-muted-foreground">{formatTimeAgo(reel.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === "Avis" && (
             <div>
               {reviews.length === 0 ? (
@@ -510,6 +735,11 @@ const Profile = () => {
               </div>
             </div>
 
+            <Input
+              value={editForm.fullName}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, fullName: e.target.value }))}
+              placeholder="Nom complet"
+            />
             <Input
               value={editForm.username}
               onChange={(e) => setEditForm((prev) => ({ ...prev, username: e.target.value }))}
