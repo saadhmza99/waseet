@@ -1,5 +1,4 @@
-// Supabase Edge Function for secure video upload to Cloudflare Stream
-// This function acts as a proxy to keep your Cloudflare API token secure
+// Supabase Edge Function for secure Cloudflare Stream direct uploads
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -14,6 +13,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type DirectUploadRequest = {
+  action?: string;
+  title?: string;
+  description?: string;
+};
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
@@ -24,6 +29,16 @@ serve(async (req) => {
   }
 
   try {
+    if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_STREAM_TOKEN) {
+      return new Response(
+        JSON.stringify({
+          error: "Missing Cloudflare configuration",
+          hint: "Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_STREAM_TOKEN in Supabase secrets",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Verify authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -55,63 +70,72 @@ serve(async (req) => {
       );
     }
 
-    // Get form data
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const title = formData.get("title") as string | null;
-    const description = formData.get("description") as string | null;
+    // New flow (pro): create direct upload URL so file is uploaded directly to Cloudflare.
+    // This avoids Edge Function body size limits (413).
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = (await req.json().catch(() => ({}))) as DirectUploadRequest;
+      const action = body.action;
 
-    if (!file) {
-      return new Response(
-        JSON.stringify({ error: "No file provided" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (action === "create-direct-upload") {
+        const title = body.title || "";
+        const description = body.description || "";
+
+        const response = await fetch(`${STREAM_API_URL}/direct_upload`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${CLOUDFLARE_STREAM_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            maxDurationSeconds: 300,
+            meta: {
+              name: title,
+              description,
+              uploadedBy: user.id,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          return new Response(
+            JSON.stringify({ error: "Failed to create direct upload URL", details: error }),
+            { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const directUploadData = await response.json();
+        return new Response(
+          JSON.stringify({
+            success: true,
+            directUpload: {
+              uploadURL: directUploadData?.result?.uploadURL,
+              uid: directUploadData?.result?.uid,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
     }
-
-    // Upload to Cloudflare Stream
-    const uploadFormData = new FormData();
-    uploadFormData.append("file", file);
-    if (title) uploadFormData.append("meta", JSON.stringify({ name: title }));
-
-    const response = await fetch(`${STREAM_API_URL}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${CLOUDFLARE_STREAM_TOKEN}`,
-      },
-      body: uploadFormData,
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      return new Response(
-        JSON.stringify({ error: "Failed to upload to Cloudflare Stream", details: error }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const videoData = await response.json();
 
     return new Response(
       JSON.stringify({
-        success: true,
-        video: {
-          id: videoData.result?.uid,
-          thumbnail: videoData.result?.thumbnail,
-          duration: videoData.result?.duration,
-          status: videoData.result?.status,
-        },
+        error: "Unsupported request payload",
+        hint: "Use JSON body with action=create-direct-upload",
       }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown server error";
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

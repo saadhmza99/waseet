@@ -59,19 +59,42 @@ export const streamService = {
    * This should call your Supabase Edge Function or Cloudflare Worker
    */
   async uploadVideo(file: File, metadata?: { title?: string; description?: string }) {
-    // Create form data
+    // Step 1: Ask backend for a direct upload URL (no video payload through Edge Function)
+    const { data: directData, error: createError } = await supabase.functions.invoke('upload-video', {
+      body: {
+        action: 'create-direct-upload',
+        title: metadata?.title || '',
+        description: metadata?.description || '',
+      },
+    });
+
+    if (createError) throw createError;
+
+    const uploadURL = directData?.directUpload?.uploadURL;
+    const uid = directData?.directUpload?.uid;
+    if (!uploadURL || !uid) {
+      throw new Error('Direct upload URL generation failed');
+    }
+
+    // Step 2: Upload video directly to Cloudflare Stream
     const formData = new FormData();
     formData.append('file', file);
-    if (metadata?.title) formData.append('title', metadata.title);
-    if (metadata?.description) formData.append('description', metadata.description);
-
-    // Call your backend endpoint (Supabase Edge Function or Cloudflare Worker)
-    const { data, error } = await supabase.functions.invoke('upload-video', {
+    const uploadResponse = await fetch(uploadURL, {
+      method: 'POST',
       body: formData,
     });
 
-    if (error) throw error;
-    return data;
+    if (!uploadResponse.ok) {
+      const details = await uploadResponse.text().catch(() => '');
+      throw new Error(`Direct upload failed (${uploadResponse.status}): ${details}`);
+    }
+
+    return {
+      success: true,
+      video: {
+        id: uid,
+      },
+    };
   },
 
   /**
