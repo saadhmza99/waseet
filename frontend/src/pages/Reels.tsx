@@ -8,7 +8,12 @@ import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
-import { REEL_UPLOAD_MAX_BYTES, streamService } from "@/services/streamService";
+import {
+  REEL_MAX_DURATION_SECONDS,
+  REEL_MAX_PER_USER_PER_MONTH,
+  REEL_UPLOAD_MAX_BYTES,
+  streamService,
+} from "@/services/streamService";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -182,12 +187,13 @@ const Reels = () => {
         { title, description },
         { onUploadProgress: setUploadProgress }
       );
-      const videoId = uploaded?.video?.id || uploaded?.result?.uid || uploaded?.uid;
+      const videoId = uploaded?.video?.id;
       if (!videoId) throw new Error("Réponse upload invalide (pas d’identifiant vidéo).");
       await reelService.createReel(user.id, {
         cloudflare_video_id: videoId,
         title,
         description,
+        duration_seconds: uploaded?.video?.durationSeconds ?? null,
       });
       const reelsData = await reelService.getReels(50, 0);
       setReels(reelsData || []);
@@ -208,6 +214,10 @@ const Reels = () => {
   const reelUploadForm = user ? (
     <div className="w-[320px] max-w-[90vw] rounded-lg border border-border bg-card/95 text-card-foreground backdrop-blur-md p-3 space-y-2 shadow-sm">
       <p className="text-sm font-semibold">Ajouter un reel</p>
+      <p className="text-xs text-muted-foreground leading-snug">
+        Actuellement, chaque utilisateur ne peut publier que {REEL_MAX_PER_USER_PER_MONTH} reels d’au plus{" "}
+        {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
+      </p>
       <Input
         value={title}
         onChange={(e) => setTitle(e.target.value)}

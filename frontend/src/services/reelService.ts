@@ -5,6 +5,8 @@ export interface ReelData {
   cloudflare_video_id: string;
   title?: string;
   description?: string;
+  /** Whole seconds from Cloudflare (<= 30); optional until backfilled */
+  duration_seconds?: number | null;
 }
 
 export const reelService = {
@@ -14,7 +16,10 @@ export const reelService = {
       .from('reels')
       .insert({
         user_id: userId,
-        ...data,
+        cloudflare_video_id: data.cloudflare_video_id,
+        title: data.title,
+        description: data.description,
+        duration_seconds: data.duration_seconds ?? null,
       })
       .select(`
         *,

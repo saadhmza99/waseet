@@ -15,7 +15,12 @@ import { listingService } from "@/services/listingService";
 import { reviewService } from "@/services/reviewService";
 import { reelService } from "@/services/reelService";
 import { portfolioService } from "@/services/portfolioService";
-import { REEL_UPLOAD_MAX_BYTES, streamService } from "@/services/streamService";
+import {
+  REEL_MAX_DURATION_SECONDS,
+  REEL_MAX_PER_USER_PER_MONTH,
+  REEL_UPLOAD_MAX_BYTES,
+  streamService,
+} from "@/services/streamService";
 import { moderationService } from "@/services/moderationService";
 import { followService } from "@/services/followService";
 import { storageService } from "@/services/storageService";
@@ -339,6 +344,7 @@ const Profile = () => {
         cloudflare_video_id: videoId,
         title: reelTitle.trim(),
         description: reelDescription.trim(),
+        duration_seconds: uploadResult?.video?.durationSeconds ?? null,
       });
       const reelsData = await reelService.getReelsByUser(user.id);
       setReels(reelsData || []);
@@ -613,6 +619,10 @@ const Profile = () => {
               {isOwnProfile && (
                 <div className="grid gap-3 rounded-lg border border-border p-4 bg-card mb-4">
                   <h3 className="font-semibold text-card-foreground">Ajouter un reel</h3>
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    Actuellement, chaque utilisateur ne peut publier que {REEL_MAX_PER_USER_PER_MONTH} reels d’au plus{" "}
+                    {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
+                  </p>
                   <Input
                     placeholder="Titre du reel (optionnel)"
                     value={reelTitle}

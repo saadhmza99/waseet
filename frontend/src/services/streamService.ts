@@ -7,14 +7,58 @@ const STREAM_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLA
 /** Hard cap before we even ask for a direct-upload ticket (cost + UX). */
 export const REEL_UPLOAD_MAX_BYTES = 250 * 1024 * 1024;
 
+/** Law: max duration per reel (seconds). Must match Edge Function + DB constraint. */
+export const REEL_MAX_DURATION_SECONDS = 30;
+
+/** Law: max reels per user per calendar month (UTC). */
+export const REEL_MAX_PER_USER_PER_MONTH = 3;
+
+/** Law: max total stored minutes across all reels (platform cap). */
+export const REEL_PLATFORM_MAX_STORED_MINUTES = 1000;
+
 const MAX_REEL_TITLE_CHARS = 512;
 const MAX_REEL_DESCRIPTION_CHARS = 2000;
 
+function assertBrowserVideoDurationAtMost(file: File, maxSeconds: number): Promise<void> {
+  if (typeof document === 'undefined') return Promise.resolve();
+  const url = URL.createObjectURL(file);
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    const cleanup = () => {
+      URL.revokeObjectURL(url);
+      video.removeAttribute('src');
+      video.load();
+    };
+    video.onloadedmetadata = () => {
+      const d = video.duration;
+      cleanup();
+      if (!Number.isFinite(d) || d <= 0) {
+        reject(new Error('Durée vidéo illisible.'));
+        return;
+      }
+      if (d > maxSeconds + 0.25) {
+        reject(new Error(`Vidéo trop longue : maximum ${maxSeconds} secondes par reel.`));
+        return;
+      }
+      resolve();
+    };
+    video.onerror = () => {
+      cleanup();
+      reject(new Error('Impossible de lire cette vidéo.'));
+    };
+    video.src = url;
+  });
+}
+
+/** Returns duration in whole seconds from Cloudflare upload response, if present. */
 function postFormDataWithProgress(
   uploadURL: string,
   file: File,
   onProgress?: (percent: number) => void
-): Promise<void> {
+): Promise<number | null> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', uploadURL);
@@ -29,7 +73,17 @@ function postFormDataWithProgress(
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         if (onProgress) onProgress(100);
-        resolve();
+        let durationSeconds: number | null = null;
+        try {
+          const j = JSON.parse(xhr.responseText) as { result?: { duration?: number }; duration?: number };
+          const raw = j?.result?.duration ?? j?.duration;
+          if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+            durationSeconds = Math.min(REEL_MAX_DURATION_SECONDS, Math.max(1, Math.round(raw)));
+          }
+        } catch {
+          /* ignore */
+        }
+        resolve(durationSeconds);
       } else {
         reject(new Error(`Upload vidéo refusé (${xhr.status}): ${xhr.responseText?.slice(0, 200) || ''}`));
       }
@@ -111,7 +165,9 @@ export const streamService = {
       throw new Error(`Vidéo trop volumineuse (max ${maxMb} Mo). Réduis la taille ou la durée.`);
     }
 
-    // Step 1: Mint a Cloudflare direct-upload URL via Edge Function.
+    await assertBrowserVideoDurationAtMost(file, REEL_MAX_DURATION_SECONDS);
+
+    // Step 1: Mint a Cloudflare direct-upload URL via Edge Function (quota enforced there + DB trigger).
     // Use raw fetch + JSON (never FormData here) so the request stays tiny — avoids 413 at the gateway.
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -176,12 +232,13 @@ export const streamService = {
 
     // Step 2: Upload video directly to Cloudflare Stream (XHR = progress events; fetch often lacks them)
     options?.onUploadProgress?.(0);
-    await postFormDataWithProgress(uploadURL, file, options?.onUploadProgress);
+    const durationSeconds = await postFormDataWithProgress(uploadURL, file, options?.onUploadProgress);
 
     return {
       success: true,
       video: {
         id: uid,
+        durationSeconds: durationSeconds ?? undefined,
       },
     };
   },

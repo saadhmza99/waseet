@@ -109,6 +109,14 @@ serve(async (req) => {
       const title = String(body.title || "").slice(0, MAX_TITLE_LEN);
       const description = String(body.description || "").slice(0, MAX_DESCRIPTION_LEN);
 
+      const { error: quotaError } = await supabaseClient.rpc("assert_reel_quota_ok");
+      if (quotaError) {
+        return new Response(JSON.stringify({ error: quotaError.message }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const response = await fetch(`${STREAM_API_URL}/direct_upload`, {
         method: "POST",
         headers: {
@@ -116,7 +124,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          maxDurationSeconds: 300,
+          maxDurationSeconds: 30,
           meta: {
             name: title,
             description,

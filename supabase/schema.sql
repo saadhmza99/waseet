@@ -820,3 +820,85 @@ CREATE POLICY "Users can update their own notifications"
   USING (auth.uid() = target_user_id)
   WITH CHECK (auth.uid() = target_user_id);
 
+-- ---------------------------------------------------------------------------
+-- Reel limits (law): max 1000 minutes stored platform-wide; max 3 reels per
+-- user per calendar month (UTC); each reel capped at 30s (Cloudflare + DB).
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE public.reels
+  ADD COLUMN IF NOT EXISTS duration_seconds INTEGER;
+
+ALTER TABLE public.reels
+  DROP CONSTRAINT IF EXISTS reels_duration_seconds_cap;
+
+ALTER TABLE public.reels
+  ADD CONSTRAINT reels_duration_seconds_cap
+  CHECK (
+    duration_seconds IS NULL
+    OR (duration_seconds > 0 AND duration_seconds <= 30)
+  );
+
+-- Serialize quota checks to avoid concurrent inserts bypassing limits.
+CREATE OR REPLACE FUNCTION public.assert_reel_quota_ok()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  uid UUID := auth.uid();
+  monthly_count INTEGER;
+  total_minutes NUMERIC;
+BEGIN
+  IF uid IS NULL THEN
+    RAISE EXCEPTION 'Authentification requise.';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(384729104);
+
+  SELECT COUNT(*)::integer INTO monthly_count
+  FROM public.reels
+  WHERE user_id = uid
+    AND created_at >= date_trunc('month', timezone('utc', now()));
+
+  IF monthly_count >= 3 THEN
+    RAISE EXCEPTION 'Limite: 3 reels maximum par mois calendaire (UTC).';
+  END IF;
+
+  -- Each row counts up to 30s until duration_seconds is known (conservative).
+  SELECT COALESCE(
+    SUM(LEAST(COALESCE(duration_seconds, 30), 30) / 60.0),
+    0
+  ) INTO total_minutes
+  FROM public.reels;
+
+  IF total_minutes + (30::numeric / 60.0) > 1000 THEN
+    RAISE EXCEPTION 'Limite: 1000 minutes de vidéo stockées au total pour la plateforme (cap atteint).';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.assert_reel_quota_ok() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.assert_reel_quota_ok() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.reels_enforce_upload_limits()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Insertion reel: utilisateur non autorisé.';
+  END IF;
+  PERFORM public.assert_reel_quota_ok();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS reels_before_insert_upload_limits ON public.reels;
+CREATE TRIGGER reels_before_insert_upload_limits
+  BEFORE INSERT ON public.reels
+  FOR EACH ROW
+  EXECUTE FUNCTION public.reels_enforce_upload_limits();
+
