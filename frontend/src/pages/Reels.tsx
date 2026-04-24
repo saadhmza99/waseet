@@ -75,6 +75,9 @@ const Reels = () => {
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [pausedByUser, setPausedByUser] = useState<Record<string, boolean>>({});
+  /** Play/Pause badge: hidden until user taps the reel; then shown briefly. */
+  const [playbackUiVisible, setPlaybackUiVisible] = useState(false);
+  const playbackUiHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Load reels from Supabase
@@ -272,6 +275,23 @@ const Reels = () => {
     setPausedByUser((prev) => ({ ...prev, [reelId]: !nowPaused }));
   };
 
+  const revealPlaybackUi = () => {
+    if (playbackUiHideTimerRef.current) {
+      clearTimeout(playbackUiHideTimerRef.current);
+      playbackUiHideTimerRef.current = null;
+    }
+    setPlaybackUiVisible(true);
+    playbackUiHideTimerRef.current = setTimeout(() => {
+      setPlaybackUiVisible(false);
+      playbackUiHideTimerRef.current = null;
+    }, 2200);
+  };
+
+  const handleReelVideoTap = (reelId: string) => {
+    togglePlayback(reelId);
+    revealPlaybackUi();
+  };
+
   const handleDownloadReel = (cloudflareVideoId: string) => {
     const id = String(cloudflareVideoId || "").trim();
     if (!id) return;
@@ -334,6 +354,29 @@ const Reels = () => {
   };
 
   const playableReels = reels.filter((reel) => Boolean(String(reel.cloudflare_video_id || "").trim()));
+
+  const activePlayableReelId =
+    playableReels.length > 0
+      ? playableReels[Math.min(currentReelIndex, playableReels.length - 1)]?.id
+      : undefined;
+
+  useEffect(() => {
+    setPlaybackUiVisible(false);
+    if (playbackUiHideTimerRef.current) {
+      clearTimeout(playbackUiHideTimerRef.current);
+      playbackUiHideTimerRef.current = null;
+    }
+  }, [activePlayableReelId]);
+
+  useEffect(
+    () => () => {
+      if (playbackUiHideTimerRef.current) {
+        clearTimeout(playbackUiHideTimerRef.current);
+        playbackUiHideTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const list = reels.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim()));
@@ -499,24 +542,35 @@ const Reels = () => {
               )}
 
               {index === safeCurrentIndex && reel.cloudflare_video_id ? (
-                <button
-                  type="button"
-                  onClick={() => togglePlayback(reel.id)}
-                  className="pointer-events-auto absolute bottom-28 left-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-black/70 sm:bottom-32"
-                  aria-label={pausedByUser[reel.id] ? "Lecture" : "Pause"}
-                >
-                  {pausedByUser[reel.id] ? (
-                    <Play className="h-6 w-6 fill-white" />
-                  ) : (
-                    <Pause className="h-6 w-6" />
-                  )}
-                </button>
+                <>
+                  {/* Tap zone (not over right actions / bottom caption); iframe stays underneath */}
+                  <button
+                    type="button"
+                    aria-label={pausedByUser[reel.id] ? "Lecture" : "Pause"}
+                    className="absolute left-0 top-[10%] bottom-[28%] z-[12] w-[min(100%,calc(100%-5.5rem))] cursor-pointer border-0 bg-transparent p-0 touch-manipulation sm:w-[min(100%,calc(100%-7rem))]"
+                    onClick={() => handleReelVideoTap(reel.id)}
+                  />
+                  {playbackUiVisible ? (
+                    <div
+                      className="pointer-events-none absolute inset-0 z-[35] flex items-center justify-center"
+                      aria-hidden
+                    >
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 text-white shadow-lg backdrop-blur-sm transition-opacity duration-200">
+                        {pausedByUser[reel.id] ? (
+                          <Play className="h-7 w-7 fill-white" />
+                        ) : (
+                          <Pause className="h-7 w-7" />
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
 
-              {/* Overlay Content */}
-              <div className="pointer-events-none absolute inset-0 flex">
+              {/* Overlay Content (z above tap-to-pause layer so profile & actions stay clickable) */}
+              <div className="pointer-events-none absolute inset-0 z-[20] flex">
                 {/* Left Side - User Info */}
-                <div className="pointer-events-auto flex flex-1 flex-col justify-end p-4 sm:p-6 pb-20 sm:pb-24">
+                <div className="pointer-events-auto relative z-[21] flex flex-1 flex-col justify-end p-4 sm:p-6 pb-20 sm:pb-24">
                   <div className="flex items-center gap-3 mb-3">
                     <img
                       src={reelProfile.avatar_url || getDefaultAvatar(reelProfile.profile_type)}
@@ -536,7 +590,7 @@ const Reels = () => {
                 </div>
 
                 {/* Right Side - Action Buttons */}
-                <div className="pointer-events-auto flex flex-col items-center justify-end gap-4 sm:gap-6 p-4 sm:p-6 pb-20 sm:pb-24">
+                <div className="pointer-events-auto relative z-[21] flex flex-col items-center justify-end gap-4 sm:gap-6 p-4 sm:p-6 pb-20 sm:pb-24">
                   {/* Like */}
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button

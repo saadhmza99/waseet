@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
+import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
 import { useAuth } from "@/contexts/AuthContext";
 import { savedService } from "@/services/savedService";
 import { moderationService } from "@/services/moderationService";
@@ -148,12 +149,61 @@ const Saved = () => {
                 )}
 
                 {activeTab === "Reels" && (
-                  <div className="text-center py-8">
+                  <div>
                     {savedReels.length === 0 ? (
-                      <p className="text-muted-foreground">Aucun reel enregistré pour le moment</p>
+                      <div className="py-8 text-center text-muted-foreground">
+                        Aucun reel enregistré pour le moment
+                      </div>
                     ) : (
-                      <div className="text-muted-foreground">
-                        {savedReels.length} reel{savedReels.length > 1 ? "s" : ""} enregistré{savedReels.length > 1 ? "s" : ""}
+                      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        {savedReels.filter((saved) => saved.reels?.id).map((saved) => {
+                          const reel = saved.reels;
+                          const profile = reel.profiles || {};
+                          return (
+                            <div
+                              key={saved.id ?? `${reel.id}-saved`}
+                              className="overflow-hidden rounded-lg border border-border bg-card"
+                            >
+                              {reel.cloudflare_video_id ? (
+                                <div className="relative aspect-[9/16] w-full max-h-[70vh] bg-black">
+                                  <CloudflareVideoPlayer
+                                    videoId={String(reel.cloudflare_video_id).trim()}
+                                    className="h-full w-full"
+                                    autoPlay={false}
+                                    loop={true}
+                                    muted={false}
+                                    controls={true}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex aspect-[9/16] max-h-[40vh] items-center justify-center bg-muted text-sm text-muted-foreground">
+                                  Vidéo indisponible
+                                </div>
+                              )}
+                              <div className="p-3">
+                                <div className="mb-2 flex items-center gap-2">
+                                  <img
+                                    src={profile.avatar_url || getDefaultAvatar("craftsman")}
+                                    alt=""
+                                    className="h-8 w-8 rounded-full object-cover"
+                                  />
+                                  <span className="text-sm font-medium text-card-foreground">
+                                    {profile.username || "—"}
+                                  </span>
+                                </div>
+                                <p className="font-semibold text-card-foreground">{reel.title || "Reel"}</p>
+                                {reel.description ? (
+                                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                                    {reel.description}
+                                  </p>
+                                ) : null}
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  {formatTimeAgo(reel.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
