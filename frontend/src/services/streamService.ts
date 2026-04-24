@@ -142,23 +142,21 @@ export const streamService = {
 
   /**
    * Get video playback URL (HLS)
+   * Always use videodelivery.net with the video UID — same contract as `getVideoEmbedUrl`.
+   * `customer-${VITE_CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com` often 404s when the env
+   * account id is not the Stream customer subdomain that owns the asset.
    */
   getVideoPlaybackUrl(videoId: string): string {
     const id = String(videoId || '').trim();
-    if (CLOUDFLARE_ACCOUNT_ID) {
-      return `https://customer-${CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${id}/manifest/video.m3u8`;
-    }
     return `https://videodelivery.net/${id}/manifest/video.m3u8`;
   },
 
   /**
    * Get video thumbnail URL
+   * Uses videodelivery.net for the same reason as `getVideoPlaybackUrl`.
    */
   getVideoThumbnailUrl(videoId: string, timeInSeconds: number = 1): string {
     const id = String(videoId || '').trim();
-    if (CLOUDFLARE_ACCOUNT_ID) {
-      return `https://customer-${CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${id}/thumbnails/thumbnail.jpg?time=${timeInSeconds}s`;
-    }
     return `https://videodelivery.net/${id}/thumbnails/thumbnail.jpg?time=${timeInSeconds}s`;
   },
 
