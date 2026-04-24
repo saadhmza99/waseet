@@ -12,9 +12,59 @@ interface CloudflareVideoPlayerProps {
   controls?: boolean;
 }
 
-/** Best-effort play/pause for Cloudflare Stream iframe embeds (cross-origin). */
-export function streamIframePostCommand(iframe: HTMLIFrameElement | null, action: 'play' | 'pause') {
-  const w = iframe?.contentWindow;
+type StreamEmbedPlayer = {
+  play?: () => Promise<void>;
+  pause?: () => void;
+};
+
+declare global {
+  interface Window {
+    Stream?: (element: HTMLElement) => StreamEmbedPlayer;
+  }
+}
+
+const STREAM_SDK_SCRIPT_ID = 'cf-stream-embed-sdk';
+const STREAM_SDK_SRC = 'https://embed.cloudflarestream.com/embed/sdk.latest.js';
+
+let streamSdkLoadPromise: Promise<void> | null = null;
+
+/** Loads Cloudflare’s Stream iframe SDK (required for programmatic play/pause). */
+export function ensureStreamEmbedSdk(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (typeof window.Stream === 'function') return Promise.resolve();
+  if (streamSdkLoadPromise) return streamSdkLoadPromise;
+
+  streamSdkLoadPromise = new Promise((resolve, reject) => {
+    const finish = () => {
+      if (typeof window.Stream === 'function') resolve();
+      else reject(new Error('Stream SDK loaded but window.Stream is missing'));
+    };
+
+    const existing = document.getElementById(STREAM_SDK_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existing) {
+      if (typeof window.Stream === 'function') {
+        resolve();
+        return;
+      }
+      existing.addEventListener('load', finish, { once: true });
+      existing.addEventListener('error', () => reject(new Error('Stream SDK script error')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = STREAM_SDK_SCRIPT_ID;
+    script.src = STREAM_SDK_SRC;
+    script.async = true;
+    script.onload = () => finish();
+    script.onerror = () => reject(new Error('Stream SDK script failed to load'));
+    document.head.appendChild(script);
+  });
+
+  return streamSdkLoadPromise;
+}
+
+function postMessagePlayPauseFallback(iframe: HTMLIFrameElement, action: 'play' | 'pause') {
+  const w = iframe.contentWindow;
   if (!w) return;
   const variants: unknown[] = [
     { event: action },
@@ -29,6 +79,42 @@ export function streamIframePostCommand(iframe: HTMLIFrameElement | null, action
       /* ignore */
     }
   }
+}
+
+/**
+ * Play / pause for Cloudflare Stream iframe embeds.
+ * Uses the official embed SDK when possible; see https://developers.cloudflare.com/stream/viewing-videos/using-the-stream-player/using-the-player-api/
+ */
+export async function streamIframePostCommand(
+  iframe: HTMLIFrameElement | null,
+  action: 'play' | 'pause'
+): Promise<void> {
+  if (!iframe) return;
+
+  try {
+    await ensureStreamEmbedSdk();
+    const StreamFn = window.Stream;
+    if (typeof StreamFn === 'function') {
+      const attempts = 10;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const player = StreamFn(iframe);
+          if (action === 'play') {
+            await player.play?.().catch(() => {});
+          } else {
+            player.pause?.();
+          }
+          return;
+        } catch {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+      }
+    }
+  } catch {
+    /* use fallback */
+  }
+
+  postMessagePlayPauseFallback(iframe, action);
 }
 
 /**
@@ -52,8 +138,7 @@ export const CloudflareVideoPlayer = ({
       .replace(/[^a-zA-Z0-9-_]/g, '')}`;
 
   useEffect(() => {
-    // Optional: Load video metadata
-    // streamService.getVideo(videoId).then(console.log);
+    void ensureStreamEmbedSdk().catch(() => {});
   }, [videoId]);
 
   const embedUrl = streamService.getVideoEmbedUrl(videoId);

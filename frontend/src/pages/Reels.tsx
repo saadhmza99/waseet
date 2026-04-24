@@ -268,10 +268,10 @@ const Reels = () => {
     }
   };
 
-  const togglePlayback = (reelId: string) => {
+  const togglePlayback = async (reelId: string) => {
     const el = document.getElementById(`cf-reel-iframe-${reelId}`) as HTMLIFrameElement | null;
     const nowPaused = Boolean(pausedByUser[reelId]);
-    streamIframePostCommand(el, nowPaused ? "play" : "pause");
+    await streamIframePostCommand(el, nowPaused ? "play" : "pause");
     setPausedByUser((prev) => ({ ...prev, [reelId]: !nowPaused }));
   };
 
@@ -288,8 +288,10 @@ const Reels = () => {
   };
 
   const handleReelVideoTap = (reelId: string) => {
-    togglePlayback(reelId);
-    revealPlaybackUi();
+    void (async () => {
+      await togglePlayback(reelId);
+      revealPlaybackUi();
+    })();
   };
 
   const handleDownloadReel = (cloudflareVideoId: string) => {
@@ -382,12 +384,13 @@ const Reels = () => {
     const list = reels.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim()));
     if (!list.length) return;
     const idx = Math.min(currentReelIndex, list.length - 1);
-    list.forEach((r, i) => {
-      const el = document.getElementById(`cf-reel-iframe-${r.id}`) as HTMLIFrameElement | null;
-      if (i !== idx) {
-        streamIframePostCommand(el, "pause");
-      }
-    });
+    void Promise.all(
+      list.map((r, i) => {
+        if (i === idx) return Promise.resolve();
+        const el = document.getElementById(`cf-reel-iframe-${r.id}`) as HTMLIFrameElement | null;
+        return streamIframePostCommand(el, "pause");
+      })
+    );
   }, [currentReelIndex, reels]);
 
   const handleUploadReel = async () => {
@@ -543,13 +546,15 @@ const Reels = () => {
 
               {index === safeCurrentIndex && reel.cloudflare_video_id ? (
                 <>
-                  {/* Tap zone (not over right actions / bottom caption); iframe stays underneath */}
-                  <button
-                    type="button"
-                    aria-label={pausedByUser[reel.id] ? "Lecture" : "Pause"}
-                    className="absolute left-0 top-[10%] bottom-[28%] z-[12] w-[min(100%,calc(100%-5.5rem))] cursor-pointer border-0 bg-transparent p-0 touch-manipulation sm:w-[min(100%,calc(100%-7rem))]"
-                    onClick={() => handleReelVideoTap(reel.id)}
-                  />
+                  {/* Full-area tap (padding reserves right rail + bottom); sits under UI chrome z-20 */}
+                  <div className="pointer-events-none absolute inset-0 z-[15] pr-[4.5rem] pb-24 pt-12 sm:pr-24 sm:pb-28 sm:pt-14">
+                    <button
+                      type="button"
+                      aria-label={pausedByUser[reel.id] ? "Lecture" : "Pause"}
+                      className="pointer-events-auto h-full w-full cursor-pointer border-0 bg-transparent touch-manipulation"
+                      onClick={() => handleReelVideoTap(reel.id)}
+                    />
+                  </div>
                   {playbackUiVisible ? (
                     <div
                       className="pointer-events-none absolute inset-0 z-[35] flex items-center justify-center"
@@ -567,10 +572,9 @@ const Reels = () => {
                 </>
               ) : null}
 
-              {/* Overlay Content (z above tap-to-pause layer so profile & actions stay clickable) */}
-              <div className="pointer-events-none absolute inset-0 z-[20] flex">
-                {/* Left Side - User Info */}
-                <div className="pointer-events-auto relative z-[21] flex flex-1 flex-col justify-end p-4 sm:p-6 pb-20 sm:pb-24">
+              {/* Profile + actions: absolute strips so they don’t cover the whole reel (tap layer stays usable) */}
+              <div className="pointer-events-none absolute inset-0 z-[20]">
+                <div className="pointer-events-auto absolute bottom-0 left-0 z-[21] max-w-[min(calc(100%-5.5rem),24rem)] p-4 pb-20 sm:p-6 sm:pb-24">
                   <div className="flex items-center gap-3 mb-3">
                     <img
                       src={reelProfile.avatar_url || getDefaultAvatar(reelProfile.profile_type)}
@@ -589,8 +593,7 @@ const Reels = () => {
                   </p>
                 </div>
 
-                {/* Right Side - Action Buttons */}
-                <div className="pointer-events-auto relative z-[21] flex flex-col items-center justify-end gap-4 sm:gap-6 p-4 sm:p-6 pb-20 sm:pb-24">
+                <div className="pointer-events-auto absolute bottom-0 right-0 z-[21] flex flex-col items-center justify-end gap-4 p-4 pb-20 sm:gap-6 sm:p-6 sm:pb-24">
                   {/* Like */}
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
