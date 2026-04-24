@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import ProfileHeader from "@/components/ProfileHeader";
@@ -31,6 +31,7 @@ import { getDefaultAvatar } from "@/lib/avatar";
 const tabs = ["Portfolio", "Posts", "Annonces", "Avis"] as const;
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
   const { profile: currentProfile } = useProfile();
@@ -437,14 +438,21 @@ const Profile = () => {
               <p className="text-sm text-muted-foreground">Aucun follower pour le moment.</p>
             ) : (
               followers.map((follower) => (
-                <div key={follower.follower_id} className="flex items-center gap-3">
+                <button
+                  key={follower.follower_id}
+                  className="w-full flex items-center gap-3 text-left hover:bg-secondary/60 rounded-md p-2 transition-colors"
+                  onClick={() => {
+                    setShowFollowersModal(false);
+                    navigate(`/profile/${follower.profiles?.username || follower.follower_id}`);
+                  }}
+                >
                   <img
                     src={follower.profiles?.avatar_url || getDefaultAvatar("craftsman")}
                     alt={follower.profiles?.username || "Follower"}
                     className="w-10 h-10 rounded-full object-cover"
                   />
                   <p className="font-medium text-card-foreground">@{follower.profiles?.username || "utilisateur"}</p>
-                </div>
+                </button>
               ))
             )}
           </div>

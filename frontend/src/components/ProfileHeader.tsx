@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowLeft, Briefcase, Edit, Star, UserPlus, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InviteToJobModal from "./InviteToJobModal";
