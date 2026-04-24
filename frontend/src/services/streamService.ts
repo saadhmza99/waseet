@@ -4,6 +4,46 @@ import { supabase } from '@/lib/supabase';
 const CLOUDFLARE_ACCOUNT_ID = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
 const STREAM_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream`;
 
+/** Hard cap before we even ask for a direct-upload ticket (cost + UX). */
+export const REEL_UPLOAD_MAX_BYTES = 250 * 1024 * 1024;
+
+function postFormDataWithProgress(
+  uploadURL: string,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', uploadURL);
+
+    xhr.upload.onprogress = (e) => {
+      if (!onProgress) return;
+      if (e.lengthComputable && e.total > 0) {
+        onProgress(Math.min(100, Math.round((100 * e.loaded) / e.total)));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (onProgress) onProgress(100);
+        resolve();
+      } else {
+        reject(new Error(`Upload vidéo refusé (${xhr.status}): ${xhr.responseText?.slice(0, 200) || ''}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Échec réseau pendant l’upload vidéo'));
+    xhr.onabort = () => reject(new Error('Upload annulé'));
+
+    const formData = new FormData();
+    formData.append('file', file);
+    xhr.send(formData);
+  });
+}
+
+export type UploadVideoOptions = {
+  onUploadProgress?: (percent: number) => void;
+};
+
 /**
  * Upload a video to Cloudflare Stream
  * Note: This should be done through a backend proxy/worker for security
@@ -58,17 +98,59 @@ export const streamService = {
    * Upload video through backend proxy
    * This should call your Supabase Edge Function or Cloudflare Worker
    */
-  async uploadVideo(file: File, metadata?: { title?: string; description?: string }) {
-    // Step 1: Ask backend for a direct upload URL (no video payload through Edge Function)
-    const { data: directData, error: createError } = await supabase.functions.invoke('upload-video', {
-      body: {
+  async uploadVideo(
+    file: File,
+    metadata?: { title?: string; description?: string },
+    options?: UploadVideoOptions
+  ) {
+    if (file.size > REEL_UPLOAD_MAX_BYTES) {
+      const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
+      throw new Error(`Vidéo trop volumineuse (max ${maxMb} Mo). Réduis la taille ou la durée.`);
+    }
+
+    // Step 1: Mint a Cloudflare direct-upload URL via Edge Function.
+    // Use raw fetch + JSON (never FormData here) so the request stays tiny — avoids 413 at the gateway.
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
+    }
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      throw new Error('You must be signed in to upload a reel');
+    }
+
+    const ticketUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/upload-video`;
+    const ticketRes = await fetch(ticketUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseAnonKey,
+      },
+      body: JSON.stringify({
         action: 'create-direct-upload',
         title: metadata?.title || '',
         description: metadata?.description || '',
-      },
+      }),
     });
 
-    if (createError) throw createError;
+    const ticketJson = await ticketRes.json().catch(() => ({}));
+    if (!ticketRes.ok) {
+      const msg =
+        typeof ticketJson?.error === 'string'
+          ? ticketJson.error
+          : `upload-video failed (${ticketRes.status})`;
+      const hint = typeof ticketJson?.hint === 'string' ? ` — ${ticketJson.hint}` : '';
+      throw new Error(`${msg}${hint}`);
+    }
+
+    const directData = ticketJson as {
+      directUpload?: { uploadURL?: string; uid?: string };
+    };
 
     const uploadURL = directData?.directUpload?.uploadURL;
     const uid = directData?.directUpload?.uid;
@@ -76,18 +158,9 @@ export const streamService = {
       throw new Error('Direct upload URL generation failed');
     }
 
-    // Step 2: Upload video directly to Cloudflare Stream
-    const formData = new FormData();
-    formData.append('file', file);
-    const uploadResponse = await fetch(uploadURL, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!uploadResponse.ok) {
-      const details = await uploadResponse.text().catch(() => '');
-      throw new Error(`Direct upload failed (${uploadResponse.status}): ${details}`);
-    }
+    // Step 2: Upload video directly to Cloudflare Stream (XHR = progress events; fetch often lacks them)
+    options?.onUploadProgress?.(0);
+    await postFormDataWithProgress(uploadURL, file, options?.onUploadProgress);
 
     return {
       success: true,

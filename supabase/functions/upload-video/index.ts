@@ -73,56 +73,79 @@ serve(async (req) => {
     // New flow (pro): create direct upload URL so file is uploaded directly to Cloudflare.
     // This avoids Edge Function body size limits (413).
     const contentType = req.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      const body = (await req.json().catch(() => ({}))) as DirectUploadRequest;
-      const action = body.action;
+    if (contentType.includes("multipart/form-data")) {
+      return new Response(
+        JSON.stringify({
+          error: "Video must not be uploaded to this endpoint",
+          hint: "Deploy the latest frontend: it requests a direct upload URL (JSON), then uploads the file to Cloudflare.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-      if (action === "create-direct-upload") {
-        const title = body.title || "";
-        const description = body.description || "";
-
-        const response = await fetch(`${STREAM_API_URL}/direct_upload`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${CLOUDFLARE_STREAM_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            maxDurationSeconds: 300,
-            meta: {
-              name: title,
-              description,
-              uploadedBy: user.id,
-            },
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.text();
-          return new Response(
-            JSON.stringify({ error: "Failed to create direct upload URL", details: error }),
-            { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        const directUploadData = await response.json();
+    const maxJsonBytes = 65_536;
+    const contentLengthRaw = req.headers.get("content-length");
+    if (contentLengthRaw) {
+      const n = Number.parseInt(contentLengthRaw, 10);
+      if (Number.isFinite(n) && n > maxJsonBytes) {
         return new Response(
           JSON.stringify({
-            success: true,
-            directUpload: {
-              uploadURL: directUploadData?.result?.uploadURL,
-              uid: directUploadData?.result?.uid,
-            },
+            error: "Request body too large",
+            hint: "This function only accepts a small JSON body (action=create-direct-upload). The video uploads directly to Cloudflare.",
           }),
-          {
-            status: 200,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-            },
-          }
+          { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+
+    const body = (await req.json().catch(() => ({}))) as DirectUploadRequest;
+    const action = body.action;
+
+    if (action === "create-direct-upload") {
+      const title = body.title || "";
+      const description = body.description || "";
+
+      const response = await fetch(`${STREAM_API_URL}/direct_upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${CLOUDFLARE_STREAM_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          maxDurationSeconds: 300,
+          meta: {
+            name: title,
+            description,
+            uploadedBy: user.id,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        return new Response(
+          JSON.stringify({ error: "Failed to create direct upload URL", details: error }),
+          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const directUploadData = await response.json();
+      return new Response(
+        JSON.stringify({
+          success: true,
+          directUpload: {
+            uploadURL: directUploadData?.result?.uploadURL,
+            uid: directUploadData?.result?.uid,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     return new Response(

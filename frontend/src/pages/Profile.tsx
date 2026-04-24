@@ -15,7 +15,7 @@ import { listingService } from "@/services/listingService";
 import { reviewService } from "@/services/reviewService";
 import { reelService } from "@/services/reelService";
 import { portfolioService } from "@/services/portfolioService";
-import { streamService } from "@/services/streamService";
+import { REEL_UPLOAD_MAX_BYTES, streamService } from "@/services/streamService";
 import { moderationService } from "@/services/moderationService";
 import { followService } from "@/services/followService";
 import { storageService } from "@/services/storageService";
@@ -89,6 +89,7 @@ const Profile = () => {
   const [reelTitle, setReelTitle] = useState("");
   const [reelDescription, setReelDescription] = useState("");
   const [uploadingReel, setUploadingReel] = useState(false);
+  const [reelUploadProgress, setReelUploadProgress] = useState(0);
   const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -320,14 +321,19 @@ const Profile = () => {
   const handleCreateReel = async () => {
     if (!user || !isOwnProfile || !reelVideoFile) return;
     setUploadingReel(true);
+    setReelUploadProgress(0);
     try {
-      const uploadResult = await streamService.uploadVideo(reelVideoFile, {
-        title: reelTitle,
-        description: reelDescription,
-      });
-      const videoId = uploadResult?.result?.uid || uploadResult?.uid || uploadResult?.video?.id;
+      const uploadResult = await streamService.uploadVideo(
+        reelVideoFile,
+        {
+          title: reelTitle,
+          description: reelDescription,
+        },
+        { onUploadProgress: setReelUploadProgress }
+      );
+      const videoId = uploadResult?.video?.id;
       if (!videoId) {
-        throw new Error("Video upload failed");
+        throw new Error("Réponse upload invalide (pas d’identifiant vidéo).");
       }
       await reelService.createReel(user.id, {
         cloudflare_video_id: videoId,
@@ -342,9 +348,11 @@ const Profile = () => {
       toast({ title: "Reel publie", description: "Votre reel a ete ajoute." });
     } catch (error) {
       console.error("Error creating reel:", error);
-      toast({ title: "Erreur", description: "Impossible d'ajouter ce reel." });
+      const msg = error instanceof Error ? error.message : "Impossible d'ajouter ce reel.";
+      toast({ title: "Erreur", description: msg });
     } finally {
       setUploadingReel(false);
+      setReelUploadProgress(0);
     }
   };
 
@@ -619,11 +627,33 @@ const Profile = () => {
                   <Input
                     type="file"
                     accept="video/*"
-                    onChange={(e) => setReelVideoFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
+                        const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
+                        toast({
+                          title: "Fichier trop grand",
+                          description: `Maximum ${maxMb} Mo pour un reel.`,
+                        });
+                        e.target.value = "";
+                        setReelVideoFile(null);
+                        return;
+                      }
+                      setReelVideoFile(f);
+                    }}
                   />
+                  {uploadingReel && reelUploadProgress > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Envoi vers Cloudflare : {reelUploadProgress}%
+                    </p>
+                  )}
                   <div className="flex justify-end">
                     <Button onClick={handleCreateReel} disabled={!reelVideoFile || uploadingReel}>
-                      {uploadingReel ? "Upload..." : "Publier reel"}
+                      {uploadingReel
+                        ? reelUploadProgress > 0
+                          ? `Upload ${reelUploadProgress}%`
+                          : "Préparation…"
+                        : "Publier reel"}
                     </Button>
                   </div>
                 </div>
