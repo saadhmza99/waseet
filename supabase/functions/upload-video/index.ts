@@ -19,6 +19,10 @@ type DirectUploadRequest = {
   description?: string;
 };
 
+/** Cloudflare Stream rejects oversized `meta`; keep payloads small. */
+const MAX_TITLE_LEN = 512;
+const MAX_DESCRIPTION_LEN = 2000;
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
@@ -102,8 +106,8 @@ serve(async (req) => {
     const action = body.action;
 
     if (action === "create-direct-upload") {
-      const title = body.title || "";
-      const description = body.description || "";
+      const title = String(body.title || "").slice(0, MAX_TITLE_LEN);
+      const description = String(body.description || "").slice(0, MAX_DESCRIPTION_LEN);
 
       const response = await fetch(`${STREAM_API_URL}/direct_upload`, {
         method: "POST",
@@ -122,10 +126,15 @@ serve(async (req) => {
       });
 
       if (!response.ok) {
-        const error = await response.text();
+        const details = await response.text();
+        // Do not mirror upstream status (e.g. 413): browsers confuse it with "your POST body was huge".
         return new Response(
-          JSON.stringify({ error: "Failed to create direct upload URL", details: error }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            error: "Failed to create direct upload URL",
+            details: details.slice(0, 4000),
+            upstreamStatus: response.status,
+          }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 

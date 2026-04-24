@@ -7,6 +7,9 @@ const STREAM_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLA
 /** Hard cap before we even ask for a direct-upload ticket (cost + UX). */
 export const REEL_UPLOAD_MAX_BYTES = 250 * 1024 * 1024;
 
+const MAX_REEL_TITLE_CHARS = 512;
+const MAX_REEL_DESCRIPTION_CHARS = 2000;
+
 function postFormDataWithProgress(
   uploadURL: string,
   file: File,
@@ -133,19 +136,32 @@ export const streamService = {
       },
       body: JSON.stringify({
         action: 'create-direct-upload',
-        title: metadata?.title || '',
-        description: metadata?.description || '',
+        title: (metadata?.title || '').slice(0, MAX_REEL_TITLE_CHARS),
+        description: (metadata?.description || '').slice(0, MAX_REEL_DESCRIPTION_CHARS),
       }),
     });
 
-    const ticketJson = await ticketRes.json().catch(() => ({}));
+    const ticketJson = (await ticketRes.json().catch(() => ({}))) as {
+      error?: string;
+      hint?: string;
+      details?: string;
+      upstreamStatus?: number;
+    };
     if (!ticketRes.ok) {
       const msg =
         typeof ticketJson?.error === 'string'
           ? ticketJson.error
           : `upload-video failed (${ticketRes.status})`;
       const hint = typeof ticketJson?.hint === 'string' ? ` — ${ticketJson.hint}` : '';
-      throw new Error(`${msg}${hint}`);
+      const details =
+        typeof ticketJson?.details === 'string' && ticketJson.details.trim()
+          ? ` (${ticketJson.details.trim().slice(0, 400)})`
+          : '';
+      const upstream =
+        typeof ticketJson?.upstreamStatus === 'number'
+          ? ` [Cloudflare HTTP ${ticketJson.upstreamStatus}]`
+          : '';
+      throw new Error(`${msg}${hint}${details}${upstream}`);
     }
 
     const directData = ticketJson as {
