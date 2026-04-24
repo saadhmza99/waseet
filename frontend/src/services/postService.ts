@@ -10,6 +10,8 @@ export interface PostData {
   is_sponsored?: boolean;
 }
 
+export type PostCommentPermission = 'anyone' | 'follow_back' | 'off';
+
 export const postService = {
   // Create a new post
   async createPost(userId: string, data: PostData) {
@@ -167,6 +169,55 @@ export const postService = {
       .eq('user_id', userId);
 
     if (error) throw error;
+  },
+
+  // Update a post (owner only)
+  async updatePost(postId: string, userId: string, updates: Partial<PostData>) {
+    const { data, error } = await supabase
+      .from('posts')
+      .update(updates)
+      .eq('id', postId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Set who can comment on a post
+  async setCommentPermission(
+    postId: string,
+    userId: string,
+    permission: PostCommentPermission
+  ) {
+    const { data, error } = await supabase
+      .from('post_comment_settings')
+      .upsert(
+        {
+          post_id: postId,
+          user_id: userId,
+          permission,
+        },
+        { onConflict: 'post_id' }
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Get who can comment setting for a post
+  async getCommentPermission(postId: string): Promise<PostCommentPermission> {
+    const { data, error } = await supabase
+      .from('post_comment_settings')
+      .select('permission')
+      .eq('post_id', postId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data?.permission as PostCommentPermission) || 'anyone';
   },
 
   // Note: Use followService.getPostsFromFollowing instead

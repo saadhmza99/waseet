@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Wrench, User, LogIn, LogOut, Settings, UserPlus, Home, MapPin, Video, Bookmark } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -9,7 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import avatarTony from "@/assets/avatar-tony.jpg";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
+import { moderationService } from "@/services/moderationService";
 
 const tabs = [
   { label: "Fil d'actualité", icon: Home, path: "/" },
@@ -21,11 +23,24 @@ const tabs = [
 const AppHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // In production, this would come from auth context
+  const { user, signOut } = useAuth();
+  const { profile } = useProfile();
+  const isLoggedIn = Boolean(user);
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || "/default-avatar.png";
+  const accountLabel = profile?.username || user?.email || "Mon compte";
+  const [isModerator, setIsModerator] = useState(false);
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    // In production, clear auth tokens, etc.
+  useEffect(() => {
+    if (!user) {
+      setIsModerator(false);
+      return;
+    }
+    moderationService.isModerator(user.id).then(setIsModerator).catch(() => setIsModerator(false));
+  }, [user?.id]);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
   };
 
   const handleLogin = () => {
@@ -51,23 +66,29 @@ const AppHeader = () => {
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                     <img
-                      src={avatarTony}
+                      src={avatarUrl}
                       alt="Profile"
                       className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full border-2 border-nav-foreground/30 object-cover"
                     />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
+                  <DropdownMenuLabel>{accountLabel}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>Profil</span>
+                    <span>Voir mon profil</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Paramètres</span>
                   </DropdownMenuItem>
+                  {isModerator && (
+                    <DropdownMenuItem onClick={() => navigate("/admin/moderation")}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Modération</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
@@ -135,23 +156,29 @@ const AppHeader = () => {
                         <DropdownMenuTrigger asChild>
                           <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                             <img
-                              src={avatarTony}
+                              src={avatarUrl}
                               alt="Profile"
                               className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full border-2 border-nav-foreground/30 object-cover"
                             />
                           </button>
                         </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel>{accountLabel}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate("/profile")}>
               <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
+              <span>View my profile</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/settings")}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
             </DropdownMenuItem>
+            {isModerator && (
+              <DropdownMenuItem onClick={() => navigate("/admin/moderation")}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Moderation</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />

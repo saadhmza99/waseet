@@ -1,17 +1,8 @@
-import { TrendingUp, Users, Briefcase, Sparkles } from "lucide-react";
+import { TrendingUp, Users, Briefcase } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import avatarMike from "@/assets/avatar-mike.jpg";
-import avatarAnna from "@/assets/avatar-anna.jpg";
-import avatarMark from "@/assets/avatar-mark.jpg";
 
 const Sidebar = () => {
   const navigate = useNavigate();
-
-  const trendingProfessionals = [
-    { id: 1, name: "Mike_Contractor", avatar: avatarMike, profession: "General Contractor", rating: 4.8 },
-    { id: 2, name: "Anna_Designs", avatar: avatarAnna, profession: "Interior Designer", rating: 4.9 },
-    { id: 3, name: "Mark_Johnson", avatar: avatarMark, profession: "Electrician", rating: 4.7 },
-  ];
 
   const quickStats = [
     { label: "Active Jobs", value: "1,234", icon: Briefcase },
@@ -43,31 +34,11 @@ const Sidebar = () => {
       <div className="bg-card rounded-xl border border-border p-5">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-5 h-5 text-accent" />
-          <h3 className="text-lg font-bold text-card-foreground">Trending Professionals</h3>
+          <h3 className="text-lg font-bold text-card-foreground">Professionnels tendance</h3>
         </div>
-        <div className="space-y-3">
-          {trendingProfessionals.map((professional) => (
-            <button
-              key={professional.id}
-              onClick={() => navigate(`/profile/${professional.name}`)}
-              className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-secondary transition-colors text-left"
-            >
-              <img
-                src={professional.avatar}
-                alt={professional.name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-card-foreground truncate">{professional.name}</p>
-                <p className="text-xs text-muted-foreground">{professional.profession}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-xs font-semibold text-card-foreground">{professional.rating}</span>
-                  <Sparkles className="w-3 h-3 text-star fill-star" />
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Les profils tendance seront affichés automatiquement depuis les données réelles.
+        </p>
       </div>
 
       {/* Quick Actions */}

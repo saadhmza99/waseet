@@ -6,11 +6,27 @@ import { useAuth } from "@/contexts/AuthContext";
 import { postService } from "@/services/postService";
 import { savedService } from "@/services/savedService";
 import { commentService } from "@/services/commentService";
+import { moderationService } from "@/services/moderationService";
+import { followService } from "@/services/followService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/use-toast";
 
 interface FeedPostProps {
   postId?: string;
+  postUserId?: string;
   avatar: string;
   username: string;
   location: string;
@@ -29,6 +45,7 @@ interface FeedPostProps {
 
 const FeedPost = ({
   postId,
+  postUserId,
   avatar,
   username,
   location,
@@ -54,8 +71,18 @@ const FeedPost = ({
   const [isSaved, setIsSaved] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [showAllImages, setShowAllImages] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
+  const [commentPermission, setCommentPermission] = useState<"anyone" | "follow_back" | "off">("anyone");
+  const [displayTitle, setDisplayTitle] = useState(title);
+  const [displayDescription, setDisplayDescription] = useState(description || "");
   const commentsModalRef = useRef<HTMLDivElement>(null);
   const postPreviewRef = useRef<HTMLDivElement>(null);
+  const isOwnPost = Boolean(user && postUserId && user.id === postUserId);
+
+  useEffect(() => {
+    setDisplayTitle(title);
+    setDisplayDescription(description || "");
+  }, [title, description]);
 
   // Check if post is liked/saved on mount
   useEffect(() => {
@@ -65,6 +92,14 @@ const FeedPost = ({
       // TODO: Check liked status from post_likes table
     }
   }, [postId, user]);
+
+  useEffect(() => {
+    if (!postId || !isOwnPost) return;
+    postService
+      .getCommentPermission(postId)
+      .then((permission) => setCommentPermission(permission))
+      .catch(console.error);
+  }, [postId, isOwnPost]);
   
   // Combine all image sources into one array
   const allImages: string[] = [];
@@ -94,7 +129,10 @@ const FeedPost = ({
   }, [showComments, postId]);
 
   const handleLike = async () => {
-    if (!postId || !user) return;
+    if (!postId || !user) {
+      toast({ title: "Connexion requise", description: "Connectez-vous pour aimer ce post." });
+      return;
+    }
     
     try {
       if (liked) {
@@ -112,7 +150,10 @@ const FeedPost = ({
   };
 
   const handleShare = async () => {
-    if (!postId || !user) return;
+    if (!postId || !user) {
+      toast({ title: "Connexion requise", description: "Connectez-vous pour partager ce post." });
+      return;
+    }
     
     try {
       await postService.sharePost(postId, user.id);
@@ -132,7 +173,10 @@ const FeedPost = ({
   };
 
   const handleSave = async () => {
-    if (!postId || !user) return;
+    if (!postId || !user) {
+      toast({ title: "Connexion requise", description: "Connectez-vous pour enregistrer ce post." });
+      return;
+    }
     
     try {
       if (isSaved) {
@@ -149,6 +193,28 @@ const FeedPost = ({
 
   const handleAddComment = async (content: string) => {
     if (!postId || !user) return;
+
+    if (!isOwnPost && postUserId) {
+      try {
+        const permission = await postService.getCommentPermission(postId);
+        if (permission === "off") {
+          toast({ title: "Commentaires désactivés", description: "Les commentaires sont désactivés pour ce post." });
+          return;
+        }
+        if (permission === "follow_back") {
+          const canComment = await followService.isFollowing(postUserId, user.id);
+          if (!canComment) {
+            toast({
+              title: "Commentaire non autorisé",
+              description: "Seules les personnes suivies en retour peuvent commenter ce post.",
+            });
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error checking comment permission:", error);
+      }
+    }
     
     try {
       const newComment = await commentService.createPostComment(postId, user.id, content);
@@ -157,6 +223,95 @@ const FeedPost = ({
     } catch (error) {
       console.error("Error adding comment:", error);
     }
+  };
+
+  const handleDeletePost = async () => {
+    if (!postId || !user || !isOwnPost) return;
+    if (!window.confirm("Supprimer ce post définitivement ?")) return;
+    try {
+      await postService.deletePost(postId, user.id);
+      setIsHidden(true);
+    } catch (error) {
+      console.error("Error deleting post:", error);
+    }
+  };
+
+  const handleHidePost = () => {
+    setIsHidden(true);
+  };
+
+  const handleEditPost = () => {
+    if (!postId || !user || !isOwnPost) return;
+    const nextTitle = window.prompt("Modifier le titre du post", displayTitle);
+    if (nextTitle === null) return;
+    const nextDescription = window.prompt("Modifier la description", displayDescription);
+    if (nextDescription === null) return;
+    postService
+      .updatePost(postId, user.id, {
+        title: nextTitle.trim() || "Post",
+        description: nextDescription,
+      })
+      .then(() => {
+        setDisplayTitle(nextTitle.trim() || "Post");
+        setDisplayDescription(nextDescription);
+      })
+      .catch((error) => {
+        console.error("Error editing post:", error);
+        toast({ title: "Erreur", description: "Impossible de modifier ce post." });
+      });
+  };
+
+  const handleShareVia = () => {
+    if (navigator.share) {
+      navigator
+        .share({
+          title,
+          text: description || title,
+          url: window.location.href,
+        })
+        .catch(() => {});
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast({ title: "Lien copié", description: "Le lien du post a été copié." });
+    }
+  };
+
+  const handleReportPost = () => {
+    if (!postId || !user) return;
+    moderationService
+      .reportPost(postId, user.id)
+      .then(() => toast({ title: "Signalement envoyé", description: "Merci, le post a été signalé." }))
+      .catch((error) => {
+        console.error("Error reporting post:", error);
+        toast({ title: "Erreur", description: "Impossible de signaler ce post pour le moment." });
+      });
+  };
+
+  const handleBlockProfile = () => {
+    if (!user || !postUserId) return;
+    if (!window.confirm("Bloquer ce profil ? Vous ne verrez plus ses contenus.")) return;
+    moderationService
+      .blockUser(user.id, postUserId)
+      .then(() => {
+        toast({ title: "Profil bloqué", description: "Ce profil est maintenant bloqué." });
+        setIsHidden(true);
+      })
+      .catch((error) => {
+        console.error("Error blocking profile:", error);
+        toast({ title: "Erreur", description: "Impossible de bloquer ce profil pour le moment." });
+      });
+  };
+
+  const handleUnfollow = () => {
+    if (!user || !postUserId) return;
+    if (!window.confirm("Ne plus suivre ce profil ?")) return;
+    followService
+      .unfollowUser(user.id, postUserId)
+      .then(() => toast({ title: "Suivi retiré", description: "Vous ne suivez plus ce profil." }))
+      .catch((error) => {
+        console.error("Error unfollowing profile:", error);
+        toast({ title: "Erreur", description: "Impossible d'arrêter le suivi pour le moment." });
+      });
   };
 
   // Auto-scroll to show bottom 1/5 of post and comments when modal opens
@@ -175,6 +330,10 @@ const FeedPost = ({
       }, 100);
     }
   }, [showComments]);
+
+  if (isHidden) {
+    return null;
+  }
 
   return (
     <article className="bg-card border-b border-border mb-4 sm:mb-6">
@@ -198,17 +357,64 @@ const FeedPost = ({
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{location} · actif {timeAgo}</p>
           </div>
         </button>
-        <button className="text-muted-foreground hover:opacity-70 transition-opacity ml-2">
-          <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="text-muted-foreground hover:opacity-70 transition-opacity ml-2">
+              <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {isOwnPost ? (
+              <>
+                <DropdownMenuItem onClick={handleEditPost}>Modifier le post</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDeletePost} className="text-destructive">
+                  Supprimer le post
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareVia}>Partager via</DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Qui peut commenter</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={commentPermission}
+                      onValueChange={(value) => {
+                        const nextPermission = value as "anyone" | "follow_back" | "off";
+                        setCommentPermission(nextPermission);
+                        if (postId && user) {
+                          postService
+                            .setCommentPermission(postId, user.id, nextPermission)
+                            .catch((error) => {
+                              console.error("Error updating comment permission:", error);
+                              toast({ title: "Erreur", description: "Impossible de mettre à jour cette option." });
+                            });
+                        }
+                      }}
+                    >
+                      <DropdownMenuRadioItem value="anyone">Anyone</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="follow_back">People I follow back</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem onClick={handleHidePost}>Hide post</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleReportPost}>Report post</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleBlockProfile}>Block profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleUnfollow}>Unfollow</DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      <h3 className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground">{title}</h3>
+      <h3 className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground">{displayTitle}</h3>
 
-      {description && (
+      {displayDescription && (
         <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-3">
           <p className="text-sm sm:text-base text-card-foreground leading-relaxed whitespace-pre-line">
-            {description}
+            {displayDescription}
           </p>
         </div>
       )}

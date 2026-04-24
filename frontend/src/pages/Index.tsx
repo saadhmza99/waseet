@@ -5,6 +5,7 @@ import SponsoredBanner from "@/components/SponsoredBanner";
 import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import { followService } from "@/services/followService";
+import { moderationService } from "@/services/moderationService";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReactElement } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -31,14 +32,21 @@ const Index = () => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [postsData, listingsData, followingData] = await Promise.all([
+        const [postsData, listingsData, followingData, blockedUserIds] = await Promise.all([
           postService.getPosts(limit, offset),
           listingService.getListings(10, 0, true), // Get sponsored listings
           user ? followService.getPostsFromFollowing(user.id, 100) : Promise.resolve([]),
+          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
         ]);
-        setAllPosts(postsData || []);
-        setSponsoredListings(listingsData || []);
-        setFollowingPosts(followingData || []);
+
+        const blockedSet = new Set(blockedUserIds || []);
+        const filteredPosts = (postsData || []).filter((post) => !blockedSet.has(post.user_id));
+        const filteredFollowingPosts = (followingData || []).filter((post) => !blockedSet.has(post.user_id));
+        const filteredListings = (listingsData || []).filter((listing) => !blockedSet.has(listing.user_id));
+
+        setAllPosts(filteredPosts);
+        setSponsoredListings(filteredListings);
+        setFollowingPosts(filteredFollowingPosts);
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {
@@ -87,12 +95,14 @@ const Index = () => {
         images: postData.images || [],
       });
         // Reload posts
-        const [postsData, followingData] = await Promise.all([
+        const [postsData, followingData, blockedUserIds] = await Promise.all([
           postService.getPosts(limit, 0),
           user ? followService.getPostsFromFollowing(user.id, 100) : Promise.resolve([]),
+          moderationService.getBlockedUserIds(user.id),
         ]);
-        setAllPosts(postsData || []);
-        setFollowingPosts(followingData || []);
+        const blockedSet = new Set(blockedUserIds || []);
+        setAllPosts((postsData || []).filter((post) => !blockedSet.has(post.user_id)));
+        setFollowingPosts((followingData || []).filter((post) => !blockedSet.has(post.user_id)));
         // Reset tracking when new posts are loaded
         shownFollowingPostsRef.current.clear();
         userPostIndicesRef.current.clear();
@@ -211,6 +221,7 @@ const Index = () => {
           <FeedPost
             key={`general-${post.id}`}
             postId={post.id}
+            postUserId={post.user_id}
             avatar={profile.avatar_url || ""}
             username={profile.username || ""}
             location={profile.location || ""}
@@ -280,6 +291,7 @@ const Index = () => {
             <FeedPost
               key={`following-${followingPost.id}`}
               postId={followingPost.id}
+              postUserId={followingPost.user_id}
               avatar={profile.avatar_url || ""}
               username={profile.username || ""}
               location={profile.location || ""}

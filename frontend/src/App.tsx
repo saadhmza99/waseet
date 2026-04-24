@@ -18,6 +18,8 @@ import Settings from "./pages/Settings";
 import CreateProfile from "./pages/CreateProfile";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
+import RequireAuth from "@/components/RequireAuth";
+import AdminModeration from "./pages/AdminModeration";
 
 const queryClient = new QueryClient();
 
@@ -37,11 +39,12 @@ const App = () => (
             <Route path="/job/:title" element={<JobDetail />} />
             <Route path="/explore" element={<Explore />} />
               <Route path="/reels" element={<Reels />} />
-              <Route path="/saved" element={<Saved />} />
+              <Route path="/saved" element={<RequireAuth><Saved /></RequireAuth>} />
             <Route path="/profile/:id" element={<Profile />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
               <Route path="/login" element={<Login />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+              <Route path="/admin/moderation" element={<RequireAuth><AdminModeration /></RequireAuth>} />
               <Route path="/create-profile" element={<CreateProfile />} />
               <Route path="/contact" element={<Contact />} />
             <Route path="*" element={<NotFound />} />

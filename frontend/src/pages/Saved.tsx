@@ -3,6 +3,7 @@ import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
 import { useAuth } from "@/contexts/AuthContext";
 import { savedService } from "@/services/savedService";
+import { moderationService } from "@/services/moderationService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -25,14 +26,16 @@ const Saved = () => {
 
       try {
         setLoading(true);
-        const [posts, listings, reels] = await Promise.all([
+        const [posts, listings, reels, blockedIds] = await Promise.all([
           savedService.getSavedPosts(user.id),
           savedService.getSavedListings(user.id),
           savedService.getSavedReels(user.id),
+          moderationService.getBlockedUserIds(user.id),
         ]);
-        setSavedPosts(posts || []);
-        setSavedListings(listings || []);
-        setSavedReels(reels || []);
+        const blockedSet = new Set(blockedIds || []);
+        setSavedPosts((posts || []).filter((item) => !blockedSet.has(item.posts?.user_id)));
+        setSavedListings((listings || []).filter((item) => !blockedSet.has(item.listings?.user_id)));
+        setSavedReels((reels || []).filter((item) => !blockedSet.has(item.reels?.user_id)));
       } catch (error) {
         console.error("Error loading saved items:", error);
       } finally {
@@ -94,6 +97,7 @@ const Saved = () => {
                           <FeedPost
                             key={post.id}
                             postId={post.id}
+                            postUserId={post.user_id}
                             avatar={profile.avatar_url || ""}
                             username={profile.username || ""}
                             location={profile.location || ""}

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Image, Smile, MapPin, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProfile } from "@/hooks/useProfile";
 import { storageService } from "@/services/storageService";
+import { useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/use-toast";
 
 interface CreatePostProps {
   onPostCreated?: (post: { text: string; images: string[]; beforeImage?: string; afterImage?: string }) => void;
@@ -11,6 +12,7 @@ interface CreatePostProps {
 
 const CreatePost = ({ onPostCreated }: CreatePostProps) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [postText, setPostText] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -125,7 +127,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       setIsOpen(false);
     } catch (error) {
       console.error("Error creating post:", error);
-      alert("Erreur lors de la création du post. Veuillez réessayer.");
+      toast({ title: "Erreur", description: "Erreur lors de la création du post. Veuillez réessayer." });
     } finally {
       setIsSubmitting(false);
     }
@@ -136,6 +138,10 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       <div className="my-4 sm:my-6 flex justify-center">
         <button
           onClick={() => {
+            if (!user) {
+              navigate("/login");
+              return;
+            }
             setIsOpen(true);
             setIsExpanded(true);
           }}
@@ -144,7 +150,9 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-accent/10 flex items-center justify-center">
             <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
           </div>
-          <span className="text-sm sm:text-base text-card-foreground font-medium">Créer un poste</span>
+          <span className="text-sm sm:text-base text-card-foreground font-medium">
+            {user ? "Créer un poste" : "Se connecter pour publier"}
+          </span>
         </button>
       </div>
     );

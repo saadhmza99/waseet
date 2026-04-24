@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { X, ThumbsUp, MessageCircle, Share2 } from "lucide-react";
 import CommentSection from "./CommentSection";
-import avatarSarah from "@/assets/avatar-sarah.jpg";
-import avatarMark from "@/assets/avatar-mark.jpg";
-import avatarTony from "@/assets/avatar-tony.jpg";
 
 interface PortfolioModalProps {
   image: string;
@@ -16,15 +13,9 @@ interface PortfolioModalProps {
 
 const PortfolioModal = ({ image, label, username, avatar, isOpen, onClose }: PortfolioModalProps) => {
   const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 50) + 10); // Random likes between 10-60
+  const [likeCount, setLikeCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
-  const [commentCount] = useState(Math.floor(Math.random() * 20) + 5); // Random comments between 5-25
-
-  const sampleComments = [
-    { id: 1, avatar: avatarSarah, username: "Sarah_Homeowner", text: "Amazing work! How long did this take?", timeAgo: "1h ago" },
-    { id: 2, avatar: avatarMark, username: "Mark_Johnson", text: "Really impressive craftsmanship 👏", timeAgo: "45m ago" },
-    { id: 3, avatar: avatarSarah, username: "Sarah_Homeowner", text: "Would love to see more photos of this project!", timeAgo: "30m ago" },
-  ];
+  const [commentCount] = useState(0);
 
   const handleLike = () => {
     setLiked(!liked);
@@ -115,7 +106,7 @@ const PortfolioModal = ({ image, label, username, avatar, isOpen, onClose }: Por
           {/* Comments Section */}
           {showComments && (
             <div className="max-h-64 overflow-y-auto">
-              <CommentSection comments={sampleComments} />
+              <CommentSection comments={[]} />
             </div>
           )}
         </div>

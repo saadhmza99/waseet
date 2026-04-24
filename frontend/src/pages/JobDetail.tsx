@@ -3,8 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Clock, Phone, Shield, AlertTriangle, Share2, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
-import avatarSarah from "@/assets/avatar-sarah.jpg";
-import bathroomRemodel from "@/assets/bathroom-remodel.jpg";
 
 const JobDetail = () => {
   const location = useLocation();
@@ -17,18 +15,18 @@ const JobDetail = () => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
   
-  const job = location.state || {
-    avatar: avatarSarah,
-    username: "abdrlkrim",
-    location: "Sidi Ghanem, Marrakech",
-    timeAgo: "il ya 8 heures",
-    title: "Plombier Marrakech",
-    image: bathroomRemodel,
-    profession: "Plombier",
-    jobLocation: "Sidi Ghanem, Marrakech",
-    priceRange: "150 DH",
-    category: "Rénovation, Bricolage, Travaux de maison et jardin",
-  };
+  const job = location.state;
+
+  if (!job) {
+    return (
+      <div className="pb-20 bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Annonce introuvable.</p>
+          <Button onClick={() => navigate("/explore")}>Retour à Explorer</Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleWhatsApp = () => {
     window.open(`https://wa.me/212612345678`, '_blank');
@@ -53,7 +51,7 @@ const JobDetail = () => {
       {/* Hero Image with Overlay Buttons */}
       <div className="relative w-full h-[50vh] sm:h-[60vh] overflow-hidden">
         <img 
-          src={job.image || bathroomRemodel} 
+          src={job.image || ""} 
           alt={job.title} 
           className="w-full h-full object-cover"
         />

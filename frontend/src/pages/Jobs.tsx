@@ -1,51 +1,27 @@
+import { useEffect, useState } from "react";
 import JobCard from "@/components/JobCard";
-import avatarSarah from "@/assets/avatar-sarah.jpg";
-import avatarMark from "@/assets/avatar-mark.jpg";
-import avatarLaura from "@/assets/avatar-laura.jpg";
-import deckRenovation from "@/assets/deck-renovation.jpg";
-import roofRepair from "@/assets/roof-repair.jpg";
-import faucetInstall from "@/assets/faucet-install.jpg";
+import { listingService } from "@/services/listingService";
 
 const Jobs = () => {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const jobs = [
-    {
-      avatar: avatarSarah,
-      username: "Sarah_Homeowner",
-      location: "Dubai Marina",
-      timeAgo: "1h ago",
-      title: "Deck Renovation Needed",
-      image: deckRenovation,
-      budgetRange: "1-2 professionals",
-      profession: "Carpenter",
-      jobLocation: "Dubai Marina, Dubai",
-      priceRange: "$500 - $1,000",
-    },
-    {
-      avatar: avatarMark,
-      username: "Mark_Johnson",
-      location: "Downtown Dubai",
-      timeAgo: "3h ago",
-      title: "Roof Repair Service",
-      image: roofRepair,
-      budgetRange: "1 professional",
-      profession: "Roofer",
-      jobLocation: "Downtown Dubai, Dubai",
-      priceRange: "$300 - $600",
-    },
-    {
-      avatar: avatarLaura,
-      username: "Laura_Design",
-      location: "Jumeirah",
-      timeAgo: "5h ago",
-      title: "Faucet Installation",
-      image: faucetInstall,
-      budgetRange: "1 professional",
-      profession: "Plumber",
-      jobLocation: "Jumeirah, Dubai",
-      priceRange: "$100 - $250",
-    },
-  ];
+  useEffect(() => {
+    const loadJobs = async () => {
+      try {
+        setLoading(true);
+        const data = await listingService.getListings(50, 0);
+        setJobs(data || []);
+      } catch (error) {
+        console.error("Error loading jobs:", error);
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadJobs();
+  }, []);
 
   return (
     <div className="pb-20">
@@ -53,9 +29,27 @@ const Jobs = () => {
         <div className="flex items-center justify-between py-4 sm:py-6 border-b border-border mb-4">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-card-foreground">Emplois disponibles</h1>
         </div>
-        {jobs.map((job, index) => (
-          <JobCard key={index} {...job} />
-        ))}
+        {loading ? (
+          <div className="text-center py-8 text-muted-foreground">Chargement...</div>
+        ) : jobs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">Aucun emploi disponible.</div>
+        ) : (
+          jobs.map((job) => (
+            <JobCard
+              key={job.id}
+              avatar={job.profiles?.avatar_url || "/default-avatar.png"}
+              username={job.profiles?.username || "Utilisateur"}
+              location={job.location || ""}
+              timeAgo="récemment"
+              title={job.title || "Annonce"}
+              image={job.image_url || ""}
+              budgetRange="1 professionnel"
+              profession={job.profession || "Service"}
+              jobLocation={job.location || ""}
+              priceRange={job.price_range || "Prix sur demande"}
+            />
+          ))
+        )}
       </div>
     </div>
   );
