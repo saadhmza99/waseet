@@ -40,14 +40,17 @@ export const CloudflareVideoPlayer = ({
   return (
     <iframe
       ref={iframeRef}
+      title="Reel vidéo"
       src={`${embedUrl}?${params.toString()}`}
       className={className}
-      allow="autoplay; encrypted-media; picture-in-picture"
+      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
       allowFullScreen
+      loading="lazy"
       style={{
         width: '100%',
         height: '100%',
         border: 'none',
+        maxHeight: '100%',
       }}
     />
   );

@@ -132,23 +132,34 @@ export const streamService = {
 
   /**
    * Get video embed URL for playback
+   * Uses videodelivery.net (works with the Stream video UID only). The old
+   * customer-${ACCOUNT_ID} host often does not match the Stream customer subdomain.
    */
   getVideoEmbedUrl(videoId: string): string {
-    return `https://customer-${CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${videoId}/iframe`;
+    const id = String(videoId || '').trim();
+    return `https://iframe.videodelivery.net/${id}`;
   },
 
   /**
    * Get video playback URL (HLS)
    */
   getVideoPlaybackUrl(videoId: string): string {
-    return `https://customer-${CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${videoId}/manifest/video.m3u8`;
+    const id = String(videoId || '').trim();
+    if (CLOUDFLARE_ACCOUNT_ID) {
+      return `https://customer-${CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${id}/manifest/video.m3u8`;
+    }
+    return `https://videodelivery.net/${id}/manifest/video.m3u8`;
   },
 
   /**
    * Get video thumbnail URL
    */
   getVideoThumbnailUrl(videoId: string, timeInSeconds: number = 1): string {
-    return `https://customer-${CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${videoId}/thumbnails/thumbnail.jpg?time=${timeInSeconds}s`;
+    const id = String(videoId || '').trim();
+    if (CLOUDFLARE_ACCOUNT_ID) {
+      return `https://customer-${CLOUDFLARE_ACCOUNT_ID}.cloudflarestream.com/${id}/thumbnails/thumbnail.jpg?time=${timeInSeconds}s`;
+    }
+    return `https://videodelivery.net/${id}/thumbnails/thumbnail.jpg?time=${timeInSeconds}s`;
   },
 
   /**

@@ -17,6 +17,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
 
 const Reels = () => {
@@ -32,6 +37,7 @@ const Reels = () => {
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [publishFormOpen, setPublishFormOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Load reels from Supabase
@@ -75,6 +81,14 @@ const Reels = () => {
 
     loadReels();
   }, [user]);
+
+  useEffect(() => {
+    const n = reels.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim())).length;
+    setCurrentReelIndex((i) => {
+      if (n === 0) return 0;
+      return i >= n ? 0 : i;
+    });
+  }, [reels]);
 
   const handleLike = async (reelId: string) => {
     if (!user) return;
@@ -175,7 +189,7 @@ const Reels = () => {
     }
   };
 
-  const playableReels = reels.filter((reel) => Boolean(reel.cloudflare_video_id));
+  const playableReels = reels.filter((reel) => Boolean(String(reel.cloudflare_video_id || "").trim()));
 
   const handleUploadReel = async () => {
     if (!user || !videoFile) return;
@@ -200,6 +214,7 @@ const Reels = () => {
       setVideoFile(null);
       setTitle("");
       setDescription("");
+      setPublishFormOpen(false);
       toast({ title: "Reel ajoute", description: "Votre reel est maintenant publie." });
     } catch (error) {
       console.error("Error uploading reel:", error);
@@ -211,53 +226,51 @@ const Reels = () => {
     }
   };
 
-  const reelUploadForm = user ? (
-    <div className="w-[320px] max-w-[90vw] rounded-lg border border-border bg-card/95 text-card-foreground backdrop-blur-md p-3 space-y-2 shadow-sm">
-      <p className="text-sm font-semibold">Ajouter un reel</p>
-      <p className="text-xs text-muted-foreground leading-snug">
-        Actuellement, chaque utilisateur ne peut publier que {REEL_MAX_PER_USER_PER_MONTH} reels d’au plus{" "}
-        {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
-      </p>
-      <Input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Titre"
-      />
-      <Textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description"
-        rows={2}
-      />
-      <Input
-        type="file"
-        accept="video/*"
-        onChange={(e) => {
-          const f = e.target.files?.[0] || null;
-          if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
-            const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
-            toast({
-              title: "Fichier trop grand",
-              description: `Maximum ${maxMb} Mo pour un reel.`,
-            });
-            e.target.value = "";
-            setVideoFile(null);
-            return;
-          }
-          setVideoFile(f);
-        }}
-      />
-      {uploading && uploadProgress > 0 && (
-        <p className="text-xs text-muted-foreground">Envoi vers Cloudflare : {uploadProgress}%</p>
-      )}
-      <Button
-        onClick={handleUploadReel}
-        disabled={!videoFile || uploading}
-        className="w-full"
-      >
-        {uploading ? (uploadProgress > 0 ? `Upload ${uploadProgress}%` : "Préparation…") : "Publier reel"}
-      </Button>
-    </div>
+  const reelPublishCollapsible = user ? (
+    <Collapsible open={publishFormOpen} onOpenChange={setPublishFormOpen}>
+      <CollapsibleTrigger asChild>
+        <Button type="button" variant="secondary" size="sm" className="shadow-md">
+          Publier un reel
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2 w-[min(100vw-2rem,360px)] rounded-lg border border-border bg-card p-3 text-card-foreground shadow-lg space-y-2">
+        <p className="text-xs text-muted-foreground leading-snug">
+          Actuellement, chaque utilisateur ne peut publier que {REEL_MAX_PER_USER_PER_MONTH} reels d’au plus{" "}
+          {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
+        </p>
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre" />
+        <Textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Description"
+          rows={2}
+        />
+        <Input
+          type="file"
+          accept="video/*"
+          onChange={(e) => {
+            const f = e.target.files?.[0] || null;
+            if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
+              const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
+              toast({
+                title: "Fichier trop grand",
+                description: `Maximum ${maxMb} Mo pour un reel.`,
+              });
+              e.target.value = "";
+              setVideoFile(null);
+              return;
+            }
+            setVideoFile(f);
+          }}
+        />
+        {uploading && uploadProgress > 0 && (
+          <p className="text-xs text-muted-foreground">Envoi vers Cloudflare : {uploadProgress}%</p>
+        )}
+        <Button onClick={handleUploadReel} disabled={!videoFile || uploading} className="w-full">
+          {uploading ? (uploadProgress > 0 ? `Envoi ${uploadProgress}%` : "Préparation…") : "Envoyer le reel"}
+        </Button>
+      </CollapsibleContent>
+    </Collapsible>
   ) : null;
 
   if (loading) {
@@ -268,33 +281,38 @@ const Reels = () => {
     );
   }
 
-  if (playableReels.length === 0) {
-    return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center gap-6 p-6">
-        <p className="text-muted-foreground text-center">Aucun reel disponible</p>
-        {reelUploadForm}
-      </div>
-    );
-  }
-
-  const safeCurrentIndex = Math.min(currentReelIndex, playableReels.length - 1);
-  const currentReel = playableReels[safeCurrentIndex];
-  const profile = currentReel?.profiles || {};
-  const isLiked = currentReel ? likedReels.has(currentReel.id) : false;
-  const isSaved = currentReel ? savedReels.has(currentReel.id) : false;
-  const likeCount = currentReel?.likes_count || 0;
+  const hasPlayable = playableReels.length > 0;
+  const safeCurrentIndex = hasPlayable ? Math.min(currentReelIndex, playableReels.length - 1) : 0;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-background overflow-hidden"
-      onWheel={handleScroll}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
+      onWheel={hasPlayable ? handleScroll : undefined}
+      onTouchStart={hasPlayable ? onTouchStart : undefined}
+      onTouchEnd={hasPlayable ? onTouchEnd : undefined}
       ref={containerRef}
     >
-      <div className="relative w-full h-full">
-        {user && <div className="absolute top-4 left-4 z-20">{reelUploadForm}</div>}
-        {playableReels.map((reel, index) => (
+      <div className="relative h-full w-full">
+        {user && (
+          <div className="absolute right-4 top-4 z-30 flex flex-col items-end">{reelPublishCollapsible}</div>
+        )}
+
+        {!hasPlayable ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-4 py-8 text-center">
+            <p className="text-muted-foreground">Aucun reel disponible</p>
+            {!user && (
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Connecte-toi pour publier un reel.
+              </p>
+            )}
+          </div>
+        ) : (
+          playableReels.map((reel, index) => {
+            const reelProfile = reel.profiles || {};
+            const reelLiked = likedReels.has(reel.id);
+            const reelSaved = savedReels.has(reel.id);
+            const reelLikes = reel.likes_count || 0;
+            return (
           <div
             key={reel.id}
             className={`absolute inset-0 transition-transform duration-500 ${
@@ -305,37 +323,38 @@ const Reels = () => {
                 : "translate-y-full"
             }`}
           >
-            <div className="relative w-full h-full flex items-center justify-center">
-              {/* Video - Cloudflare Stream */}
+            <div className="relative h-full w-full min-h-0 bg-black">
               {reel.cloudflare_video_id ? (
-                <CloudflareVideoPlayer
-                  videoId={reel.cloudflare_video_id}
-                  className="w-full h-full"
-                  autoPlay={index === safeCurrentIndex}
-                  loop={true}
-                  muted={true}
-                  controls={false}
-                />
+                <div className="absolute inset-0 min-h-0">
+                  <CloudflareVideoPlayer
+                    videoId={String(reel.cloudflare_video_id).trim()}
+                    className="h-full w-full min-h-0"
+                    autoPlay={index === safeCurrentIndex}
+                    loop={true}
+                    muted={true}
+                    controls={true}
+                  />
+                </div>
               ) : (
-                <div className="w-full h-full bg-black flex items-center justify-center text-white">
+                <div className="flex h-full w-full items-center justify-center bg-black text-white">
                   Vidéo non disponible
                 </div>
               )}
 
               {/* Overlay Content */}
-              <div className="absolute inset-0 flex">
+              <div className="pointer-events-none absolute inset-0 flex">
                 {/* Left Side - User Info */}
-                <div className="flex-1 flex flex-col justify-end p-4 sm:p-6 pb-20 sm:pb-24">
+                <div className="pointer-events-auto flex flex-1 flex-col justify-end p-4 sm:p-6 pb-20 sm:pb-24">
                   <div className="flex items-center gap-3 mb-3">
                     <img
-                      src={profile.avatar_url || getDefaultAvatar(profile.profile_type)}
-                      alt={profile.username || ""}
+                      src={reelProfile.avatar_url || getDefaultAvatar(reelProfile.profile_type)}
+                      alt={reelProfile.username || ""}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white object-cover cursor-pointer"
-                      onClick={() => navigate(`/profile/${profile.username || ""}`)}
+                      onClick={() => navigate(`/profile/${reelProfile.username || ""}`)}
                     />
                     <div>
                       <p className="text-white font-semibold text-sm sm:text-base">
-                        {profile.username || ""}
+                        {reelProfile.username || ""}
                       </p>
                     </div>
                   </div>
@@ -345,29 +364,31 @@ const Reels = () => {
                 </div>
 
                 {/* Right Side - Action Buttons */}
-                <div className="flex flex-col items-center justify-end gap-4 sm:gap-6 p-4 sm:p-6 pb-20 sm:pb-24">
+                <div className="pointer-events-auto flex flex-col items-center justify-end gap-4 sm:gap-6 p-4 sm:p-6 pb-20 sm:pb-24">
                   {/* Like */}
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
+                      type="button"
                       onClick={() => handleLike(reel.id)}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
                     >
                       <Heart
                         className={`w-6 h-6 sm:w-7 sm:h-7 transition-all ${
-                          isLiked
+                          reelLiked
                             ? "text-red-500 fill-red-500 scale-110"
                             : "text-white"
                         }`}
                       />
                     </button>
                     <span className="text-white text-xs sm:text-sm font-semibold">
-                      {likeCount >= 1000 ? `${(likeCount / 1000).toFixed(1)}k` : likeCount}
+                      {reelLikes >= 1000 ? `${(reelLikes / 1000).toFixed(1)}k` : reelLikes}
                     </span>
                   </div>
 
                   {/* Comment */}
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
+                      type="button"
                       onClick={() => {
                         // TODO: Open comment modal
                         console.log("Open comments for reel", reel.id);
@@ -384,6 +405,7 @@ const Reels = () => {
                   {/* Share */}
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
+                      type="button"
                       onClick={() => handleShare(reel.id)}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
                     >
@@ -397,12 +419,13 @@ const Reels = () => {
                   {/* Save */}
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
+                      type="button"
                       onClick={() => handleSave(reel.id)}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
                     >
                       <Bookmark
                         className={`w-6 h-6 sm:w-7 sm:h-7 ${
-                          isSaved ? "text-primary fill-primary" : "text-white"
+                          reelSaved ? "text-primary fill-primary" : "text-white"
                         }`}
                       />
                     </button>
@@ -411,22 +434,23 @@ const Reels = () => {
               </div>
             </div>
           </div>
-        ))}
+            );
+          })
+        )}
       </div>
 
-      {/* Reel Indicator */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        {playableReels.map((_, index) => (
-          <div
-            key={index}
-            className={`h-1 rounded-full transition-all ${
-              index === safeCurrentIndex
-                ? "w-8 bg-white"
-                : "w-1 bg-white/50"
-            }`}
-          />
-        ))}
-      </div>
+      {hasPlayable && (
+        <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+          {playableReels.map((_, index) => (
+            <div
+              key={index}
+              className={`h-1 rounded-full transition-all ${
+                index === safeCurrentIndex ? "w-8 bg-white" : "w-1 bg-white/50"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

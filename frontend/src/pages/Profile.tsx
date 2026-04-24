@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import ProfileHeader from "@/components/ProfileHeader";
+import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
 import ReviewCard from "@/components/ReviewCard";
 import FeedPost from "@/components/FeedPost";
 import ListingCard from "@/components/ListingCard";
@@ -26,6 +27,11 @@ import { followService } from "@/services/followService";
 import { storageService } from "@/services/storageService";
 import { notificationService } from "@/services/notificationService";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -95,6 +101,7 @@ const Profile = () => {
   const [reelDescription, setReelDescription] = useState("");
   const [uploadingReel, setUploadingReel] = useState(false);
   const [reelUploadProgress, setReelUploadProgress] = useState(0);
+  const [reelPublishFormOpen, setReelPublishFormOpen] = useState(false);
   const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -351,6 +358,7 @@ const Profile = () => {
       setReelVideoFile(null);
       setReelTitle("");
       setReelDescription("");
+      setReelPublishFormOpen(false);
       toast({ title: "Reel publie", description: "Votre reel a ete ajoute." });
     } catch (error) {
       console.error("Error creating reel:", error);
@@ -617,66 +625,94 @@ const Profile = () => {
           {activeTab === "Reels" && (
             <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-6">
               {isOwnProfile && (
-                <div className="grid gap-3 rounded-lg border border-border p-4 bg-card mb-4">
-                  <h3 className="font-semibold text-card-foreground">Ajouter un reel</h3>
-                  <p className="text-xs text-muted-foreground leading-snug">
-                    Actuellement, chaque utilisateur ne peut publier que {REEL_MAX_PER_USER_PER_MONTH} reels d’au plus{" "}
-                    {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
-                  </p>
-                  <Input
-                    placeholder="Titre du reel (optionnel)"
-                    value={reelTitle}
-                    onChange={(e) => setReelTitle(e.target.value)}
-                  />
-                  <Textarea
-                    placeholder="Description"
-                    value={reelDescription}
-                    onChange={(e) => setReelDescription(e.target.value)}
-                    rows={3}
-                  />
-                  <Input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] || null;
-                      if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
-                        const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
-                        toast({
-                          title: "Fichier trop grand",
-                          description: `Maximum ${maxMb} Mo pour un reel.`,
-                        });
-                        e.target.value = "";
-                        setReelVideoFile(null);
-                        return;
-                      }
-                      setReelVideoFile(f);
-                    }}
-                  />
-                  {uploadingReel && reelUploadProgress > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Envoi vers Cloudflare : {reelUploadProgress}%
-                    </p>
-                  )}
-                  <div className="flex justify-end">
-                    <Button onClick={handleCreateReel} disabled={!reelVideoFile || uploadingReel}>
-                      {uploadingReel
-                        ? reelUploadProgress > 0
-                          ? `Upload ${reelUploadProgress}%`
-                          : "Préparation…"
-                        : "Publier reel"}
-                    </Button>
-                  </div>
+                <div className="mb-4">
+                  <Collapsible open={reelPublishFormOpen} onOpenChange={setReelPublishFormOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button type="button" variant="outline" size="sm">
+                        Publier un reel
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-3 grid gap-3 rounded-lg border border-border bg-card p-4">
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        Actuellement, chaque utilisateur ne peut publier que {REEL_MAX_PER_USER_PER_MONTH} reels d’au
+                        plus {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
+                      </p>
+                      <Input
+                        placeholder="Titre du reel (optionnel)"
+                        value={reelTitle}
+                        onChange={(e) => setReelTitle(e.target.value)}
+                      />
+                      <Textarea
+                        placeholder="Description"
+                        value={reelDescription}
+                        onChange={(e) => setReelDescription(e.target.value)}
+                        rows={3}
+                      />
+                      <Input
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
+                            const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
+                            toast({
+                              title: "Fichier trop grand",
+                              description: `Maximum ${maxMb} Mo pour un reel.`,
+                            });
+                            e.target.value = "";
+                            setReelVideoFile(null);
+                            return;
+                          }
+                          setReelVideoFile(f);
+                        }}
+                      />
+                      {uploadingReel && reelUploadProgress > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Envoi vers Cloudflare : {reelUploadProgress}%
+                        </p>
+                      )}
+                      <div className="flex justify-end">
+                        <Button onClick={handleCreateReel} disabled={!reelVideoFile || uploadingReel}>
+                          {uploadingReel
+                            ? reelUploadProgress > 0
+                              ? `Envoi ${reelUploadProgress}%`
+                              : "Préparation…"
+                            : "Envoyer le reel"}
+                        </Button>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </div>
               )}
               {reels.length === 0 ? (
                 <div className="py-6 text-center text-muted-foreground">Aucun reel publie.</div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {reels.map((reel) => (
-                    <div key={reel.id} className="rounded-lg border border-border p-3">
-                      <p className="font-semibold text-card-foreground mb-1">{reel.title || "Reel"}</p>
-                      <p className="text-sm text-muted-foreground mb-2">{reel.description || ""}</p>
-                      <p className="text-xs text-muted-foreground">{formatTimeAgo(reel.created_at)}</p>
+                    <div key={reel.id} className="overflow-hidden rounded-lg border border-border bg-card">
+                      {reel.cloudflare_video_id ? (
+                        <div className="relative aspect-[9/16] w-full max-h-[70vh] bg-black">
+                          <CloudflareVideoPlayer
+                            videoId={String(reel.cloudflare_video_id).trim()}
+                            className="h-full w-full"
+                            autoPlay={false}
+                            loop={true}
+                            muted={false}
+                            controls={true}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex aspect-[9/16] max-h-[40vh] items-center justify-center bg-muted text-sm text-muted-foreground">
+                          Vidéo indisponible
+                        </div>
+                      )}
+                      <div className="p-3">
+                        <p className="font-semibold text-card-foreground">{reel.title || "Reel"}</p>
+                        {reel.description ? (
+                          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{reel.description}</p>
+                        ) : null}
+                        <p className="mt-2 text-xs text-muted-foreground">{formatTimeAgo(reel.created_at)}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
