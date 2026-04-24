@@ -9,8 +9,10 @@ import {
   Play,
   Download,
   Flag,
+  Trash2,
+  ChevronLeft,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { reelService } from "@/services/reelService";
 import { savedService } from "@/services/savedService";
@@ -48,6 +50,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { moderationService } from "@/services/moderationService";
@@ -55,6 +58,11 @@ import { moderationService } from "@/services/moderationService";
 const Reels = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const feedFrom = searchParams.get("from");
+  const feedProfileId = searchParams.get("profileId");
+  const feedReelId = searchParams.get("reelId");
+  const isSubFeed = feedFrom === "profile" || feedFrom === "saved";
   const [reels, setReels] = useState<any[]>([]);
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [likedReels, setLikedReels] = useState<Set<string>>(new Set());
@@ -80,26 +88,54 @@ const Reels = () => {
   const playbackUiHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load reels from Supabase
+  const feedQueryKey = searchParams.toString();
+
+  // Load reels: global feed, or profile user's reels, or current user's saved reels (from URL)
   useEffect(() => {
     const loadReels = async () => {
       try {
         setLoading(true);
-        const reelsData = await reelService.getReels(50, 0);
-        setReels(reelsData || []);
-        
-        // Check liked and saved status
-        if (user && reelsData) {
+        let reelsData: any[] = [];
+
+        if (feedFrom === "saved") {
+          if (!user) {
+            setReels([]);
+            setLikedReels(new Set());
+            setSavedReels(new Set());
+            toast({
+              title: "Connexion requise",
+              description: "Connecte-toi pour voir tes reels enregistrés.",
+            });
+            navigate("/login", { replace: true });
+            return;
+          }
+          const savedRows = await savedService.getSavedReels(user.id);
+          reelsData = (savedRows || [])
+            .map((row: { reels?: any }) => row.reels)
+            .filter(Boolean);
+        } else if (feedFrom === "profile" && feedProfileId) {
+          reelsData = (await reelService.getReelsByUser(feedProfileId)) || [];
+        } else {
+          reelsData = (await reelService.getReels(50, 0)) || [];
+        }
+
+        setReels(reelsData);
+
+        const playable = reelsData.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim()));
+        if (feedReelId && playable.length) {
+          const pIdx = playable.findIndex((r) => r.id === feedReelId);
+          setCurrentReelIndex(pIdx >= 0 ? pIdx : 0);
+        } else {
+          setCurrentReelIndex(0);
+        }
+
+        if (user && reelsData.length) {
           const likedPromises = reelsData.map((reel) => reelService.isReelLiked(user.id, reel.id));
-          const savedPromises = reelsData.map((reel) => 
-            savedService.isReelSaved(user.id, reel.id)
-          );
-          
+          const savedPromises = reelsData.map((reel) => savedService.isReelSaved(user.id, reel.id));
           const [likedResults, savedResults] = await Promise.all([
             Promise.all(likedPromises),
             Promise.all(savedPromises),
           ]);
-          
           const likedSet = new Set<string>();
           const savedSet = new Set<string>();
           reelsData.forEach((reel, index) => {
@@ -108,16 +144,20 @@ const Reels = () => {
           });
           setLikedReels(likedSet);
           setSavedReels(savedSet);
+        } else {
+          setLikedReels(new Set());
+          setSavedReels(new Set());
         }
       } catch (error) {
         console.error("Error loading reels:", error);
+        toast({ title: "Erreur", description: "Impossible de charger les reels." });
       } finally {
         setLoading(false);
       }
     };
 
-    loadReels();
-  }, [user]);
+    void loadReels();
+  }, [user, feedQueryKey, navigate]);
 
   useEffect(() => {
     const n = reels.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim())).length;
@@ -302,6 +342,32 @@ const Reels = () => {
       description:
         "Si rien ne s’ouvre, les téléchargements peuvent être désactivés pour cette vidéo sur Cloudflare.",
     });
+  };
+
+  const handleDeleteReel = async (reelId: string) => {
+    if (!user) return;
+    if (!window.confirm("Supprimer ce reel définitivement ?")) return;
+    try {
+      await reelService.deleteReel(reelId, user.id);
+      const next = reels.filter((r) => r.id !== reelId);
+      const playableCount = next.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim())).length;
+      setReels(next);
+      setCurrentReelIndex((idx) => (playableCount === 0 ? 0 : Math.min(idx, playableCount - 1)));
+      setLikedReels((s) => {
+        const n = new Set(s);
+        n.delete(reelId);
+        return n;
+      });
+      setSavedReels((s) => {
+        const n = new Set(s);
+        n.delete(reelId);
+        return n;
+      });
+      toast({ title: "Reel supprimé", description: "Le reel a été supprimé." });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Impossible de supprimer ce reel." });
+    }
   };
 
   const submitReelReport = async () => {
@@ -491,9 +557,23 @@ const Reels = () => {
       ref={containerRef}
     >
       <div className="relative h-full w-full">
-        {user && (
+        {isSubFeed ? (
+          <div className="absolute left-4 top-4 z-30">
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="h-10 w-10 rounded-full shadow-md"
+              onClick={() => navigate(-1)}
+              aria-label="Retour"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          </div>
+        ) : null}
+        {user && !isSubFeed ? (
           <div className="absolute right-4 top-4 z-30 flex flex-col items-end">{reelPublishCollapsible}</div>
-        )}
+        ) : null}
 
         {!hasPlayable ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-4 py-8 text-center">
@@ -513,7 +593,7 @@ const Reels = () => {
             return (
           <div
             key={reel.id}
-            className={`absolute inset-0 transition-transform duration-500 ${
+            className={`absolute inset-0 bg-background transition-transform duration-500 ${
               index === currentReelIndex
                 ? "translate-y-0"
                 : index < currentReelIndex
@@ -521,7 +601,7 @@ const Reels = () => {
                 : "translate-y-full"
             }`}
           >
-            <div className="relative h-full w-full min-h-0 bg-black">
+            <div className="relative mx-auto h-full min-h-0 w-full max-w-[420px] bg-black sm:max-w-[440px] md:max-w-[min(480px,100%)] lg:max-w-[520px] lg:shadow-2xl">
               {reel.cloudflare_video_id ? (
                 <div className="absolute inset-0 min-h-0">
                   <CloudflareHLSPlayer
@@ -665,27 +745,41 @@ const Reels = () => {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          if (!user) {
-                            toast({
-                              title: "Connexion requise",
-                              description: "Connecte-toi pour signaler un contenu.",
-                            });
-                            return;
-                          }
-                          setReportReelId(reel.id);
-                        }}
-                      >
-                        <Flag className="mr-2 h-4 w-4" />
-                        Signaler
-                      </DropdownMenuItem>
+                      {!(user && reel.user_id === user.id) ? (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (!user) {
+                              toast({
+                                title: "Connexion requise",
+                                description: "Connecte-toi pour signaler un contenu.",
+                              });
+                              return;
+                            }
+                            setReportReelId(reel.id);
+                          }}
+                        >
+                          <Flag className="mr-2 h-4 w-4" />
+                          Signaler
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem
                         onClick={() => handleDownloadReel(String(reel.cloudflare_video_id))}
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Télécharger
                       </DropdownMenuItem>
+                      {user && reel.user_id === user.id ? (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => void handleDeleteReel(reel.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </>
+                      ) : null}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

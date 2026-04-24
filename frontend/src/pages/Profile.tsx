@@ -688,8 +688,13 @@ const Profile = () => {
                 <div className="py-6 text-center text-muted-foreground">Aucun reel publie.</div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {reels.map((reel) => (
-                    <div key={reel.id} className="overflow-hidden rounded-lg border border-border bg-card">
+                  {reels.map((reel) => {
+                    const openInReelsViewer = () => {
+                      if (!profile?.id) return;
+                      navigate(`/reels?from=profile&profileId=${profile.id}&reelId=${reel.id}`);
+                    };
+                    return (
+                    <div key={reel.id} className="overflow-hidden rounded-lg border border-border bg-card transition hover:border-muted-foreground/50">
                       {reel.cloudflare_video_id ? (
                         <div className="relative aspect-[9/16] w-full max-h-[70vh] bg-black">
                           <CloudflareVideoPlayer
@@ -697,8 +702,14 @@ const Profile = () => {
                             className="h-full w-full"
                             autoPlay={false}
                             loop={true}
-                            muted={false}
-                            controls={true}
+                            muted={true}
+                            controls={false}
+                          />
+                          <button
+                            type="button"
+                            className="absolute inset-0 z-10 bg-transparent cursor-pointer"
+                            aria-label="Voir le reel"
+                            onClick={openInReelsViewer}
                           />
                         </div>
                       ) : (
@@ -706,15 +717,20 @@ const Profile = () => {
                           Vidéo indisponible
                         </div>
                       )}
-                      <div className="p-3">
+                      <button
+                        type="button"
+                        className="w-full p-3 text-left hover:bg-muted/40"
+                        onClick={openInReelsViewer}
+                      >
                         <p className="font-semibold text-card-foreground">{reel.title || "Reel"}</p>
                         {reel.description ? (
                           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{reel.description}</p>
                         ) : null}
                         <p className="mt-2 text-xs text-muted-foreground">{formatTimeAgo(reel.created_at)}</p>
-                      </div>
+                      </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

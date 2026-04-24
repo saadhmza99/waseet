@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
 import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
@@ -12,6 +13,7 @@ import { getDefaultAvatar } from "@/lib/avatar";
 const tabs = ["Posts", "Annonces", "Reels"] as const;
 
 const Saved = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Posts");
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
@@ -159,10 +161,13 @@ const Saved = () => {
                         {savedReels.filter((saved) => saved.reels?.id).map((saved) => {
                           const reel = saved.reels;
                           const profile = reel.profiles || {};
+                          const openInReelsViewer = () => {
+                            navigate(`/reels?from=saved&reelId=${reel.id}`);
+                          };
                           return (
                             <div
                               key={saved.id ?? `${reel.id}-saved`}
-                              className="overflow-hidden rounded-lg border border-border bg-card"
+                              className="overflow-hidden rounded-lg border border-border bg-card transition hover:border-muted-foreground/50"
                             >
                               {reel.cloudflare_video_id ? (
                                 <div className="relative aspect-[9/16] w-full max-h-[70vh] bg-black">
@@ -171,8 +176,14 @@ const Saved = () => {
                                     className="h-full w-full"
                                     autoPlay={false}
                                     loop={true}
-                                    muted={false}
-                                    controls={true}
+                                    muted={true}
+                                    controls={false}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="absolute inset-0 z-10 bg-transparent cursor-pointer"
+                                    aria-label="Voir le reel"
+                                    onClick={openInReelsViewer}
                                   />
                                 </div>
                               ) : (
@@ -180,7 +191,11 @@ const Saved = () => {
                                   Vidéo indisponible
                                 </div>
                               )}
-                              <div className="p-3">
+                              <button
+                                type="button"
+                                className="w-full p-3 text-left hover:bg-muted/40"
+                                onClick={openInReelsViewer}
+                              >
                                 <div className="mb-2 flex items-center gap-2">
                                   <img
                                     src={profile.avatar_url || getDefaultAvatar("craftsman")}
@@ -200,7 +215,7 @@ const Saved = () => {
                                 <p className="mt-2 text-xs text-muted-foreground">
                                   {formatTimeAgo(reel.created_at)}
                                 </p>
-                              </div>
+                              </button>
                             </div>
                           );
                         })}

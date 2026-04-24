@@ -73,11 +73,18 @@ export const reelService = {
     return data;
   },
 
-  // Get reels by user
+  // Get reels by user (profiles join matches global feed shape for /reels viewer)
   async getReelsByUser(userId: string) {
     const { data, error } = await supabase
       .from('reels')
-      .select('*')
+      .select(`
+        *,
+        profiles:user_id (
+          id,
+          username,
+          avatar_url
+        )
+      `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
