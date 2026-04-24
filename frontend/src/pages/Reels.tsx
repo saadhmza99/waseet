@@ -7,6 +7,7 @@ import { savedService } from "@/services/savedService";
 import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 const Reels = () => {
   const { user } = useAuth();
@@ -172,7 +173,7 @@ const Reels = () => {
   if (playableReels.length === 0) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Aucun reel Cloudflare disponible pour le moment</div>
+        <div className="text-muted-foreground">Aucun reel disponible</div>
       </div>
     );
   }
@@ -227,7 +228,7 @@ const Reels = () => {
                 <div className="flex-1 flex flex-col justify-end p-4 sm:p-6 pb-20 sm:pb-24">
                   <div className="flex items-center gap-3 mb-3">
                     <img
-                      src={profile.avatar_url || ""}
+                      src={profile.avatar_url || getDefaultAvatar(profile.profile_type)}
                       alt={profile.username || ""}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white object-cover cursor-pointer"
                       onClick={() => navigate(`/profile/${profile.username || ""}`)}

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { storageService } from "@/services/storageService";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 interface CreatePostProps {
   onPostCreated?: (post: { text: string; images: string[]; beforeImage?: string; afterImage?: string }) => void;
@@ -163,7 +164,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       <div className="px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4">
         <div className="flex items-start gap-3">
           <img
-            src={user?.user_metadata?.avatar_url || "/default-avatar.png"}
+            src={user?.user_metadata?.avatar_url || getDefaultAvatar("craftsman")}
             alt="Profile"
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover flex-shrink-0"
           />

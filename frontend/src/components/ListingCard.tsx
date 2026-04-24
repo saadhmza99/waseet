@@ -1,8 +1,14 @@
 import { MapPin, User, MoreHorizontal, Sparkles, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { savedService } from "@/services/savedService";
+import { notificationService } from "@/services/notificationService";
+import { toast } from "@/components/ui/use-toast";
 
 interface ListingCardProps {
+  id?: string;
+  userId?: string;
   avatar: string;
   username: string;
   timeAgo: string;
@@ -22,6 +28,8 @@ interface ListingCardProps {
 }
 
 const ListingCard = ({
+  id,
+  userId,
   avatar,
   username,
   timeAgo,
@@ -36,7 +44,38 @@ const ListingCard = ({
   details,
 }: ListingCardProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
+
+  const handleSaveListing = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user || !id) return;
+
+    try {
+      if (isSaved) {
+        await savedService.unsaveListing(user.id, id);
+        setIsSaved(false);
+      } else {
+        await savedService.saveListing(user.id, id);
+        setIsSaved(true);
+        if (userId && userId !== user.id) {
+          await notificationService.createNotification({
+            actorUserId: user.id,
+            targetUserId: userId,
+            type: "listing_save",
+            entityType: "listing",
+            entityId: id,
+            message: "a enregistré votre annonce.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling listing save:", error);
+      toast({ title: "Erreur", description: "Impossible d'enregistrer cette annonce." });
+    }
+  };
 
   const handleViewJob = (e?: React.MouseEvent) => {
     if (e) {
@@ -142,11 +181,7 @@ const ListingCard = ({
           <span className={`font-bold text-card-foreground ${isLarge ? 'text-sm sm:text-base md:text-lg' : 'text-sm sm:text-base'}`}>{priceRange}</span>
           <div className="flex items-center gap-2">
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsSaved(!isSaved);
-              }}
+              onClick={handleSaveListing}
               className={`p-1.5 sm:p-2 rounded-md transition-colors ${
                 isSaved 
                   ? 'bg-accent/10 text-accent' 

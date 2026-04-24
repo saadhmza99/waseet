@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import InviteToJobModal from "./InviteToJobModal";
 
 interface ProfileHeaderProps {
+  profileId?: string;
   avatar: string;
   username: string;
   profession: string;
@@ -21,6 +22,7 @@ interface ProfileHeaderProps {
 }
 
 const ProfileHeader = ({
+  profileId,
   avatar,
   username,
   profession,
@@ -156,6 +158,7 @@ const ProfileHeader = ({
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         professionalName={username}
+        professionalUserId={profileId}
       />
     </div>
   );

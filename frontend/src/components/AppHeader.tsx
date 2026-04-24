@@ -13,6 +13,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { moderationService } from "@/services/moderationService";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { notificationService } from "@/services/notificationService";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 
 const tabs = [
   { label: "Fil d'actualité", icon: Home, path: "/" },
@@ -30,6 +33,8 @@ const AppHeader = () => {
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || getDefaultAvatar(profile?.profile_type);
   const accountLabel = profile?.username || user?.email || "Mon compte";
   const [isModerator, setIsModerator] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -38,6 +43,50 @@ const AppHeader = () => {
     }
     moderationService.isModerator(user.id).then(setIsModerator).catch(() => setIsModerator(false));
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    const loadNotifications = async () => {
+      try {
+        const [items, unread] = await Promise.all([
+          notificationService.getNotifications(user.id, 20),
+          notificationService.getUnreadCount(user.id),
+        ]);
+        setNotifications(items);
+        setUnreadCount(unread);
+      } catch (error) {
+        console.error("Error loading notifications:", error);
+      }
+    };
+
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
+  const handleMarkAllNotificationsRead = async () => {
+    if (!user || unreadCount === 0) return;
+    try {
+      await notificationService.markAllAsRead(user.id);
+      setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+    }
+  };
+
+  const formatNotificationTime = (date: string) => {
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
+    } catch {
+      return "récemment";
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -61,7 +110,47 @@ const AppHeader = () => {
             <span className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold tracking-tight">Sefarah</span>
           </div>
           <div className="flex justify-end items-center gap-2 sm:gap-3">
-            <Bell className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 opacity-80 cursor-pointer hover:opacity-100 transition-opacity" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={handleMarkAllNotificationsRead}
+                  className="relative opacity-80 hover:opacity-100 transition-opacity"
+                >
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-muted-foreground">Aucune notification</div>
+                ) : (
+                  notifications.map((item) => (
+                    <DropdownMenuItem key={item.id} className="py-2">
+                      <div className="flex items-start gap-2 w-full">
+                        <img
+                          src={item.actor?.avatar_url || getDefaultAvatar(item.actor?.profile_type)}
+                          alt={item.actor?.username || "Utilisateur"}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground whitespace-normal break-words">
+                            <span className="font-semibold">{item.actor?.username || "Utilisateur"}</span>{" "}
+                            {item.message}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</p>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             {isLoggedIn ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -151,7 +240,47 @@ const AppHeader = () => {
           </div>
       
           <div className="flex items-center gap-3">
-            <Bell className="w-5 h-5 sm:w-6 sm:h-6 opacity-80 cursor-pointer hover:opacity-100 transition-opacity" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={handleMarkAllNotificationsRead}
+                  className="relative opacity-80 hover:opacity-100 transition-opacity"
+                >
+                  <Bell className="w-5 h-5 sm:w-6 sm:h-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-muted-foreground">Aucune notification</div>
+                ) : (
+                  notifications.map((item) => (
+                    <DropdownMenuItem key={item.id} className="py-2">
+                      <div className="flex items-start gap-2 w-full">
+                        <img
+                          src={item.actor?.avatar_url || getDefaultAvatar(item.actor?.profile_type)}
+                          alt={item.actor?.username || "Utilisateur"}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground whitespace-normal break-words">
+                            <span className="font-semibold">{item.actor?.username || "Utilisateur"}</span>{" "}
+                            {item.message}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</p>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             {isLoggedIn ? (
         <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ReactElement } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 const Index = () => {
   const { user } = useAuth();
@@ -73,7 +74,7 @@ const Index = () => {
       location: listing.location,
       description: listing.description || "",
       image: listing.image_url || "",
-      avatar: listing.profiles?.avatar_url || "",
+      avatar: listing.profiles?.avatar_url || getDefaultAvatar("craftsman"),
       username: listing.profiles?.username || "",
       timeAgo: formatTimeAgo(listing.created_at),
       profession: listing.profession || "",
@@ -222,7 +223,7 @@ const Index = () => {
             key={`general-${post.id}`}
             postId={post.id}
             postUserId={post.user_id}
-            avatar={profile.avatar_url || ""}
+            avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
             username={profile.username || ""}
             location={profile.location || ""}
             timeAgo={formatTimeAgo(post.created_at)}
@@ -292,7 +293,7 @@ const Index = () => {
               key={`following-${followingPost.id}`}
               postId={followingPost.id}
               postUserId={followingPost.user_id}
-              avatar={profile.avatar_url || ""}
+              avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
               username={profile.username || ""}
               location={profile.location || ""}
               timeAgo={formatTimeAgo(followingPost.created_at)}
@@ -342,7 +343,7 @@ const Index = () => {
                   location={listing.location}
                   description={listing.description || ""}
                   image={listing.image_url || ""}
-                  avatar={profile.avatar_url || ""}
+                  avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
                   username={profile.username || ""}
                   timeAgo={formatTimeAgo(listing.created_at)}
                   profession={listing.profession || ""}

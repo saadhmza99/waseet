@@ -1,5 +1,22 @@
 import { useState } from "react";
-import { Search, Grid3x3, MapPin, ChevronRight, Wrench, Hammer, Zap, Paintbrush, Home as HomeIcon } from "lucide-react";
+import {
+  Search,
+  Grid3x3,
+  MapPin,
+  ChevronRight,
+  Scale,
+  GraduationCap,
+  Building2,
+  FileText,
+  Home,
+  Car,
+  Users,
+  Briefcase,
+  Paintbrush,
+  Shield,
+  Wrench,
+  Utensils,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +29,19 @@ import LocationModal from "./LocationModal";
 
 const categories = [
   { label: "Toutes les catégories", value: "all", icon: null },
-  { label: "Plomberie", value: "plomberie", icon: Wrench },
-  { label: "Menuiserie", value: "menuiserie", icon: Hammer },
-  { label: "Électricité", value: "electricite", icon: Zap },
-  { label: "Peinture", value: "peinture", icon: Paintbrush },
-  { label: "Toiture", value: "toiture", icon: HomeIcon },
+  { label: "Avocat", value: "avocat", icon: Scale },
+  { label: "Enseignant", value: "enseignant", icon: GraduationCap },
+  { label: "Travaux publiques", value: "travaux_publiques", icon: Building2 },
+  { label: "Notaire", value: "notaire", icon: FileText },
+  { label: "Location immobilier", value: "location_immobilier", icon: Home },
+  { label: "Location véhicules", value: "location_vehicules", icon: Car },
+  { label: "Agent immobilier", value: "agent_immobilier", icon: Users },
+  { label: "Carreleur", value: "carreleur", icon: Paintbrush },
+  { label: "Ferronier", value: "ferronier", icon: Shield },
+  { label: "Soudeur", value: "soudeur", icon: Shield },
+  { label: "Mecanicien", value: "mecanicien", icon: Wrench },
+  { label: "Culinaire", value: "culinaire", icon: Utensils },
+  { label: "Autre", value: "autre", icon: Briefcase },
 ];
 
 const SearchBar = () => {

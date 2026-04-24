@@ -1,5 +1,22 @@
 import { useState } from "react";
-import { MapPin, X, Check, Wrench, Zap, Paintbrush, Hammer, Home as HomeIcon, User, Building2 } from "lucide-react";
+import {
+  MapPin,
+  X,
+  Check,
+  Scale,
+  GraduationCap,
+  Building2,
+  FileText,
+  Home,
+  Car,
+  Users,
+  Briefcase,
+  User,
+  Paintbrush,
+  Shield,
+  Wrench,
+  Utensils,
+} from "lucide-react";
 
 interface JobFilterModalProps {
   isOpen: boolean;
@@ -7,18 +24,24 @@ interface JobFilterModalProps {
 }
 
 const professions = [
-  { label: "Plombier", icon: Wrench },
-  { label: "Menuisier", icon: Hammer },
-  { label: "Électricien", icon: Zap },
-  { label: "Peintre", icon: Paintbrush },
-  { label: "Bricoleur", icon: Wrench },
-  { label: "Couvreur", icon: HomeIcon },
-  { label: "Maçon", icon: Hammer },
+  { label: "Avocat", icon: Scale },
+  { label: "Enseignant", icon: GraduationCap },
+  { label: "Travaux publiques", icon: Building2 },
+  { label: "Notaire", icon: FileText },
+  { label: "Location immobilier", icon: Home },
+  { label: "Location véhicules", icon: Car },
+  { label: "Agent immobilier", icon: Users },
+  { label: "Carreleur", icon: Paintbrush },
+  { label: "Ferronier", icon: Shield },
+  { label: "Soudeur", icon: Shield },
+  { label: "Mecanicien", icon: Wrench },
+  { label: "Culinaire", icon: Utensils },
+  { label: "Autre", icon: Briefcase },
 ];
 
 const JobFilterModal = ({ isOpen, onClose }: JobFilterModalProps) => {
   const [locationValue, setLocationValue] = useState("Chicago");
-  const [selected, setSelected] = useState<string[]>(["Plombier"]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
   const [accountType, setAccountType] = useState<"individual" | "enterprise" | "all">("all");

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 interface Comment {
   id: string | number;
@@ -67,7 +68,7 @@ const CommentSection = ({ comments: initialComments, onAddComment }: CommentSect
               className="flex-shrink-0 mt-0.5 hover:opacity-80 transition-opacity cursor-pointer"
             >
               <img 
-                src={c.avatar || "/default-avatar.png"} 
+                src={c.avatar || getDefaultAvatar("craftsman")} 
                 alt={c.username} 
                 className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" 
               />

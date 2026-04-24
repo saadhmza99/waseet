@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import JobCard from "@/components/JobCard";
 import { listingService } from "@/services/listingService";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 const Jobs = () => {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -37,7 +38,7 @@ const Jobs = () => {
           jobs.map((job) => (
             <JobCard
               key={job.id}
-              avatar={job.profiles?.avatar_url || "/default-avatar.png"}
+              avatar={job.profiles?.avatar_url || getDefaultAvatar("craftsman")}
               username={job.profiles?.username || "Utilisateur"}
               location={job.location || ""}
               timeAgo="récemment"

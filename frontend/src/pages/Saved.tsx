@@ -6,6 +6,7 @@ import { savedService } from "@/services/savedService";
 import { moderationService } from "@/services/moderationService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 const tabs = ["Posts", "Annonces", "Reels"] as const;
 
@@ -98,7 +99,7 @@ const Saved = () => {
                             key={post.id}
                             postId={post.id}
                             postUserId={post.user_id}
-                            avatar={profile.avatar_url || ""}
+                            avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
                             username={profile.username || ""}
                             location={profile.location || ""}
                             timeAgo={formatTimeAgo(post.created_at)}
@@ -129,7 +130,9 @@ const Saved = () => {
                         return (
                           <ListingCard
                             key={listing.id}
-                            avatar={profile.avatar_url || ""}
+                            id={listing.id}
+                            userId={listing.user_id}
+                            avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
                             username={profile.username || ""}
                             timeAgo={formatTimeAgo(listing.created_at)}
                             image={listing.image_url || ""}

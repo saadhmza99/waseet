@@ -16,6 +16,7 @@ import { reviewService } from "@/services/reviewService";
 import { moderationService } from "@/services/moderationService";
 import { followService } from "@/services/followService";
 import { storageService } from "@/services/storageService";
+import { notificationService } from "@/services/notificationService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -153,6 +154,14 @@ const Profile = () => {
       } else {
         await followService.followUser(user.id, profile.id);
         setIsFollowing(true);
+        await notificationService.createNotification({
+          actorUserId: user.id,
+          targetUserId: profile.id,
+          type: "follow",
+          entityType: "profile",
+          entityId: profile.id,
+          message: "a commencé à vous suivre.",
+        });
       }
     } catch (error) {
       console.error("Error toggling follow:", error);
@@ -257,6 +266,7 @@ const Profile = () => {
   return (
     <div className="pb-10 sm:pb-20">
       <ProfileHeader
+        profileId={profile.id}
         avatar={profileAvatar}
         username={profile.username || "Utilisateur"}
         profession={profile.profession || "Profession non définie"}
@@ -390,6 +400,8 @@ const Profile = () => {
                   {listings.map((listing) => (
                     <ListingCard
                       key={listing.id}
+                      id={listing.id}
+                      userId={listing.user_id}
                       avatar={profileAvatar}
                       username={profile.username || "Utilisateur"}
                       timeAgo={formatTimeAgo(listing.created_at)}

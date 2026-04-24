@@ -8,6 +8,7 @@ import { savedService } from "@/services/savedService";
 import { commentService } from "@/services/commentService";
 import { moderationService } from "@/services/moderationService";
 import { followService } from "@/services/followService";
+import { notificationService } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -23,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 interface FeedPostProps {
   postId?: string;
@@ -73,6 +75,7 @@ const FeedPost = ({
   const [showAllImages, setShowAllImages] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [commentPermission, setCommentPermission] = useState<"anyone" | "follow_back" | "off">("anyone");
+  const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
   const [displayTitle, setDisplayTitle] = useState(title);
   const [displayDescription, setDisplayDescription] = useState(description || "");
   const commentsModalRef = useRef<HTMLDivElement>(null);
@@ -100,6 +103,14 @@ const FeedPost = ({
       .then((permission) => setCommentPermission(permission))
       .catch(console.error);
   }, [postId, isOwnPost]);
+
+  useEffect(() => {
+    if (!user || !postUserId || isOwnPost) return;
+    followService
+      .isFollowing(user.id, postUserId)
+      .then(setIsFollowingAuthor)
+      .catch(() => setIsFollowingAuthor(false));
+  }, [user?.id, postUserId, isOwnPost]);
   
   // Combine all image sources into one array
   const allImages: string[] = [];
@@ -143,6 +154,16 @@ const FeedPost = ({
         await postService.likePost(postId, user.id);
         setLiked(true);
         setLikeCount((c) => c + 1);
+        if (postUserId && postUserId !== user.id) {
+          await notificationService.createNotification({
+            actorUserId: user.id,
+            targetUserId: postUserId,
+            type: "post_like",
+            entityType: "post",
+            entityId: postId,
+            message: "a aimé votre post.",
+          });
+        }
       }
     } catch (error) {
       console.error("Error toggling like:", error);
@@ -158,6 +179,16 @@ const FeedPost = ({
     try {
       await postService.sharePost(postId, user.id);
       setShareCount((c) => c + 1);
+      if (postUserId && postUserId !== user.id) {
+        await notificationService.createNotification({
+          actorUserId: user.id,
+          targetUserId: postUserId,
+          type: "post_share",
+          entityType: "post",
+          entityId: postId,
+          message: "a partagé votre post.",
+        });
+      }
       
       // Also try native share
       if (navigator.share) {
@@ -185,6 +216,16 @@ const FeedPost = ({
       } else {
         await savedService.savePost(user.id, postId);
         setIsSaved(true);
+        if (postUserId && postUserId !== user.id) {
+          await notificationService.createNotification({
+            actorUserId: user.id,
+            targetUserId: postUserId,
+            type: "post_save",
+            entityType: "post",
+            entityId: postId,
+            message: "a enregistré votre post.",
+          });
+        }
       }
     } catch (error) {
       console.error("Error toggling save:", error);
@@ -220,6 +261,16 @@ const FeedPost = ({
       const newComment = await commentService.createPostComment(postId, user.id, content);
       setPostComments((prev) => [...prev, newComment]);
       setCommentCount((c) => c + 1);
+      if (postUserId && postUserId !== user.id) {
+        await notificationService.createNotification({
+          actorUserId: user.id,
+          targetUserId: postUserId,
+          type: "post_comment",
+          entityType: "post",
+          entityId: postId,
+          message: "a commenté votre post.",
+        });
+      }
     } catch (error) {
       console.error("Error adding comment:", error);
     }
@@ -262,18 +313,8 @@ const FeedPost = ({
   };
 
   const handleShareVia = () => {
-    if (navigator.share) {
-      navigator
-        .share({
-          title,
-          text: description || title,
-          url: window.location.href,
-        })
-        .catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast({ title: "Lien copié", description: "Le lien du post a été copié." });
-    }
+    navigator.clipboard.writeText(window.location.href);
+    toast({ title: "Lien copié", description: "Le lien du post a été copié." });
   };
 
   const handleReportPost = () => {
@@ -308,10 +349,31 @@ const FeedPost = ({
     followService
       .unfollowUser(user.id, postUserId)
       .then(() => toast({ title: "Suivi retiré", description: "Vous ne suivez plus ce profil." }))
+      .then(() => setIsFollowingAuthor(false))
       .catch((error) => {
         console.error("Error unfollowing profile:", error);
         toast({ title: "Erreur", description: "Impossible d'arrêter le suivi pour le moment." });
       });
+  };
+
+  const handleFollowAuthor = async () => {
+    if (!user || !postUserId || isOwnPost || isFollowingAuthor) return;
+    try {
+      await followService.followUser(user.id, postUserId);
+      setIsFollowingAuthor(true);
+      await notificationService.createNotification({
+        actorUserId: user.id,
+        targetUserId: postUserId,
+        type: "follow",
+        entityType: "profile",
+        entityId: postUserId,
+        message: "a commencé à vous suivre.",
+      });
+      toast({ title: "Suivi activé", description: `Vous suivez désormais ${username}.` });
+    } catch (error) {
+      console.error("Error following author:", error);
+      toast({ title: "Erreur", description: "Impossible de suivre ce profil pour le moment." });
+    }
   };
 
   // Auto-scroll to show bottom 1/5 of post and comments when modal opens
@@ -339,14 +401,23 @@ const FeedPost = ({
     <article className="bg-card border-b border-border mb-4 sm:mb-6">
       {/* User Info */}
       <div className="flex items-center justify-between px-2 sm:px-4 md:px-6 lg:px-8 pt-3 pb-2">
-        <button 
-          onClick={handleProfileClick}
-          className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 min-w-0"
-        >
-          <img src={avatar} alt={username} className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover flex-shrink-0" />
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button onClick={handleProfileClick} className="hover:opacity-80 transition-opacity">
+            <img src={avatar || getDefaultAvatar("craftsman")} alt={username} className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover flex-shrink-0" />
+          </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-sm sm:text-base md:text-lg text-card-foreground truncate">{username}</p>
+              <button onClick={handleProfileClick} className="font-semibold text-sm sm:text-base md:text-lg text-card-foreground truncate text-left hover:opacity-80 transition-opacity">
+                {username}
+              </button>
+              {user && !isOwnPost && !isFollowingAuthor && (
+                <button
+                  onClick={handleFollowAuthor}
+                  className="px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Suivre
+                </button>
+              )}
               {isSponsored && (
                 <div className="flex items-center gap-1 bg-accent/10 text-accent px-1.5 py-0.5 rounded">
                   <Sparkles className="w-3 h-3" />
@@ -356,7 +427,7 @@ const FeedPost = ({
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{location} · actif {timeAgo}</p>
           </div>
-        </button>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="text-muted-foreground hover:opacity-70 transition-opacity ml-2">
@@ -370,7 +441,7 @@ const FeedPost = ({
                 <DropdownMenuItem onClick={handleDeletePost} className="text-destructive">
                   Supprimer le post
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleShareVia}>Partager via</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareVia}>Copier le lien du post</DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>Qui peut commenter</DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
@@ -625,7 +696,7 @@ const FeedPost = ({
               <div ref={postPreviewRef} className="px-4 sm:px-6 py-4 border-b border-border">
                 <div className="flex items-center gap-3 mb-3">
                   <img
-                    src={avatar}
+                    src={avatar || getDefaultAvatar("craftsman")}
                     alt={username}
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
                   />
@@ -661,7 +732,7 @@ const FeedPost = ({
               <CommentSection 
                 comments={postComments.map((c) => ({
                   id: c.id,
-                  avatar: c.profiles?.avatar_url || "",
+                  avatar: c.profiles?.avatar_url || getDefaultAvatar("craftsman"),
                   username: c.profiles?.username || "",
                   text: c.content,
                   timeAgo: formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: fr }),

@@ -3,11 +3,14 @@ import { X, Image, MapPin, DollarSign, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/AuthContext";
+import { notificationService } from "@/services/notificationService";
 
 interface InviteToJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   professionalName: string;
+  professionalUserId?: string;
 }
 
 // Mock data for user's job listings
@@ -35,7 +38,8 @@ const mockUserListings = [
   },
 ];
 
-const InviteToJobModal = ({ isOpen, onClose, professionalName }: InviteToJobModalProps) => {
+const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserId }: InviteToJobModalProps) => {
+  const { user } = useAuth();
   const [mode, setMode] = useState<"listings" | "custom">("listings");
   const [selectedListing, setSelectedListing] = useState<number | null>(null);
   const [title, setTitle] = useState("");
@@ -92,7 +96,7 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName }: InviteToJobModa
     return encodeURIComponent(message);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (mode === "listings" && selectedListing === null) {
@@ -107,6 +111,20 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName }: InviteToJobModa
     const phoneNumber = "212612345678"; // Replace with actual phone number
     const message = formatWhatsAppMessage();
     window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+
+    if (user?.id && professionalUserId && user.id !== professionalUserId) {
+      try {
+        await notificationService.createNotification({
+          actorUserId: user.id,
+          targetUserId: professionalUserId,
+          type: "job_invite",
+          entityType: "job_invite",
+          message: "vous a envoyé une invitation de job.",
+        });
+      } catch (error) {
+        console.error("Error creating job invite notification:", error);
+      }
+    }
     
     // Reset form
     setTitle("");

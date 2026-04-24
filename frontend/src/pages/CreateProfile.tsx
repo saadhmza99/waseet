@@ -16,6 +16,7 @@ const CreateProfile = () => {
     searchParams.get("type") === "craftsman" ? "craftsman" : searchParams.get("type") === "hunter" ? "hunter" : null
   );
   const [formData, setFormData] = useState({
+    username: "",
     name: "",
     email: "",
     password: "",
@@ -27,6 +28,15 @@ const CreateProfile = () => {
   const MAX_BIO_LENGTH = 165;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const buildDefaultUsername = (baseName: string) => {
+    const seed = Math.random().toString(36).slice(2, 8);
+    const normalized = baseName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    return normalized ? `${normalized}_${seed}` : `user_${seed}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,8 +63,8 @@ const CreateProfile = () => {
           
           if (newUser) {
             // Create profile with additional data
-            await profileService.createProfile(newUser.id, {
-              username: formData.name.toLowerCase().replace(/\s+/g, '_'),
+            await profileService.updateProfile(newUser.id, {
+              username: formData.username.trim() || buildDefaultUsername(formData.name),
               full_name: formData.name,
               profession: formData.profession,
               location: formData.location,
@@ -137,6 +147,23 @@ const CreateProfile = () => {
 
       <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 max-w-2xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-card-foreground mb-2">
+              Username (unique)
+            </label>
+            <Input
+              id="username"
+              type="text"
+              placeholder="Choose username (optional)"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              className="h-11 sm:h-12"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Si vide, un username par défaut unique sera généré automatiquement.
+            </p>
+          </div>
+
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-card-foreground mb-2">
               Full Name

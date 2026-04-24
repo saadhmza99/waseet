@@ -7,6 +7,7 @@ import SearchBar from "@/components/SearchBar";
 import { listingService } from "@/services/listingService";
 import { moderationService } from "@/services/moderationService";
 import { useAuth } from "@/contexts/AuthContext";
+import { getDefaultAvatar } from "@/lib/avatar";
 
 interface ListingData {
   id: string;
@@ -55,7 +56,7 @@ const Explore = () => {
         const mapped = (data || []).map((listing) => ({
           id: listing.id,
           userId: listing.user_id,
-          avatar: listing.profiles?.avatar_url || "/default-avatar.png",
+          avatar: listing.profiles?.avatar_url || getDefaultAvatar("craftsman"),
           username: listing.profiles?.username || "Utilisateur",
           timeAgo: "récemment",
           image: listing.image_url || "",
@@ -164,6 +165,8 @@ const Explore = () => {
               {allSponsoredListings.map((listing, index) => (
                 <ListingCard
                   key={listing.id || index}
+                  id={listing.id}
+                  userId={listing.userId}
                   avatar={listing.avatar}
                   username={listing.username}
                   timeAgo={listing.timeAgo}
@@ -191,6 +194,8 @@ const Explore = () => {
                 {sortListings(professionListings).map((listing, index) => (
                   <ListingCard
                     key={listing.id || index}
+                    id={listing.id}
+                    userId={listing.userId}
                     avatar={listing.avatar}
                     username={listing.username}
                     timeAgo={listing.timeAgo}
