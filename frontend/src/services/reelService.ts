@@ -85,6 +85,18 @@ export const reelService = {
     return data;
   },
 
+  async isReelLiked(userId: string, reelId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('reel_likes')
+      .select('id')
+      .eq('reel_id', reelId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return Boolean(data);
+  },
+
   // Like a reel
   async likeReel(reelId: string, userId: string) {
     const { data, error } = await supabase

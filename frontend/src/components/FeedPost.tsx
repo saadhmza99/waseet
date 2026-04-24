@@ -656,8 +656,8 @@ const FeedPost = ({
           className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground text-sm sm:text-base"
         >
           <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="hidden sm:inline">{comments} Commentaires</span>
-          <span className="sm:hidden">{comments}</span>
+          <span className="hidden sm:inline">{commentCount} Commentaires</span>
+          <span className="sm:hidden">{commentCount}</span>
         </button>
         <button 
           onClick={handleShare}

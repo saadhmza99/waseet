@@ -18,6 +18,21 @@ export const moderationService = {
     return data;
   },
 
+  async reportReel(reelId: string, reporterId: string, reason: string = 'user_report') {
+    const { data, error } = await supabase
+      .from('reel_reports')
+      .insert({
+        reel_id: reelId,
+        reporter_id: reporterId,
+        reason,
+      })
+      .select()
+      .single();
+
+    if (error && error.code !== '23505') throw error;
+    return data;
+  },
+
   async blockUser(blockerId: string, blockedId: string) {
     const { data, error } = await supabase
       .from('blocked_users')

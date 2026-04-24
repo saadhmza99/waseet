@@ -3,11 +3,32 @@ import { streamService } from '@/services/streamService';
 
 interface CloudflareVideoPlayerProps {
   videoId: string;
+  /** Stable DOM id so parent can call `streamIframePostCommand` (play/pause). */
+  iframeDomId?: string;
   className?: string;
   autoPlay?: boolean;
   loop?: boolean;
   muted?: boolean;
   controls?: boolean;
+}
+
+/** Best-effort play/pause for Cloudflare Stream iframe embeds (cross-origin). */
+export function streamIframePostCommand(iframe: HTMLIFrameElement | null, action: 'play' | 'pause') {
+  const w = iframe?.contentWindow;
+  if (!w) return;
+  const variants: unknown[] = [
+    { event: action },
+    { method: action },
+    { type: `player:${action}` },
+    action,
+  ];
+  for (const payload of variants) {
+    try {
+      w.postMessage(payload, '*');
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /**
@@ -16,6 +37,7 @@ interface CloudflareVideoPlayerProps {
  */
 export const CloudflareVideoPlayer = ({
   videoId,
+  iframeDomId,
   className = '',
   autoPlay = true,
   loop = true,
@@ -23,6 +45,11 @@ export const CloudflareVideoPlayer = ({
   controls = false,
 }: CloudflareVideoPlayerProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const resolvedId =
+    iframeDomId ||
+    `cf-stream-${String(videoId || '')
+      .trim()
+      .replace(/[^a-zA-Z0-9-_]/g, '')}`;
 
   useEffect(() => {
     // Optional: Load video metadata
@@ -39,6 +66,7 @@ export const CloudflareVideoPlayer = ({
 
   return (
     <iframe
+      id={resolvedId}
       ref={iframeRef}
       title="Reel vidéo"
       src={`${embedUrl}?${params.toString()}`}

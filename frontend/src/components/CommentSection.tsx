@@ -17,9 +17,11 @@ interface CommentSectionProps {
   postId?: string;
 }
 
-const CommentSection = ({ comments: initialComments, onAddComment }: CommentSectionProps) => {
+const CommentSection = ({ comments, onAddComment }: CommentSectionProps) => {
   const navigate = useNavigate();
-  const [comments, setComments] = useState(initialComments);
+  /** When parent supplies onAddComment, list is fully controlled by the comments prop. */
+  const [localComments, setLocalComments] = useState(comments);
+  const displayComments = onAddComment ? comments : localComments;
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -37,9 +39,8 @@ const CommentSection = ({ comments: initialComments, onAddComment }: CommentSect
         setNewComment("");
         // Comments will be updated by parent component
       } else {
-        // Fallback for local state
-        setComments([
-          ...comments,
+        setLocalComments((prev) => [
+          ...prev,
           {
             id: Date.now(),
             avatar: "",
@@ -61,7 +62,7 @@ const CommentSection = ({ comments: initialComments, onAddComment }: CommentSect
     <div className="flex flex-col h-[calc(100vh-300px)] sm:h-[calc(100vh-350px)]">
       {/* Comments List */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-        {comments.map((c) => (
+        {displayComments.map((c) => (
           <div key={c.id} className="flex gap-3 py-3 border-b border-border last:border-b-0">
             <button
               onClick={() => handleProfileClick(c.username)}

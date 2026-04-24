@@ -902,3 +902,55 @@ CREATE TRIGGER reels_before_insert_upload_limits
   FOR EACH ROW
   EXECUTE FUNCTION public.reels_enforce_upload_limits();
 
+-- Reel reports (user reports on reels)
+CREATE TABLE IF NOT EXISTS public.reel_reports (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  reel_id UUID REFERENCES public.reels(id) ON DELETE CASCADE NOT NULL,
+  reporter_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  reason TEXT DEFAULT 'user_report' NOT NULL,
+  status TEXT CHECK (status IN ('pending', 'reviewing', 'resolved', 'dismissed')) DEFAULT 'pending' NOT NULL,
+  reviewed_by UUID REFERENCES public.profiles(id),
+  reviewed_at TIMESTAMP WITH TIME ZONE,
+  resolution_note TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(reel_id, reporter_id)
+);
+
+ALTER TABLE public.reel_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can create reel reports" ON public.reel_reports;
+CREATE POLICY "Users can create reel reports"
+  ON public.reel_reports FOR INSERT
+  WITH CHECK (auth.uid() = reporter_id);
+
+DROP POLICY IF EXISTS "Users can view their own reel reports" ON public.reel_reports;
+CREATE POLICY "Users can view their own reel reports"
+  ON public.reel_reports FOR SELECT
+  USING (auth.uid() = reporter_id);
+
+DROP POLICY IF EXISTS "Moderators can view all reel reports" ON public.reel_reports;
+CREATE POLICY "Moderators can view all reel reports"
+  ON public.reel_reports FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.moderation_admins ma
+      WHERE ma.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Moderators can update reel reports" ON public.reel_reports;
+CREATE POLICY "Moderators can update reel reports"
+  ON public.reel_reports FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.moderation_admins ma
+      WHERE ma.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.moderation_admins ma
+      WHERE ma.user_id = auth.uid()
+    )
+  );
+

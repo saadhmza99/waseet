@@ -1,10 +1,24 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, Share2, Heart, Bookmark } from "lucide-react";
+import {
+  MessageCircle,
+  Share2,
+  Heart,
+  Bookmark,
+  MoreVertical,
+  Pause,
+  Play,
+  Download,
+  Flag,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { reelService } from "@/services/reelService";
 import { savedService } from "@/services/savedService";
-import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
+import CommentSection from "@/components/CommentSection";
+import {
+  CloudflareVideoPlayer,
+  streamIframePostCommand,
+} from "@/components/CloudflareVideoPlayer";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
@@ -23,6 +37,20 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { moderationService } from "@/services/moderationService";
 
 const Reels = () => {
   const { user } = useAuth();
@@ -38,6 +66,15 @@ const Reels = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [publishFormOpen, setPublishFormOpen] = useState(false);
+  const [commentsReelId, setCommentsReelId] = useState<string | null>(null);
+  const [commentRows, setCommentRows] = useState<
+    { id: string; avatar: string; username: string; text: string; timeAgo: string }[]
+  >([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [reportReelId, setReportReelId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [pausedByUser, setPausedByUser] = useState<Record<string, boolean>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Load reels from Supabase
@@ -50,10 +87,7 @@ const Reels = () => {
         
         // Check liked and saved status
         if (user && reelsData) {
-          const likedPromises = reelsData.map((reel) => 
-            // TODO: Check if reel is liked
-            Promise.resolve(false)
-          );
+          const likedPromises = reelsData.map((reel) => reelService.isReelLiked(user.id, reel.id));
           const savedPromises = reelsData.map((reel) => 
             savedService.isReelSaved(user.id, reel.id)
           );
@@ -90,70 +124,180 @@ const Reels = () => {
     });
   }, [reels]);
 
-  const handleLike = async (reelId: string) => {
-    if (!user) return;
-    
+  const loadCommentsForReel = async (reelId: string) => {
+    setCommentsLoading(true);
     try {
-      if (likedReels.has(reelId)) {
+      const rows = await reelService.getReelComments(reelId);
+      setCommentRows(
+        (rows || []).map((c: any) => ({
+          id: String(c.id),
+          avatar: c.profiles?.avatar_url || "",
+          username: c.profiles?.username || "Utilisateur",
+          text: c.content || "",
+          timeAgo: formatDistanceToNow(new Date(c.created_at), {
+            addSuffix: true,
+            locale: fr,
+          }),
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Impossible de charger les commentaires." });
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const openComments = (reelId: string) => {
+    setCommentsReelId(reelId);
+    void loadCommentsForReel(reelId);
+  };
+
+  const handleAddReelComment = async (content: string) => {
+    if (!user || !commentsReelId) return;
+    await reelService.createReelComment(commentsReelId, user.id, content);
+    setReels((prev) =>
+      prev.map((r) =>
+        r.id === commentsReelId
+          ? { ...r, comments_count: (r.comments_count || 0) + 1 }
+          : r
+      )
+    );
+    await loadCommentsForReel(commentsReelId);
+  };
+
+  const handleLike = async (reelId: string) => {
+    if (!user) {
+      toast({ title: "Connexion requise", description: "Connecte-toi pour aimer ce reel." });
+      return;
+    }
+
+    const wasLiked = likedReels.has(reelId);
+    try {
+      if (wasLiked) {
         await reelService.unlikeReel(reelId, user.id);
         setLikedReels((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(reelId);
-          return newSet;
+          const next = new Set(prev);
+          next.delete(reelId);
+          return next;
         });
+        setReels((prev) =>
+          prev.map((r) =>
+            r.id === reelId
+              ? { ...r, likes_count: Math.max(0, (r.likes_count || 0) - 1) }
+              : r
+          )
+        );
       } else {
         await reelService.likeReel(reelId, user.id);
         setLikedReels((prev) => new Set(prev).add(reelId));
+        setReels((prev) =>
+          prev.map((r) =>
+            r.id === reelId ? { ...r, likes_count: (r.likes_count || 0) + 1 } : r
+          )
+        );
       }
     } catch (error) {
       console.error("Error toggling like:", error);
+      toast({ title: "Erreur", description: "Impossible de mettre à jour le j'aime." });
     }
   };
 
   const handleSave = async (reelId: string) => {
-    if (!user) return;
-    
+    if (!user) {
+      toast({ title: "Connexion requise", description: "Connecte-toi pour enregistrer ce reel." });
+      return;
+    }
+
     try {
       if (savedReels.has(reelId)) {
         await savedService.unsaveReel(user.id, reelId);
         setSavedReels((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(reelId);
-          return newSet;
+          const next = new Set(prev);
+          next.delete(reelId);
+          return next;
         });
+        toast({ title: "Retiré", description: "Reel retiré des enregistrements." });
       } else {
         await savedService.saveReel(user.id, reelId);
         setSavedReels((prev) => new Set(prev).add(reelId));
+        toast({ title: "Enregistré", description: "Reel ajouté à tes enregistrements." });
       }
     } catch (error) {
       console.error("Error toggling save:", error);
+      toast({ title: "Erreur", description: "Impossible d'enregistrer ce reel." });
     }
   };
 
   const handleShare = async (reelId: string) => {
-    if (!user) return;
-    
-    try {
-      await reelService.shareReel(reelId, user.id);
-      
-      const reel = reels.find((r) => r.id === reelId);
-      if (navigator.share && reel) {
-        navigator.share({
-          title: reel.title || reel.description,
-          text: reel.description,
-          url: window.location.href,
-        });
+    const reel = reels.find((r) => r.id === reelId);
+    const shareUrl = `${window.location.origin}/reels?reel=${reelId}`;
+
+    if (user) {
+      try {
+        await reelService.shareReel(reelId, user.id);
+      } catch (e) {
+        console.error(e);
       }
-    } catch (error) {
-      console.error("Error sharing reel:", error);
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: reel?.title || "Reel",
+          text: reel?.description || "",
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: "Lien copié", description: "Le lien du reel est dans le presse-papiers." });
+      }
+    } catch (e) {
+      if ((e as Error)?.name !== "AbortError") {
+        console.error(e);
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          toast({ title: "Lien copié", description: "Le lien du reel est dans le presse-papiers." });
+        } catch {
+          toast({ title: "Partage", description: shareUrl });
+        }
+      }
     }
   };
 
-  const formatTimeAgo = (date: string) => {
+  const togglePlayback = (reelId: string) => {
+    const el = document.getElementById(`cf-reel-iframe-${reelId}`) as HTMLIFrameElement | null;
+    const nowPaused = Boolean(pausedByUser[reelId]);
+    streamIframePostCommand(el, nowPaused ? "play" : "pause");
+    setPausedByUser((prev) => ({ ...prev, [reelId]: !nowPaused }));
+  };
+
+  const handleDownloadReel = (cloudflareVideoId: string) => {
+    const id = String(cloudflareVideoId || "").trim();
+    if (!id) return;
+    const url = `https://videodelivery.net/${id}/downloads/default.mp4`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    toast({
+      title: "Téléchargement",
+      description:
+        "Si rien ne s’ouvre, les téléchargements peuvent être désactivés pour cette vidéo sur Cloudflare.",
+    });
+  };
+
+  const submitReelReport = async () => {
+    if (!user || !reportReelId) return;
+    const reason = reportReason.trim() || "user_report";
+    setReportSubmitting(true);
     try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
-    } catch {
-      return "récemment";
+      await moderationService.reportReel(reportReelId, user.id, reason);
+      setReportReelId(null);
+      setReportReason("");
+      toast({ title: "Signalement envoyé", description: "Merci, nous examinerons ce contenu." });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Erreur", description: "Impossible d’envoyer le signalement." });
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -190,6 +334,18 @@ const Reels = () => {
   };
 
   const playableReels = reels.filter((reel) => Boolean(String(reel.cloudflare_video_id || "").trim()));
+
+  useEffect(() => {
+    const list = reels.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim()));
+    if (!list.length) return;
+    const idx = Math.min(currentReelIndex, list.length - 1);
+    list.forEach((r, i) => {
+      const el = document.getElementById(`cf-reel-iframe-${r.id}`) as HTMLIFrameElement | null;
+      if (i !== idx) {
+        streamIframePostCommand(el, "pause");
+      }
+    });
+  }, [currentReelIndex, reels]);
 
   const handleUploadReel = async () => {
     if (!user || !videoFile) return;
@@ -327,6 +483,7 @@ const Reels = () => {
               {reel.cloudflare_video_id ? (
                 <div className="absolute inset-0 min-h-0">
                   <CloudflareVideoPlayer
+                    iframeDomId={`cf-reel-iframe-${reel.id}`}
                     videoId={String(reel.cloudflare_video_id).trim()}
                     className="h-full w-full min-h-0"
                     autoPlay={index === safeCurrentIndex}
@@ -340,6 +497,21 @@ const Reels = () => {
                   Vidéo non disponible
                 </div>
               )}
+
+              {index === safeCurrentIndex && reel.cloudflare_video_id ? (
+                <button
+                  type="button"
+                  onClick={() => togglePlayback(reel.id)}
+                  className="pointer-events-auto absolute bottom-28 left-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-black/70 sm:bottom-32"
+                  aria-label={pausedByUser[reel.id] ? "Lecture" : "Pause"}
+                >
+                  {pausedByUser[reel.id] ? (
+                    <Play className="h-6 w-6 fill-white" />
+                  ) : (
+                    <Pause className="h-6 w-6" />
+                  )}
+                </button>
+              ) : null}
 
               {/* Overlay Content */}
               <div className="pointer-events-none absolute inset-0 flex">
@@ -389,10 +561,7 @@ const Reels = () => {
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        // TODO: Open comment modal
-                        console.log("Open comments for reel", reel.id);
-                      }}
+                      onClick={() => openComments(reel.id)}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
                     >
                       <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
@@ -430,6 +599,41 @@ const Reels = () => {
                       />
                     </button>
                   </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white shadow backdrop-blur-sm hover:bg-black/50 sm:h-12 sm:w-12"
+                        aria-label="Plus d'options"
+                      >
+                        <MoreVertical className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (!user) {
+                            toast({
+                              title: "Connexion requise",
+                              description: "Connecte-toi pour signaler un contenu.",
+                            });
+                            return;
+                          }
+                          setReportReelId(reel.id);
+                        }}
+                      >
+                        <Flag className="mr-2 h-4 w-4" />
+                        Signaler
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDownloadReel(String(reel.cloudflare_video_id))}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Télécharger
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -451,6 +655,62 @@ const Reels = () => {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(commentsReelId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCommentsReelId(null);
+            setCommentRows([]);
+          }
+        }}
+      >
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border px-4 py-3 text-left">
+            <DialogTitle>Commentaires</DialogTitle>
+          </DialogHeader>
+          {!user ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              Connecte-toi pour laisser un commentaire.
+            </p>
+          ) : commentsLoading ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">Chargement…</div>
+          ) : (
+            <CommentSection comments={commentRows} onAddComment={handleAddReelComment} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(reportReelId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReportReelId(null);
+            setReportReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Signaler ce reel</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            placeholder="Décris le problème (optionnel)"
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            rows={4}
+            className="mt-2"
+          />
+          <DialogFooter className="mt-4 gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setReportReelId(null)}>
+              Annuler
+            </Button>
+            <Button type="button" disabled={reportSubmitting} onClick={() => void submitReelReport()}>
+              Envoyer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
