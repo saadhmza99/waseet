@@ -135,7 +135,7 @@ export const savedService = {
       .select('id')
       .eq('user_id', userId)
       .eq('post_id', postId)
-      .single();
+      .maybeSingle();
 
     return !!data;
   },
@@ -146,7 +146,7 @@ export const savedService = {
       .select('id')
       .eq('user_id', userId)
       .eq('listing_id', listingId)
-      .single();
+      .maybeSingle();
 
     return !!data;
   },
@@ -157,7 +157,7 @@ export const savedService = {
       .select('id')
       .eq('user_id', userId)
       .eq('reel_id', reelId)
-      .single();
+      .maybeSingle();
 
     return !!data;
   },

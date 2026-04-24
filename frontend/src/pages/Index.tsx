@@ -6,11 +6,13 @@ import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import { followService } from "@/services/followService";
 import { moderationService } from "@/services/moderationService";
+import { portfolioService } from "@/services/portfolioService";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReactElement } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { toast } from "@/components/ui/use-toast";
 
 const Index = () => {
   const { user } = useAuth();
@@ -87,13 +89,28 @@ const Index = () => {
   const handlePostCreated = async (postData: any) => {
     if (user) {
       try {
-      const newPost = await postService.createPost(user.id, {
+      await postService.createPost(user.id, {
         title: postData.text?.split('\n')[0] || "Nouveau post",
         description: postData.text,
         before_image_url: postData.beforeImage,
         after_image_url: postData.afterImage,
         single_image_url: postData.singleImage,
         images: postData.images || [],
+      });
+      if (postData.portfolioImageUrls?.length) {
+        await portfolioService.addPortfolioItems(
+          user.id,
+          postData.portfolioImageUrls,
+          postData.text?.split('\n')[0] || "Portfolio"
+        );
+        toast({
+          title: "Portfolio mis a jour",
+          description: `${postData.portfolioImageUrls.length} photo${postData.portfolioImageUrls.length > 1 ? "s" : ""} ajoutee${postData.portfolioImageUrls.length > 1 ? "s" : ""} au portfolio.`,
+        });
+      }
+      toast({
+        title: "Post publie",
+        description: "Votre post a ete publie avec succes.",
       });
         // Reload posts
         const [postsData, followingData, blockedUserIds] = await Promise.all([

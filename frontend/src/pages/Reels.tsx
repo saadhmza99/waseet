@@ -176,7 +176,7 @@ const Reels = () => {
     setUploading(true);
     try {
       const uploaded = await streamService.uploadVideo(videoFile, { title, description });
-      const videoId = uploaded?.result?.uid || uploaded?.uid;
+      const videoId = uploaded?.result?.uid || uploaded?.uid || uploaded?.video?.id;
       if (!videoId) throw new Error("Upload failed");
       await reelService.createReel(user.id, {
         cloudflare_video_id: videoId,

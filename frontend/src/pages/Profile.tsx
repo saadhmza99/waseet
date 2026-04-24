@@ -325,7 +325,7 @@ const Profile = () => {
         title: reelTitle,
         description: reelDescription,
       });
-      const videoId = uploadResult?.result?.uid || uploadResult?.uid;
+      const videoId = uploadResult?.result?.uid || uploadResult?.uid || uploadResult?.video?.id;
       if (!videoId) {
         throw new Error("Video upload failed");
       }

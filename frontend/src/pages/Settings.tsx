@@ -176,6 +176,16 @@ const Settings = () => {
     }
   };
 
+  const handleDeleteAccount = () => {
+    const confirmed = window.confirm("Are you sure? This action cannot be undone.");
+    if (!confirmed) return;
+
+    toast({
+      title: "Action requise",
+      description: "Suppression de compte a brancher au backend.",
+    });
+  };
+
   if (profileLoading) {
     return <div className="py-10 text-center text-muted-foreground">Chargement des paramètres...</div>;
   }
@@ -429,7 +439,7 @@ const Settings = () => {
             <h2 className="text-lg sm:text-xl font-semibold text-destructive">Danger Zone</h2>
           </div>
           <div className="space-y-3 sm:space-y-4">
-            <Button variant="destructive" className="w-full justify-start">
+            <Button variant="destructive" className="w-full justify-start" onClick={handleDeleteAccount}>
               Delete Account
             </Button>
           </div>
