@@ -83,6 +83,7 @@ const FeedPost = ({
   const [isSaved, setIsSaved] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [showAllImages, setShowAllImages] = useState(false);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [commentPermission, setCommentPermission] = useState<"anyone" | "follow_back" | "off">("anyone");
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
@@ -419,7 +420,7 @@ const FeedPost = ({
   }
 
   return (
-    <article className="bg-card border-b border-border mb-4 sm:mb-6">
+    <article className="bg-card border-b border-border mb-4 sm:mb-6 overflow-hidden min-w-0">
       {/* User Info */}
       <div className="flex items-center justify-between px-2 sm:px-4 md:px-6 lg:px-8 pt-3 pb-2">
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -501,7 +502,9 @@ const FeedPost = ({
         </DropdownMenu>
       </div>
 
-      <h3 className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground">{displayTitle}</h3>
+      <h3 className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground break-words overflow-hidden">
+        {displayTitle}
+      </h3>
       {postType && postType !== "standard" ? (
         <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2">
           <span className="inline-block rounded bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-accent">
@@ -519,10 +522,23 @@ const FeedPost = ({
       ) : null}
 
       {displayDescription && (
-        <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-3">
-          <p className="text-sm sm:text-base text-card-foreground leading-relaxed whitespace-pre-line">
+        <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-3 min-w-0">
+          <p
+            className={`text-sm sm:text-base text-card-foreground leading-relaxed whitespace-pre-wrap break-words overflow-hidden ${
+              captionExpanded ? "" : "line-clamp-4"
+            }`}
+          >
             {displayDescription}
           </p>
+          {displayDescription.length > 180 ? (
+            <button
+              type="button"
+              onClick={() => setCaptionExpanded((v) => !v)}
+              className="mt-1 text-sm font-medium text-accent hover:underline"
+            >
+              {captionExpanded ? "Voir moins" : "Voir plus"}
+            </button>
+          ) : null}
         </div>
       )}
 
@@ -745,11 +761,11 @@ const FeedPost = ({
                     </p>
                   </div>
                 </div>
-                <h3 className="font-bold text-base sm:text-lg text-card-foreground mb-2">
+                <h3 className="font-bold text-base sm:text-lg text-card-foreground mb-2 break-words">
                   {title}
                 </h3>
                 {description && (
-                  <p className="text-sm sm:text-base text-card-foreground leading-relaxed whitespace-pre-line mb-3">
+                  <p className="text-sm sm:text-base text-card-foreground leading-relaxed whitespace-pre-wrap break-words overflow-hidden line-clamp-6 mb-3">
                     {description}
                   </p>
                 )}
