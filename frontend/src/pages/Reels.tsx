@@ -11,6 +11,7 @@ import {
   Flag,
   Trash2,
   ChevronLeft,
+  Loader2,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +29,7 @@ import {
   REEL_MAX_DURATION_SECONDS,
   REEL_MAX_PER_USER_PER_MONTH,
   REEL_UPLOAD_MAX_BYTES,
+  getBrowserVideoDurationSeconds,
   streamService,
 } from "@/services/streamService";
 import { Input } from "@/components/ui/input";
@@ -54,14 +56,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { moderationService } from "@/services/moderationService";
+import UploadProgressRing from "@/components/UploadProgressRing";
 
 const Reels = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const feedFrom = searchParams.get("from");
   const feedProfileId = searchParams.get("profileId");
-  const feedReelId = searchParams.get("reelId");
   const isSubFeed = feedFrom === "profile" || feedFrom === "saved";
   const [reels, setReels] = useState<any[]>([]);
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
@@ -82,13 +84,16 @@ const Reels = () => {
   const [reportReelId, setReportReelId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [deletingReelId, setDeletingReelId] = useState<string | null>(null);
   const [pausedByUser, setPausedByUser] = useState<Record<string, boolean>>({});
   /** Play/Pause badge: hidden until user taps the reel; then shown briefly. */
   const [playbackUiVisible, setPlaybackUiVisible] = useState(false);
   const playbackUiHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [videoLoadStateByReel, setVideoLoadStateByReel] = useState<Record<string, "loading" | "ready" | "error">>({});
+  const [retryNonceByReel, setRetryNonceByReel] = useState<Record<string, number>>({});
 
-  const feedQueryKey = searchParams.toString();
+  const feedQueryKey = `${feedFrom || "all"}:${feedProfileId || "none"}:${user?.id || "anon"}`;
 
   // Load reels: global feed, or profile user's reels, or current user's saved reels (from URL)
   useEffect(() => {
@@ -117,13 +122,29 @@ const Reels = () => {
           reelsData = (await reelService.getReelsByUser(feedProfileId)) || [];
         } else {
           reelsData = (await reelService.getReels(50, 0)) || [];
+          reelsData = reelsData
+            .slice()
+            .sort((a, b) => {
+              const score = (r: any) => {
+                const likes = Number(r.likes_count || 0);
+                const comments = Number(r.comments_count || 0);
+                const shares = Number(r.shares_count || 0);
+                const ageHours = Math.max(
+                  0,
+                  (Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60)
+                );
+                return likes * 1 + comments * 1.8 + shares * 2.4 - ageHours * 0.05;
+              };
+              return score(b) - score(a);
+            });
         }
 
         setReels(reelsData);
 
         const playable = reelsData.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim()));
-        if (feedReelId && playable.length) {
-          const pIdx = playable.findIndex((r) => r.id === feedReelId);
+        const deepLinkedReelId = searchParams.get("reelId") || searchParams.get("reel");
+        if (deepLinkedReelId && playable.length) {
+          const pIdx = playable.findIndex((r) => r.id === deepLinkedReelId);
           setCurrentReelIndex(pIdx >= 0 ? pIdx : 0);
         } else {
           setCurrentReelIndex(0);
@@ -347,6 +368,8 @@ const Reels = () => {
   const handleDeleteReel = async (reelId: string) => {
     if (!user) return;
     if (!window.confirm("Supprimer ce reel définitivement ?")) return;
+    if (deletingReelId) return;
+    setDeletingReelId(reelId);
     try {
       await reelService.deleteReel(reelId, user.id);
       const next = reels.filter((r) => r.id !== reelId);
@@ -367,6 +390,8 @@ const Reels = () => {
     } catch (e) {
       console.error(e);
       toast({ title: "Erreur", description: "Impossible de supprimer ce reel." });
+    } finally {
+      setDeletingReelId(null);
     }
   };
 
@@ -420,11 +445,28 @@ const Reels = () => {
   };
 
   const playableReels = reels.filter((reel) => Boolean(String(reel.cloudflare_video_id || "").trim()));
+  const subFeedTitle =
+    feedFrom === "saved"
+      ? "Reels enregistrés"
+      : feedFrom === "profile"
+      ? `Reels de ${playableReels[0]?.profiles?.username ? `@${playableReels[0].profiles.username}` : "ce profil"}`
+      : "";
 
   const activePlayableReelId =
     playableReels.length > 0
       ? playableReels[Math.min(currentReelIndex, playableReels.length - 1)]?.id
       : undefined;
+
+  useEffect(() => {
+    const activeReelId = activePlayableReelId;
+    if (!activeReelId) return;
+    const current = searchParams.get("reelId") || searchParams.get("reel");
+    if (current === activeReelId) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("reelId", activeReelId);
+    if (next.has("reel")) next.delete("reel");
+    setSearchParams(next, { replace: true });
+  }, [activePlayableReelId, searchParams, setSearchParams]);
 
   useEffect(() => {
     setPlaybackUiVisible(false);
@@ -512,7 +554,7 @@ const Reels = () => {
         <Input
           type="file"
           accept="video/*"
-          onChange={(e) => {
+          onChange={async (e) => {
             const f = e.target.files?.[0] || null;
             if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
               const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
@@ -524,12 +566,30 @@ const Reels = () => {
               setVideoFile(null);
               return;
             }
+            if (f) {
+              try {
+                const seconds = await getBrowserVideoDurationSeconds(f);
+                if (seconds > REEL_MAX_DURATION_SECONDS + 0.25) {
+                  toast({
+                    title: "Vidéo longue détectée",
+                    description: `Cette vidéo dure ${Math.round(
+                      seconds
+                    )}s. Nous n’utiliserons que les 30 premières secondes.`,
+                  });
+                }
+              } catch {
+                // duration read is best-effort
+              }
+            }
             setVideoFile(f);
           }}
         />
-        {uploading && uploadProgress > 0 && (
-          <p className="text-xs text-muted-foreground">Envoi vers Cloudflare : {uploadProgress}%</p>
-        )}
+        {uploading ? (
+          <UploadProgressRing
+            value={uploadProgress}
+            label="Envoi vers Cloudflare"
+          />
+        ) : null}
         <Button onClick={handleUploadReel} disabled={!videoFile || uploading} className="w-full">
           {uploading ? (uploadProgress > 0 ? `Envoi ${uploadProgress}%` : "Préparation…") : "Envoyer le reel"}
         </Button>
@@ -571,6 +631,11 @@ const Reels = () => {
             </Button>
           </div>
         ) : null}
+        {isSubFeed && subFeedTitle ? (
+          <div className="pointer-events-none absolute top-4 left-1/2 z-30 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+            {subFeedTitle}
+          </div>
+        ) : null}
         {user && !isSubFeed ? (
           <div className="absolute right-4 top-4 z-30 flex flex-col items-end">{reelPublishCollapsible}</div>
         ) : null}
@@ -605,6 +670,7 @@ const Reels = () => {
               {reel.cloudflare_video_id ? (
                 <div className="absolute inset-0 min-h-0">
                   <CloudflareHLSPlayer
+                    key={`reel-${reel.id}-${retryNonceByReel[reel.id] || 0}`}
                     videoDomId={`cf-reel-video-${reel.id}`}
                     videoId={String(reel.cloudflare_video_id).trim()}
                     className="h-full w-full min-h-0"
@@ -613,7 +679,32 @@ const Reels = () => {
                     muted={true}
                     controls={false}
                     objectFit="cover"
+                    clipEndSeconds={REEL_MAX_DURATION_SECONDS}
+                    onLoadStateChange={(state) =>
+                      setVideoLoadStateByReel((prev) => ({ ...prev, [reel.id]: state }))
+                    }
                   />
+                  {videoLoadStateByReel[reel.id] !== "ready" ? (
+                    <div className="pointer-events-none absolute inset-0 z-[14] flex items-center justify-center bg-black/25">
+                      {videoLoadStateByReel[reel.id] === "error" ? (
+                        <button
+                          type="button"
+                          className="pointer-events-auto rounded-full bg-black/70 px-4 py-2 text-sm text-white hover:bg-black/80"
+                          onClick={() => {
+                            setVideoLoadStateByReel((prev) => ({ ...prev, [reel.id]: "loading" }));
+                            setRetryNonceByReel((prev) => ({
+                              ...prev,
+                              [reel.id]: (prev[reel.id] || 0) + 1,
+                            }));
+                          }}
+                        >
+                          Réessayer le chargement
+                        </button>
+                      ) : (
+                        <Loader2 className="h-7 w-7 animate-spin text-white" />
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-black text-white">
@@ -772,11 +863,12 @@ const Reels = () => {
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
+                            disabled={deletingReelId === reel.id}
                             className="text-destructive focus:text-destructive"
                             onClick={() => void handleDeleteReel(reel.id)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
-                            Supprimer
+                            {deletingReelId === reel.id ? "Suppression..." : "Supprimer"}
                           </DropdownMenuItem>
                         </>
                       ) : null}

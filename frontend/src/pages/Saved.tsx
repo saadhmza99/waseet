@@ -115,6 +115,11 @@ const Saved = () => {
                             likes={post.likes_count || 0}
                             comments={post.comments_count || 0}
                             shares={post.shares_count || 0}
+                            postType={post.post_type}
+                            price={post.price}
+                            surface={post.surface}
+                            beds={post.beds}
+                            baths={post.baths}
                           />
                         );
                       })

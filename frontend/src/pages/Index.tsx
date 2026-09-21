@@ -6,7 +6,6 @@ import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import { followService } from "@/services/followService";
 import { moderationService } from "@/services/moderationService";
-import { portfolioService } from "@/services/portfolioService";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReactElement } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -90,27 +89,24 @@ const Index = () => {
     if (user) {
       try {
       await postService.createPost(user.id, {
-        title: postData.text?.split('\n')[0] || "Nouveau post",
+        title: postData.text?.split("\n")[0] || (postData.postType === "property" ? "Bien" : "Nouveau post"),
         description: postData.text,
         before_image_url: postData.beforeImage,
         after_image_url: postData.afterImage,
         single_image_url: postData.singleImage,
         images: postData.images || [],
+        post_type: postData.postType || "standard",
+        price: postData.price || null,
+        surface: postData.surface || null,
+        beds: postData.beds ?? null,
+        baths: postData.baths ?? null,
       });
-      if (postData.portfolioImageUrls?.length) {
-        await portfolioService.addPortfolioItems(
-          user.id,
-          postData.portfolioImageUrls,
-          postData.text?.split('\n')[0] || "Portfolio"
-        );
-        toast({
-          title: "Portfolio mis a jour",
-          description: `${postData.portfolioImageUrls.length} photo${postData.portfolioImageUrls.length > 1 ? "s" : ""} ajoutee${postData.portfolioImageUrls.length > 1 ? "s" : ""} au portfolio.`,
-        });
-      }
       toast({
-        title: "Post publie",
-        description: "Votre post a ete publie avec succes.",
+        title: "Post publié",
+        description:
+          postData.postType === "property" || postData.postType === "project"
+            ? "Ajouté au fil et au portfolio."
+            : "Votre post a été publié avec succès.",
       });
         // Reload posts
         const [postsData, followingData, blockedUserIds] = await Promise.all([
@@ -254,6 +250,11 @@ const Index = () => {
             comments={post.comments_count || 0}
             shares={post.shares_count || 0}
             isSponsored={post.is_sponsored || false}
+            postType={post.post_type}
+            price={post.price}
+            surface={post.surface}
+            beds={post.beds}
+            baths={post.baths}
           />
         );
         
@@ -324,6 +325,11 @@ const Index = () => {
               comments={followingPost.comments_count || 0}
               shares={followingPost.shares_count || 0}
               isSponsored={followingPost.is_sponsored || false}
+              postType={followingPost.post_type}
+              price={followingPost.price}
+              surface={followingPost.surface}
+              beds={followingPost.beds}
+              baths={followingPost.baths}
             />
           );
           feedItemCount++;

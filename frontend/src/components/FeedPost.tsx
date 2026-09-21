@@ -43,6 +43,11 @@ interface FeedPostProps {
   comments: number;
   shares: number;
   isSponsored?: boolean;
+  postType?: "standard" | "property" | "project";
+  price?: string | null;
+  surface?: string | null;
+  beds?: number | null;
+  baths?: number | null;
 }
 
 const FeedPost = ({
@@ -62,6 +67,11 @@ const FeedPost = ({
   comments,
   shares,
   isSponsored = false,
+  postType = "standard",
+  price,
+  surface,
+  beds,
+  baths,
 }: FeedPostProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -492,6 +502,21 @@ const FeedPost = ({
       </div>
 
       <h3 className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground">{displayTitle}</h3>
+      {postType && postType !== "standard" ? (
+        <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2">
+          <span className="inline-block rounded bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-accent">
+            {postType === "property" ? "Bien" : "Projet"}
+          </span>
+          {postType === "property" ? (
+            <div className="mt-2 flex flex-wrap gap-3 text-sm text-card-foreground">
+              {price ? <span className="font-semibold">{price}</span> : null}
+              {surface ? <span>{surface}{/\d/.test(surface) && !/m/i.test(surface) ? " m²" : ""}</span> : null}
+              {beds != null ? <span>{beds} ch.</span> : null}
+              {baths != null ? <span>{baths} sdb</span> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {displayDescription && (
         <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-3">

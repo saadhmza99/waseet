@@ -954,3 +954,23 @@ CREATE POLICY "Moderators can update reel reports"
     )
   );
 
+-- Post types: standard feed posts vs portfolio property/project cards
+ALTER TABLE public.posts
+  ADD COLUMN IF NOT EXISTS post_type TEXT NOT NULL DEFAULT 'standard';
+
+ALTER TABLE public.posts
+  DROP CONSTRAINT IF EXISTS posts_post_type_check;
+
+ALTER TABLE public.posts
+  ADD CONSTRAINT posts_post_type_check
+  CHECK (post_type IN ('standard', 'property', 'project'));
+
+ALTER TABLE public.posts
+  ADD COLUMN IF NOT EXISTS price TEXT,
+  ADD COLUMN IF NOT EXISTS surface TEXT,
+  ADD COLUMN IF NOT EXISTS beds INTEGER,
+  ADD COLUMN IF NOT EXISTS baths INTEGER;
+
+CREATE INDEX IF NOT EXISTS posts_user_id_post_type_idx
+  ON public.posts (user_id, post_type, created_at DESC);
+

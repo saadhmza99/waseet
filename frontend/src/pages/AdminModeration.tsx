@@ -10,20 +10,24 @@ const AdminModeration = () => {
   const { user } = useAuth();
   const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [reports, setReports] = useState<any[]>([]);
+  const [postReports, setPostReports] = useState<any[]>([]);
+  const [reelReports, setReelReports] = useState<any[]>([]);
+  const [activeType, setActiveType] = useState<"posts" | "reels">("posts");
   const [editingNoteById, setEditingNoteById] = useState<Record<string, string>>({});
 
   const loadReports = async () => {
     if (!user) return;
     try {
-      const [moderator, data] = await Promise.all([
+      const [moderator, postData, reelData] = await Promise.all([
         moderationService.isModerator(user.id),
         moderationService.getPostReports(),
+        moderationService.getReelReports(),
       ]);
       setIsModerator(moderator);
-      setReports(data);
+      setPostReports(postData || []);
+      setReelReports(reelData || []);
       const notes: Record<string, string> = {};
-      data.forEach((report) => {
+      [...(postData || []), ...(reelData || [])].forEach((report) => {
         notes[report.id] = report.resolution_note || "";
       });
       setEditingNoteById(notes);
@@ -36,31 +40,43 @@ const AdminModeration = () => {
   };
 
   useEffect(() => {
-    loadReports();
+    void loadReports();
   }, [user?.id]);
 
-  const updateStatus = async (reportId: string, status: ReportStatus) => {
+  const updateStatus = async (reportId: string, status: ReportStatus, type: "posts" | "reels") => {
     if (!user) return;
     try {
-      await moderationService.updatePostReportStatus(
-        reportId,
-        user.id,
-        status,
-        editingNoteById[reportId]
-      );
-      setReports((prev) =>
-        prev.map((report) =>
-          report.id === reportId
-            ? {
-                ...report,
-                status,
-                reviewed_by: user.id,
-                reviewed_at: new Date().toISOString(),
-                resolution_note: editingNoteById[reportId] || null,
-              }
-            : report
-        )
-      );
+      if (type === "posts") {
+        await moderationService.updatePostReportStatus(reportId, user.id, status, editingNoteById[reportId]);
+        setPostReports((prev) =>
+          prev.map((report) =>
+            report.id === reportId
+              ? {
+                  ...report,
+                  status,
+                  reviewed_by: user.id,
+                  reviewed_at: new Date().toISOString(),
+                  resolution_note: editingNoteById[reportId] || null,
+                }
+              : report
+          )
+        );
+      } else {
+        await moderationService.updateReelReportStatus(reportId, user.id, status, editingNoteById[reportId]);
+        setReelReports((prev) =>
+          prev.map((report) =>
+            report.id === reportId
+              ? {
+                  ...report,
+                  status,
+                  reviewed_by: user.id,
+                  reviewed_at: new Date().toISOString(),
+                  resolution_note: editingNoteById[reportId] || null,
+                }
+              : report
+          )
+        );
+      }
       toast({ title: "Mis à jour", description: "Le statut du signalement a été mis à jour." });
     } catch (error) {
       console.error("Error updating report status:", error);
@@ -76,9 +92,25 @@ const AdminModeration = () => {
     return <div className="py-8 text-center text-muted-foreground">Accès modération non autorisé.</div>;
   }
 
+  const reports = activeType === "posts" ? postReports : reelReports;
+  const getReportTitle = (report: any) =>
+    activeType === "posts" ? report.posts?.title || "Post sans titre" : report.reels?.title || "Reel sans titre";
+  const getReportDescription = (report: any) =>
+    activeType === "posts"
+      ? report.posts?.description || "Sans description"
+      : report.reels?.description || "Sans description";
+
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 pb-20">
       <h1 className="text-2xl sm:text-3xl font-bold text-card-foreground mb-6">Modération des signalements</h1>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Button variant={activeType === "posts" ? "default" : "outline"} onClick={() => setActiveType("posts")}>
+          Posts ({postReports.length})
+        </Button>
+        <Button variant={activeType === "reels" ? "default" : "outline"} onClick={() => setActiveType("reels")}>
+          Reels ({reelReports.length})
+        </Button>
+      </div>
 
       {reports.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">Aucun signalement pour le moment.</div>
@@ -88,7 +120,7 @@ const AdminModeration = () => {
             <div key={report.id} className="border border-border rounded-lg bg-card p-4 sm:p-5">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <p className="font-semibold text-card-foreground">{report.posts?.title || "Post sans titre"}</p>
+                  <p className="font-semibold text-card-foreground">{getReportTitle(report)}</p>
                   <p className="text-sm text-muted-foreground">
                     Signalé par @{report.reporter?.username || "utilisateur"} - raison: {report.reason}
                   </p>
@@ -98,7 +130,7 @@ const AdminModeration = () => {
                 </span>
               </div>
 
-              <p className="text-sm text-card-foreground mb-3 line-clamp-3">{report.posts?.description || "Sans description"}</p>
+              <p className="text-sm text-card-foreground mb-3 line-clamp-3">{getReportDescription(report)}</p>
 
               <label className="text-sm font-medium text-card-foreground mb-1 block">Note de résolution</label>
               <textarea
@@ -120,7 +152,7 @@ const AdminModeration = () => {
                     key={status}
                     variant={report.status === status ? "default" : "outline"}
                     size="sm"
-                    onClick={() => updateStatus(report.id, status)}
+                    onClick={() => updateStatus(report.id, status, activeType)}
                   >
                     {status}
                   </Button>

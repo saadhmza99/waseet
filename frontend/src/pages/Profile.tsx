@@ -15,8 +15,8 @@ import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import { reviewService } from "@/services/reviewService";
 import { reelService } from "@/services/reelService";
-import { portfolioService } from "@/services/portfolioService";
 import {
+  getBrowserVideoDurationSeconds,
   REEL_MAX_DURATION_SECONDS,
   REEL_MAX_PER_USER_PER_MONTH,
   REEL_UPLOAD_MAX_BYTES,
@@ -43,6 +43,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
 import PortfolioGrid from "@/components/PortfolioGrid";
+import UploadProgressRing from "@/components/UploadProgressRing";
 
 const tabs = ["Portfolio", "Posts", "Annonces", "Reels", "Avis"] as const;
 const tabToQuery: Record<(typeof tabs)[number], string> = {
@@ -102,11 +103,9 @@ const Profile = () => {
   const [uploadingReel, setUploadingReel] = useState(false);
   const [reelUploadProgress, setReelUploadProgress] = useState(0);
   const [reelPublishFormOpen, setReelPublishFormOpen] = useState(false);
-  const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const tabsContentRef = useRef<HTMLDivElement>(null);
-  const portfolioFileInputRef = useRef<HTMLInputElement>(null);
   const previousTabRef = useRef<(typeof tabs)[number]>("Portfolio");
 
   useEffect(() => {
@@ -151,7 +150,7 @@ const Profile = () => {
           listingService.getListingsByUser(profileData.id),
           reviewService.getReviewsByUser(profileData.id),
           reelService.getReelsByUser(profileData.id),
-          portfolioService.getPortfolioItemsByUser(profileData.id),
+          postService.getPortfolioPostsByUser(profileData.id),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           followService.getFollowers(profileData.id),
         ]);
@@ -234,25 +233,29 @@ const Profile = () => {
     if (!user || !isOwnProfile) return;
     try {
       await postService.createPost(user.id, {
-        title: postData.text?.split("\n")[0] || "Nouveau post",
+        title: postData.text?.split("\n")[0] || (postData.postType === "property" ? "Bien" : "Nouveau post"),
         description: postData.text,
         before_image_url: postData.beforeImage,
         after_image_url: postData.afterImage,
         single_image_url: postData.singleImage,
         images: postData.images || [],
+        post_type: postData.postType || "standard",
+        price: postData.price || null,
+        surface: postData.surface || null,
+        beds: postData.beds ?? null,
+        baths: postData.baths ?? null,
       });
-      if (postData.portfolioImageUrls?.length) {
-        await portfolioService.addPortfolioItems(
-          user.id,
-          postData.portfolioImageUrls,
-          postData.text?.split("\n")[0] || "Portfolio"
-        );
-      }
       const postsData = await postService.getPostsByUser(user.id);
-      const portfolioData = await portfolioService.getPortfolioItemsByUser(user.id);
+      const portfolioData = await postService.getPortfolioPostsByUser(user.id);
       setPosts(postsData || []);
       setPortfolioItems(portfolioData || []);
-      toast({ title: "Post publié", description: "Votre post a été publié avec succès." });
+      toast({
+        title: "Post publié",
+        description:
+          postData.postType === "property" || postData.postType === "project"
+            ? "Ajouté au fil et au portfolio."
+            : "Votre post a été publié avec succès.",
+      });
     } catch (error) {
       console.error("Error creating post:", error);
       toast({ title: "Erreur", description: "Impossible de publier le post." });
@@ -384,26 +387,6 @@ const Profile = () => {
     }
   };
 
-  const handleUploadPortfolioImages = async (files: FileList | null) => {
-    if (!files || !files.length || !user || !isOwnProfile) return;
-    setUploadingPortfolio(true);
-    try {
-      const urls = await storageService.uploadImages(Array.from(files), "portfolio");
-      await portfolioService.addPortfolioItems(user.id, urls, "Portfolio");
-      const portfolioData = await portfolioService.getPortfolioItemsByUser(user.id);
-      setPortfolioItems(portfolioData || []);
-      toast({ title: "Portfolio mis à jour", description: "Images ajoutées au portfolio." });
-    } catch (error) {
-      console.error("Error uploading portfolio images:", error);
-      toast({ title: "Erreur", description: "Impossible d'ajouter les images au portfolio." });
-    } finally {
-      setUploadingPortfolio(false);
-      if (portfolioFileInputRef.current) {
-        portfolioFileInputRef.current.value = "";
-      }
-    }
-  };
-
   if (loading) {
     return <div className="py-10 text-center text-muted-foreground">Chargement du profil...</div>;
   }
@@ -466,25 +449,10 @@ const Profile = () => {
 
           {activeTab === "Portfolio" && (
             <div className="px-4 sm:px-6 md:px-8 py-6">
-              <div className="flex flex-wrap gap-2 mb-4">
-                {isOwnProfile && (
-                  <>
-                    <input
-                      ref={portfolioFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => handleUploadPortfolioImages(e.target.files)}
-                    />
-                    <Button
-                      onClick={() => portfolioFileInputRef.current?.click()}
-                      disabled={uploadingPortfolio}
-                    >
-                      {uploadingPortfolio ? "Upload..." : "Upload images to portfolio"}
-                    </Button>
-                  </>
-                )}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Les biens et projets publiés apparaissent ici (pas les posts standards).
+                </p>
                 <Button
                   variant="outline"
                   onClick={() => copySectionLink("Portfolio", "Portfolio")}
@@ -494,16 +462,32 @@ const Profile = () => {
               </div>
               {portfolioItems.length === 0 ? (
                 <div className="text-center text-muted-foreground">
-                  Aucune photo dans le portfolio pour le moment.
+                  Aucun bien ni projet dans le portfolio. Publie un post de type{" "}
+                  <span className="font-medium text-card-foreground">Bien</span> ou{" "}
+                  <span className="font-medium text-card-foreground">Projet</span>.
                 </div>
               ) : (
                 <PortfolioGrid
-                  items={portfolioItems.map((item) => ({
-                    image: item.image_url,
-                    label: item.label || "Portfolio",
-                  }))}
-                  username={profile.username || "Utilisateur"}
-                  avatar={profileAvatar}
+                  items={portfolioItems.map((item) => {
+                    const images = Array.isArray(item.images) ? item.images : [];
+                    const image =
+                      images[0] ||
+                      item.single_image_url ||
+                      item.after_image_url ||
+                      item.before_image_url ||
+                      "";
+                    return {
+                      id: item.id,
+                      postType: item.post_type === "property" ? "property" : "project",
+                      image,
+                      title: item.title || (item.post_type === "property" ? "Bien" : "Projet"),
+                      description: item.description,
+                      price: item.price,
+                      surface: item.surface,
+                      beds: item.beds,
+                      baths: item.baths,
+                    };
+                  })}
                 />
               )}
             </div>
@@ -538,6 +522,11 @@ const Profile = () => {
                     comments={post.comments_count || 0}
                     shares={post.shares_count || 0}
                     isSponsored={post.is_sponsored || false}
+                    postType={post.post_type}
+                    price={post.price}
+                    surface={post.surface}
+                    beds={post.beds}
+                    baths={post.baths}
                   />
                 ))
               )}
@@ -651,7 +640,7 @@ const Profile = () => {
                       <Input
                         type="file"
                         accept="video/*"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const f = e.target.files?.[0] || null;
                           if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
                             const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
@@ -663,14 +652,30 @@ const Profile = () => {
                             setReelVideoFile(null);
                             return;
                           }
+                          if (f) {
+                            try {
+                              const seconds = await getBrowserVideoDurationSeconds(f);
+                              if (seconds > REEL_MAX_DURATION_SECONDS + 0.25) {
+                                toast({
+                                  title: "Vidéo longue détectée",
+                                  description: `Cette vidéo dure ${Math.round(
+                                    seconds
+                                  )}s. Nous n’utiliserons que les 30 premières secondes.`,
+                                });
+                              }
+                            } catch {
+                              // best-effort metadata read
+                            }
+                          }
                           setReelVideoFile(f);
                         }}
                       />
-                      {uploadingReel && reelUploadProgress > 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          Envoi vers Cloudflare : {reelUploadProgress}%
-                        </p>
-                      )}
+                      {uploadingReel ? (
+                        <UploadProgressRing
+                          value={reelUploadProgress}
+                          label="Envoi vers Cloudflare"
+                        />
+                      ) : null}
                       <div className="flex justify-end">
                         <Button onClick={handleCreateReel} disabled={!reelVideoFile || uploadingReel}>
                           {uploadingReel

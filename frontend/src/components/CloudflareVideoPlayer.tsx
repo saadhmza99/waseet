@@ -184,6 +184,8 @@ export type CloudflareHLSPlayerProps = CloudflareVideoPlayerProps & {
   /** DOM id for `document.getElementById` (reels play/pause). */
   videoDomId?: string;
   objectFit?: 'contain' | 'cover';
+  clipEndSeconds?: number;
+  onLoadStateChange?: (state: 'loading' | 'ready' | 'error') => void;
 };
 
 /**
@@ -198,6 +200,8 @@ export const CloudflareHLSPlayer = ({
   muted = true,
   controls = false,
   objectFit = 'contain',
+  clipEndSeconds,
+  onLoadStateChange,
 }: CloudflareHLSPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -211,6 +215,7 @@ export const CloudflareHLSPlayer = ({
     const video = videoRef.current;
     if (!video) return;
     const src = streamService.getVideoPlaybackUrl(videoId);
+    onLoadStateChange?.('loading');
     hlsRef.current?.destroy();
     hlsRef.current = null;
     video.removeAttribute('src');
@@ -224,8 +229,12 @@ export const CloudflareHLSPlayer = ({
       hlsRef.current = hls;
       hls.loadSource(src);
       hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => onLoadStateChange?.('ready'));
       hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) console.error('HLS fatal error', data);
+        if (data.fatal) {
+          console.error('HLS fatal error', data);
+          onLoadStateChange?.('error');
+        }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = src;
@@ -233,14 +242,36 @@ export const CloudflareHLSPlayer = ({
       video.src = src;
     }
 
+    const onCanPlay = () => onLoadStateChange?.('ready');
+    const onWaiting = () => onLoadStateChange?.('loading');
+    const onError = () => onLoadStateChange?.('error');
+    const onTimeUpdate = () => {
+      if (!clipEndSeconds || clipEndSeconds <= 0) return;
+      if (video.currentTime < clipEndSeconds) return;
+      if (loop) {
+        video.currentTime = 0;
+        void video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    };
+    video.addEventListener('canplay', onCanPlay);
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('error', onError);
+    video.addEventListener('timeupdate', onTimeUpdate);
+
     return () => {
+      video.removeEventListener('canplay', onCanPlay);
+      video.removeEventListener('waiting', onWaiting);
+      video.removeEventListener('error', onError);
+      video.removeEventListener('timeupdate', onTimeUpdate);
       hlsRef.current?.destroy();
       hlsRef.current = null;
       video.pause();
       video.removeAttribute('src');
       video.load();
     };
-  }, [videoId]);
+  }, [videoId, clipEndSeconds, loop, onLoadStateChange]);
 
   useEffect(() => {
     const video = videoRef.current;

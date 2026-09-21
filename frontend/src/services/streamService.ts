@@ -19,8 +19,8 @@ export const REEL_PLATFORM_MAX_STORED_MINUTES = 1000;
 const MAX_REEL_TITLE_CHARS = 512;
 const MAX_REEL_DESCRIPTION_CHARS = 2000;
 
-function assertBrowserVideoDurationAtMost(file: File, maxSeconds: number): Promise<void> {
-  if (typeof document === 'undefined') return Promise.resolve();
+export function getBrowserVideoDurationSeconds(file: File): Promise<number> {
+  if (typeof document === 'undefined') return Promise.resolve(0);
   const url = URL.createObjectURL(file);
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -39,11 +39,7 @@ function assertBrowserVideoDurationAtMost(file: File, maxSeconds: number): Promi
         reject(new Error('Durée vidéo illisible.'));
         return;
       }
-      if (d > maxSeconds + 0.25) {
-        reject(new Error(`Vidéo trop longue : maximum ${maxSeconds} secondes par reel.`));
-        return;
-      }
-      resolve();
+      resolve(d);
     };
     video.onerror = () => {
       cleanup();
@@ -173,8 +169,6 @@ export const streamService = {
       const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
       throw new Error(`Vidéo trop volumineuse (max ${maxMb} Mo). Réduis la taille ou la durée.`);
     }
-
-    await assertBrowserVideoDurationAtMost(file, REEL_MAX_DURATION_SECONDS);
 
     // Step 1: Mint a Cloudflare direct-upload URL via Edge Function (quota enforced there + DB trigger).
     // Use raw fetch + JSON (never FormData here) so the request stays tiny — avoids 413 at the gateway.

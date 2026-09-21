@@ -95,6 +95,34 @@ export const moderationService = {
     return data || [];
   },
 
+  async getReelReports() {
+    const { data, error } = await supabase
+      .from('reel_reports')
+      .select(`
+        *,
+        reels:reel_id (
+          id,
+          title,
+          description,
+          user_id,
+          cloudflare_video_id
+        ),
+        reporter:reporter_id (
+          id,
+          username,
+          avatar_url
+        ),
+        reviewed_by_profile:reviewed_by (
+          id,
+          username
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async updatePostReportStatus(
     reportId: string,
     moderatorId: string,
@@ -118,6 +146,38 @@ export const moderationService = {
 
     const { data, error } = await supabase
       .from('post_reports')
+      .update(payload)
+      .eq('id', reportId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updateReelReportStatus(
+    reportId: string,
+    moderatorId: string,
+    status: ReportStatus,
+    resolutionNote?: string
+  ) {
+    const payload: {
+      status: ReportStatus;
+      reviewed_by: string;
+      reviewed_at: string;
+      resolution_note?: string | null;
+    } = {
+      status,
+      reviewed_by: moderatorId,
+      reviewed_at: new Date().toISOString(),
+    };
+
+    if (resolutionNote !== undefined) {
+      payload.resolution_note = resolutionNote || null;
+    }
+
+    const { data, error } = await supabase
+      .from('reel_reports')
       .update(payload)
       .eq('id', reportId)
       .select()

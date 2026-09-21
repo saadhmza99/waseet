@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
+export type PostType = 'standard' | 'property' | 'project';
+
 export interface PostData {
   title: string;
   description?: string;
@@ -8,6 +10,11 @@ export interface PostData {
   single_image_url?: string;
   images?: string[];
   is_sponsored?: boolean;
+  post_type?: PostType;
+  price?: string | null;
+  surface?: string | null;
+  beds?: number | null;
+  baths?: number | null;
 }
 
 export type PostCommentPermission = 'anyone' | 'follow_back' | 'off';
@@ -78,6 +85,18 @@ export const postService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getPortfolioPostsByUser(userId: string) {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('user_id', userId)
+      .in('post_type', ['property', 'project'])
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   },
 
   // Like a post
