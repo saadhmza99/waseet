@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 220 15% 95%;
+    --background: 0 0% 100%;
     --foreground: 220 30% 15%;
 
     --card: 0 0% 100%;
@@ -84,4 +84,191 @@
     @apply bg-background text-foreground;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
+}
+
+.about-editor {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.about-editor .tiptap,
+.about-editor .ProseMirror,
+.about-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.about-content {
+  overflow: hidden;
+}
+
+.about-editor .tiptap *,
+.about-editor .ProseMirror *,
+.about-content * {
+  max-width: 100%;
+}
+.about-editor .ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.about-content > p,
+.about-content > h1,
+.about-content > h2,
+.about-content > h3,
+.about-content > ul,
+.about-content > ol,
+.about-content > div,
+.about-editor .tiptap > p,
+.about-editor .ProseMirror > p,
+.about-editor .tiptap > h1,
+.about-editor .ProseMirror > h1,
+.about-editor .tiptap > h2,
+.about-editor .ProseMirror > h2,
+.about-editor .tiptap > h3,
+.about-editor .ProseMirror > h3,
+.about-editor .tiptap > ul,
+.about-editor .ProseMirror > ul,
+.about-editor .tiptap > ol,
+.about-editor .ProseMirror > ol,
+.about-editor .tiptap > div,
+.about-editor .ProseMirror > div {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.about-content > p:has(> img.about-img-full),
+.about-content > div:has(> img.about-img-full),
+.about-editor .tiptap > p:has(> img.about-img-full),
+.about-editor .ProseMirror > p:has(> img.about-img-full),
+.about-editor .tiptap > div:has(> img.about-img-full),
+.about-editor .ProseMirror > div:has(> img.about-img-full) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+@media (min-width: 640px) {
+  .about-content > p,
+  .about-content > h1,
+  .about-content > h2,
+  .about-content > h3,
+  .about-content > ul,
+  .about-content > ol,
+  .about-content > div,
+  .about-editor .tiptap > p,
+  .about-editor .ProseMirror > p,
+  .about-editor .tiptap > h1,
+  .about-editor .ProseMirror > h1,
+  .about-editor .tiptap > h2,
+  .about-editor .ProseMirror > h2,
+  .about-editor .tiptap > h3,
+  .about-editor .ProseMirror > h3,
+  .about-editor .tiptap > ul,
+  .about-editor .ProseMirror > ul,
+  .about-editor .tiptap > ol,
+  .about-editor .ProseMirror > ol,
+  .about-editor .tiptap > div,
+  .about-editor .ProseMirror > div {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .about-content > p:has(> img.about-img-full),
+  .about-content > div:has(> img.about-img-full),
+  .about-editor .tiptap > p:has(> img.about-img-full),
+  .about-editor .ProseMirror > p:has(> img.about-img-full),
+  .about-editor .tiptap > div:has(> img.about-img-full),
+  .about-editor .ProseMirror > div:has(> img.about-img-full) {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+.about-editor .tiptap img,
+.about-editor .ProseMirror img,
+.about-content img {
+  display: block;
+  height: auto;
+  margin: 0.75rem 0;
+  border-radius: 0;
+}
+
+.about-editor .about-img-natural,
+.about-content .about-img-natural {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0;
+}
+
+.about-content > img.about-img-natural,
+.about-editor .tiptap > img.about-img-natural,
+.about-editor .ProseMirror > img.about-img-natural {
+  max-width: calc(100% - 2rem);
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.about-editor .about-img-full,
+.about-content .about-img-full {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0;
+}
+
+@media (min-width: 640px) {
+  .about-content > img.about-img-natural,
+  .about-editor .tiptap > img.about-img-natural,
+  .about-editor .ProseMirror > img.about-img-natural {
+    max-width: calc(100% - 3rem);
+    margin-left: 1.5rem;
+    margin-right: 1.5rem;
+  }
+}
+
+.about-content p {
+  margin-bottom: 0.75rem;
+}
+
+.about-editor .tiptap a,
+.about-editor .ProseMirror a,
+.about-content a {
+  color: hsl(var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.profile-post-thumb {
+  background: transparent;
+  cursor: pointer;
+  transform: scale(1);
+  filter: brightness(1);
+  transform-origin: center;
+  transition: transform 0.18s ease, filter 0.18s ease;
+  z-index: 0;
+}
+.profile-post-thumb:hover,
+.profile-post-thumb.is-hovered {
+  transform: scale(0.96);
+  filter: brightness(0.72);
+  z-index: 1;
+}
+.profile-post-thumb-media {
+  width: 100%;
+  height: 100%;
+}
+.profile-post-thumb-meta {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.profile-post-thumb:hover .profile-post-thumb-meta,
+.profile-post-thumb.is-hovered .profile-post-thumb-meta {
+  opacity: 1;
 }

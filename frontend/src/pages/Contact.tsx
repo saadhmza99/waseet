@@ -109,10 +109,10 @@ const Contact = () => {
                   <div>
                     <h3 className="font-semibold text-card-foreground mb-1">Email</h3>
                     <a
-                      href="mailto:contact@sefarah.ma"
+                      href="mailto:contact@Sifarah.ma"
                       className="text-sm text-muted-foreground hover:text-accent transition-colors"
                     >
-                      contact@sefarah.ma
+                      contact@Sifarah.ma
                     </a>
                   </div>
                 </div>

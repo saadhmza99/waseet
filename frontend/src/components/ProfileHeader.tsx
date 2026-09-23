@@ -1,164 +1,244 @@
 import { useState } from "react";
-import { ArrowLeft, Briefcase, Edit, Star, UserPlus, UserCheck } from "lucide-react";
+import { ArrowLeft, Ban, Briefcase, Edit, Flag, Globe, Info, MessageCircle, MoreHorizontal, Phone, UserPlus, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InviteToJobModal from "./InviteToJobModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/use-toast";
 
 interface ProfileHeaderProps {
   profileId?: string;
   avatar: string;
   fullName?: string;
   username: string;
-  profession: string;
-  location: string;
-  posts: number;
   followers: number;
-  rating: number;
   coverPhoto?: string;
   bio?: string;
+  phone?: string | null;
+  websiteUrl?: string | null;
   isOwnProfile?: boolean;
+  authReady?: boolean;
   isFollowing?: boolean;
   onToggleFollow?: () => void;
   onFollowersClick?: () => void;
   onEditProfile?: () => void;
+  onReportMember?: () => void;
+  onBlockMember?: () => void;
+  onAboutMember?: () => void;
 }
+
+const digitsOnly = (value: string) => value.replace(/\D/g, "");
+
+const toWhatsAppNumber = (phone: string) => {
+  const digits = digitsOnly(phone);
+  if (digits.startsWith("0")) return `212${digits.slice(1)}`;
+  return digits;
+};
+
+const normalizeWebsiteHref = (url: string) => {
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
+const actionBtn =
+  "inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold";
 
 const ProfileHeader = ({
   profileId,
   avatar,
   fullName,
   username,
-  profession,
-  location,
-  posts,
-  followers,
-  rating,
   coverPhoto,
   bio,
+  followers,
+  phone,
+  websiteUrl,
   isOwnProfile = false,
+  authReady = true,
   isFollowing = false,
   onToggleFollow,
   onFollowersClick,
   onEditProfile,
+  onReportMember,
+  onBlockMember,
+  onAboutMember,
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
+  const hasWebsite = Boolean(websiteUrl?.trim());
+  const name = (fullName || "").trim() || username;
+
+  const openCall = () => {
+    if (!phone || !hasPhone) {
+      toast({ title: "Unavailable", description: "This profile has no phone number." });
+      return;
+    }
+    window.location.href = `tel:${digitsOnly(phone)}`;
+  };
+
+  const openWhatsApp = () => {
+    if (!phone || !hasPhone) {
+      toast({ title: "Unavailable", description: "This profile has no WhatsApp number." });
+      return;
+    }
+    window.open(`https://wa.me/${toWhatsAppNumber(phone)}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openWebsite = () => {
+    if (!websiteUrl?.trim()) return;
+    window.open(normalizeWebsiteHref(websiteUrl), "_blank", "noopener,noreferrer");
+  };
+
+  const hasCover = Boolean(coverPhoto?.trim());
 
   return (
-    <div className="bg-nav text-nav-foreground pb-6 sm:pb-8 relative">
-      {/* Cover Photo */}
-      {coverPhoto && (
-        <div className="absolute inset-0 h-48 sm:h-64 md:h-80 overflow-hidden">
-          <img
-            src={coverPhoto}
-            alt="Cover"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-nav/50 to-nav" />
-        </div>
-      )}
-      
-      <div className="relative z-10">
-        <div className="flex items-center px-4 sm:px-6 md:px-8 pt-3 sm:pt-4 pb-4 sm:pb-5">
-        <button onClick={() => navigate(-1)} className="hover:opacity-70 transition-opacity">
-          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+    <div className="bg-card border-b border-border">
+      <div className="relative">
+        {hasCover ? (
+          <div className="h-36 sm:h-48 md:h-56 overflow-hidden bg-muted">
+            <img src={coverPhoto} alt="" className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="h-12 sm:h-14 bg-card" />
+        )}
+        <button
+          type="button"
+          aria-label="Retour"
+          onClick={() => {
+            const idx = typeof window.history.state?.idx === "number" ? window.history.state.idx : 0;
+            if (idx > 0) {
+              navigate(-1);
+              return;
+            }
+            navigate("/");
+          }}
+          className={`absolute left-3 top-3 z-10 rounded-full p-2 ${
+            hasCover ? "bg-black/45 text-white hover:bg-black/60" : "bg-secondary text-foreground hover:bg-secondary/80"
+          }`}
+        >
+          <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1 text-center">
-          <h1 className="font-bold text-lg sm:text-xl md:text-2xl">{fullName || username}</h1>
-          <p className="text-sm sm:text-base opacity-80">
-            {profession} • {location}
-          </p>
-        </div>
-        <div className="w-5 sm:w-6" />
       </div>
 
-      <div className="flex justify-center mb-4 sm:mb-6">
-        <div className="flex flex-col items-center">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6">
+        <div>
           <img
             src={avatar}
             alt={username}
-            className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-nav-foreground/30 object-cover"
+            className={`${hasCover ? "-mt-14 sm:-mt-16" : "-mt-2"} h-28 w-28 sm:h-36 sm:w-36 flex-shrink-0 rounded-full border-4 border-card bg-muted object-cover relative z-10`}
           />
-          <p className="mt-2 text-sm sm:text-base opacity-90">@{username}</p>
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="flex justify-center divide-x divide-nav-foreground/20">
-        <div className="px-4 sm:px-6 md:px-8 text-center">
-          <p className="text-xl sm:text-2xl md:text-3xl font-bold">{posts}</p>
-          <p className="text-xs sm:text-sm opacity-70">Posts</p>
+        <div className="mt-3 flex min-w-0 items-start gap-2">
+          <h1 className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 text-xl font-bold leading-snug text-card-foreground sm:text-2xl">
+            <span className="break-words">{name}</span>
+            <span className="text-sm font-normal text-muted-foreground sm:text-base">·</span>
+            <span className="truncate text-sm font-normal text-muted-foreground sm:text-base">@{username}</span>
+          </h1>
+          {!isOwnProfile ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  aria-label="Plus d'options"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={onReportMember}>
+                  <Flag className="mr-2 h-4 w-4" />
+                  Report {name}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onBlockMember}>
+                  <Ban className="mr-2 h-4 w-4" />
+                  Block {name}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onAboutMember}>
+                  <Info className="mr-2 h-4 w-4" />
+                  About this member
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
-        <button
-          className="px-4 sm:px-6 md:px-8 text-center hover:opacity-80 transition-opacity"
-          onClick={onFollowersClick}
-          type="button"
-        >
-          <p className="text-xl sm:text-2xl md:text-3xl font-bold">{followers}</p>
-          <p className="text-xs sm:text-sm opacity-70">Followers</p>
-        </button>
-        <div className="px-4 sm:px-6 md:px-8 text-center flex flex-col items-center">
-          <div className="flex items-center gap-1">
-            <p className="text-xl sm:text-2xl md:text-3xl font-bold">{rating}</p>
-            <Star className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-star fill-star" />
-          </div>
-          <p className="text-xs sm:text-sm opacity-70">Rating</p>
-        </div>
-      </div>
 
-      {/* Bio */}
-      {bio && (
-        <div className="px-4 sm:px-6 md:px-8 mt-4 sm:mt-6 max-w-2xl mx-auto">
-          <p className="text-sm sm:text-base text-nav-foreground/90 text-center leading-relaxed">
+        {bio ? (
+          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
             {bio}
           </p>
-        </div>
-      )}
+        ) : null}
 
-      {/* Action Buttons */}
-      <div className="flex gap-3 sm:gap-4 px-4 sm:px-6 md:px-8 mt-4 sm:mt-6 max-w-md mx-auto">
-        {isOwnProfile ? (
-          <button
-            onClick={onEditProfile}
-            className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base hover:bg-primary/90 transition-colors"
-          >
-            <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
-            Edit profile
-          </button>
-        ) : (
-          <>
+        <button
+          type="button"
+          onClick={onFollowersClick}
+          className="mt-1 text-sm text-muted-foreground hover:underline"
+        >
+          {followers} followers
+        </button>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 pb-4">
+          {isOwnProfile ? (
+            <button type="button" onClick={onEditProfile} className={`${actionBtn} bg-secondary text-secondary-foreground hover:bg-secondary/80`}>
+              <Edit className="h-4 w-4" />
+              Modifier le profil
+            </button>
+          ) : authReady ? (
             <button
+              type="button"
               onClick={onToggleFollow}
-              className={`flex-1 flex items-center justify-center gap-2 font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base transition-colors ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${
                 isFollowing
-                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
-              {isFollowing ? (
-                <>
-                  <UserCheck className="w-4 h-4 sm:w-5 sm:h-5" />
-                  Suivi
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  Suivre
-                </>
+              {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
+              {isFollowing ? "Suivi" : "Follow"}
+            </button>
+          ) : null}
+          {!isOwnProfile && authReady && (
+            <>
+              <button type="button" onClick={() => setShowInviteModal(true)} className={`${actionBtn} bg-secondary text-secondary-foreground hover:bg-secondary/80`}>
+                <Briefcase className="h-4 w-4" />
+                Invite to Job
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={`${actionBtn} bg-secondary text-secondary-foreground hover:bg-secondary/80`}>
+                    <Phone className="h-4 w-4" />
+                    Contact
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={openWhatsApp}>
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    WhatsApp
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={openCall}>
+                    <Phone className="mr-2 h-4 w-4" />
+                    Phone call
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {hasWebsite && (
+                <button type="button" onClick={openWebsite} className={`${actionBtn} bg-secondary text-secondary-foreground hover:bg-secondary/80`}>
+                  <Globe className="h-4 w-4" />
+                  Website
+                </button>
               )}
-            </button>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="flex-1 flex items-center justify-center gap-2 bg-card text-primary font-semibold py-2.5 sm:py-3 rounded-lg text-sm sm:text-base hover:bg-card/90 transition-colors"
-            >
-              <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
-              Invite to Job
-            </button>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Invite to Job Modal */}
       <InviteToJobModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}

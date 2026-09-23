@@ -143,7 +143,8 @@ const FeedPost = ({
   const displayedImages = hasMoreThanTwoImages && !showAllImages ? allImages.slice(0, 2) : allImages;
 
   const handleProfileClick = () => {
-    navigate(`/profile/${username}`);
+    const slug = (username || "").replace(/^@/, "").trim();
+    navigate(`/profile/${encodeURIComponent(slug)}?tab=about`);
   };
 
   const [postComments, setPostComments] = useState<any[]>([]);
@@ -420,7 +421,7 @@ const FeedPost = ({
   }
 
   return (
-    <article className="bg-card border-b border-border mb-4 sm:mb-6 overflow-hidden min-w-0">
+    <article className="overflow-hidden min-w-0 border-b border-border bg-card">
       {/* User Info */}
       <div className="flex items-center justify-between px-2 sm:px-4 md:px-6 lg:px-8 pt-3 pb-2">
         <div className="flex items-center gap-3 flex-1 min-w-0">

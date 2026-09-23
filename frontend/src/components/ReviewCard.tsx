@@ -17,7 +17,7 @@ const ReviewCard = ({ avatar, username, timeAgo, rating, text }: ReviewCardProps
   };
 
   return (
-    <div className="px-4 sm:px-6 md:px-8 py-3 sm:py-4 border-t border-border">
+    <div className="px-5 sm:px-6 md:px-8 py-5 sm:py-6">
       <div className="flex items-center justify-between mb-2 sm:mb-3">
         <button 
           onClick={handleProfileClick}

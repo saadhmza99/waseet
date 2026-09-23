@@ -12,20 +12,22 @@ const TabNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  if (location.pathname.startsWith("/profile")) return null;
+
   return (
-    <nav className="bg-tab border-b border-border fixed lg:sticky top-[52px] sm:top-[60px] left-0 right-0 z-40 lg:hidden min-h-[56px] sm:min-h-[64px] backdrop-blur-sm bg-tab/95">
+    <nav className="fixed left-0 right-0 top-[52px] z-40 min-h-[56px] border-b border-border bg-card sm:top-[60px] sm:min-h-[64px] lg:sticky lg:hidden">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center">
+        <div className="flex items-center gap-1 px-1 py-1">
       {tabs.map((tab) => {
         const isActive = location.pathname === tab.path;
         return (
           <button
             key={tab.label}
             onClick={() => navigate(tab.path)}
-                className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 md:px-6 py-3 sm:py-4 text-xs sm:text-sm md:text-base font-medium transition-colors border-b-2 ${
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium transition-colors sm:gap-2 sm:px-4 sm:py-3 sm:text-sm md:px-6 md:text-base ${
               isActive
-                ? "text-accent border-accent"
-                : "text-tab-foreground border-transparent hover:text-foreground"
+                ? "bg-accent/15 text-accent"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
                 <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />

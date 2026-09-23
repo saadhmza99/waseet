@@ -20,6 +20,7 @@ interface ListingCardProps {
   priceRange: string;
   isSponsored?: boolean;
   isLarge?: boolean; // For sponsored section only
+  fillWidth?: boolean;
   details?: {
     beds?: number;
     baths?: number;
@@ -41,6 +42,7 @@ const ListingCard = ({
   priceRange,
   isSponsored = false,
   isLarge = false,
+  fillWidth = false,
   details,
 }: ListingCardProps) => {
   const navigate = useNavigate();
@@ -92,7 +94,7 @@ const ListingCard = ({
   };
 
   return (
-    <article className={`bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex-shrink-0 w-full ${isLarge ? 'max-w-[320px] sm:max-w-[420px]' : 'max-w-[320px]'}`}>
+    <article className={`bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex-shrink-0 w-full ${isLarge ? "max-w-[320px] sm:max-w-[420px]" : fillWidth ? "max-w-none" : "max-w-[320px]"}`}>
       {/* User Info Header */}
       <div className={`flex items-center justify-between ${isLarge ? 'px-3 sm:px-4 md:px-5 pt-3 sm:pt-4 pb-2 sm:pb-3' : 'px-3 sm:px-4 pt-3 pb-2'}`}>
         <button

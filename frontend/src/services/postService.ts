@@ -15,6 +15,7 @@ export interface PostData {
   surface?: string | null;
   beds?: number | null;
   baths?: number | null;
+  property_details?: Record<string, unknown> | null;
 }
 
 export type PostCommentPermission = 'anyone' | 'follow_back' | 'off';
@@ -92,7 +93,7 @@ export const postService = {
       .from('posts')
       .select('*')
       .eq('user_id', userId)
-      .in('post_type', ['property', 'project'])
+      .in('post_type', ['property', 'project', 'bien', 'propriete', 'propriété'])
       .order('created_at', { ascending: false });
 
     if (error) throw error;

@@ -25,6 +25,7 @@ const Settings = () => {
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [bio, setBio] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [language, setLanguage] = useState("English");
@@ -78,6 +79,7 @@ const Settings = () => {
     setUsername(profile.username || "");
     setFullName(profile.full_name || "");
     setBio(profile.bio || "");
+    setWebsiteUrl(profile.website_url || "");
   }, [profile]);
 
   useEffect(() => {
@@ -110,6 +112,17 @@ const Settings = () => {
     ? URL.createObjectURL(avatarFile)
     : profile?.avatar_url || getDefaultAvatar(profile?.profile_type);
 
+  const normalizeWebsiteUrl = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Invalid website URL");
+    }
+    return parsed.toString();
+  };
+
   const handleSaveProfile = async () => {
     if (!user || !profile) return;
     setIsSaving(true);
@@ -119,6 +132,8 @@ const Settings = () => {
         avatarUrl = await storageService.uploadImage(avatarFile, "avatars");
       }
 
+      const nextWebsiteUrl = normalizeWebsiteUrl(websiteUrl);
+
       await profileService.updateProfile(user.id, {
         username: username.trim() || profile.username,
         full_name: fullName.trim(),
@@ -126,6 +141,7 @@ const Settings = () => {
         profession: profile.profession,
         location: profile.location,
         phone: profile.phone,
+        website_url: nextWebsiteUrl,
         profile_type: profile.profile_type,
         avatar_url: avatarUrl,
       });
@@ -137,9 +153,14 @@ const Settings = () => {
       });
     } catch (error) {
       console.error("Error updating settings profile:", error);
+      const invalidUrl =
+        error instanceof TypeError ||
+        (error instanceof Error && error.message === "Invalid website URL");
       toast({
         title: "Erreur",
-        description: "Impossible de sauvegarder le profil.",
+        description: invalidUrl
+          ? "Enter a valid website URL (http or https)."
+          : "Impossible de sauvegarder le profil.",
       });
     } finally {
       setIsSaving(false);
@@ -262,6 +283,22 @@ const Settings = () => {
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Votre nom"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="website" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                Website
+              </Label>
+              <Input
+                id="website"
+                type="url"
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="https://your-site.com"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                If set, a Website button appears on your public profile.
+              </p>
             </div>
 
             <div>

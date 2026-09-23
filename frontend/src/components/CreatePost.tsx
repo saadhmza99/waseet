@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Image, Smile, MapPin, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { storageService } from "@/services/storageService";
 import { PostType } from "@/services/postService";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
+import PropertyListingWizard from "@/components/PropertyListingWizard";
+import FullScreenPopup from "@/components/FullScreenPopup";
 
 export type CreatePostPayload = {
   text: string;
@@ -20,6 +21,8 @@ export type CreatePostPayload = {
   surface?: string;
   beds?: number | null;
   baths?: number | null;
+  title?: string;
+  propertyDetails?: Record<string, unknown>;
 };
 
 interface CreatePostProps {
@@ -38,10 +41,6 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [postType, setPostType] = useState<PostType>("standard");
   const [postText, setPostText] = useState("");
-  const [price, setPrice] = useState("");
-  const [surface, setSurface] = useState("");
-  const [beds, setBeds] = useState("");
-  const [baths, setBaths] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [imageTags, setImageTags] = useState<{ [key: number]: "avant" | "après" | null }>({});
@@ -49,10 +48,6 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
 
   const resetForm = () => {
     setPostText("");
-    setPrice("");
-    setSurface("");
-    setBeds("");
-    setBaths("");
     setSelectedImages([]);
     setSelectedFiles([]);
     setImageTags({});
@@ -127,14 +122,8 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       return;
     }
     if (postType === "property") {
-      if (selectedFiles.length === 0) {
-        toast({ title: "Photo requise", description: "Un bien doit avoir au moins une photo." });
-        return;
-      }
-      if (!price.trim() || !surface.trim()) {
-        toast({ title: "Détails requis", description: "Indique le prix et la surface du bien." });
-        return;
-      }
+      toast({ title: "Annonce", description: "Complétez les 4 étapes de l'annonce." });
+      return;
     }
     if (postType === "project") {
       if (selectedFiles.length === 0) {
@@ -175,10 +164,6 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
         afterImage: afterImageUrl,
         singleImage: singleImageUrl,
         postType,
-        price: postType === "property" ? price.trim() : undefined,
-        surface: postType === "property" ? surface.trim() : undefined,
-        beds: postType === "property" && beds !== "" ? Number(beds) : null,
-        baths: postType === "property" && baths !== "" ? Number(baths) : null,
       });
 
       resetForm();
@@ -192,7 +177,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
 
   if (!isOpen) {
     return (
-      <div className="my-4 sm:my-6 flex justify-center">
+      <div className="flex justify-center bg-card py-3">
         <button
           onClick={() => {
             if (!user) {
@@ -250,6 +235,40 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
               ))}
             </div>
 
+            {postType === "property" ? (
+              <FullScreenPopup open onClose={resetForm}>
+                <PropertyListingWizard
+                  onCancel={resetForm}
+                  onComplete={async ({ details, files }) => {
+                    setIsSubmitting(true);
+                    try {
+                      const uploaded = await storageService.uploadImages(files, "posts");
+                      onPostCreated?.({
+                        text: details.description,
+                        title: details.title,
+                        images: uploaded,
+                        singleImage: uploaded[0],
+                        postType: "property",
+                        price: details.priceDh,
+                        surface: details.builtSurface,
+                        beds: details.beds,
+                        baths: details.baths,
+                        propertyDetails: details,
+                      });
+                      resetForm();
+                    } catch (error) {
+                      console.error("Error creating property listing:", error);
+                      toast({ title: "Erreur", description: "Impossible de publier l'annonce." });
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                />
+              </FullScreenPopup>
+            ) : null}
+
+            {postType !== "property" && (
+              <>
             <textarea
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
@@ -258,35 +277,6 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
               rows={4}
               autoFocus
             />
-
-            {postType === "property" && (
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Input
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="Prix"
-                />
-                <Input
-                  value={surface}
-                  onChange={(e) => setSurface(e.target.value)}
-                  placeholder="Surface (m²)"
-                />
-                <Input
-                  type="number"
-                  min={0}
-                  value={beds}
-                  onChange={(e) => setBeds(e.target.value)}
-                  placeholder="Chambres"
-                />
-                <Input
-                  type="number"
-                  min={0}
-                  value={baths}
-                  onChange={(e) => setBaths(e.target.value)}
-                  placeholder="Salles de bain"
-                />
-              </div>
-            )}
 
             {selectedImages.length > 0 && (
               <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -369,6 +359,8 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
                 </Button>
               </div>
             </div>
+              </>
+            )}
           </div>
         </div>
       </div>

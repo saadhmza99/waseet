@@ -4,14 +4,24 @@ import { ArrowLeft, UserPlus, Hammer, Building2, Mail, Lock, User, Phone, MapPin
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService } from "@/services/profileService";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 const CreateProfile = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signUp, user } = useAuth();
+  const { signUp } = useAuth();
   const [profileType, setProfileType] = useState<"craftsman" | "hunter" | null>(
     searchParams.get("type") === "craftsman" ? "craftsman" : searchParams.get("type") === "hunter" ? "hunter" : null
   );
@@ -28,6 +38,8 @@ const CreateProfile = () => {
   const MAX_BIO_LENGTH = 165;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const buildDefaultUsername = (baseName: string) => {
     const seed = Math.random().toString(36).slice(2, 8);
@@ -38,50 +50,91 @@ const CreateProfile = () => {
     return normalized ? `${normalized}_${seed}` : `user_${seed}`;
   };
 
+  const showEmailConfirmation = (email: string) => {
+    setEmailSent(true);
+    toast.success("Check your email to confirm your account", {
+      description: `We sent a confirmation link to ${email}.`,
+      duration: 10000,
+    });
+  };
+
+  const handleResendConfirmation = async () => {
+    setIsResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: formData.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Confirmation email sent again", {
+        description: `Check inbox and spam for ${formData.email}.`,
+        duration: 8000,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not resend email");
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-    
+
     try {
-      // Sign up user
-      const { error: signUpError } = await signUp(formData.email, formData.password);
-      
+      const username = formData.username.trim() || buildDefaultUsername(formData.name);
+      const { error: signUpError, needsEmailConfirmation } = await signUp(
+        formData.email,
+        formData.password,
+        {
+          username,
+          full_name: formData.name,
+          profession: formData.profession,
+          location: formData.location,
+          bio: formData.bio,
+          phone: formData.phone,
+          profile_type: profileType!,
+        }
+      );
+
       if (signUpError) {
         setError(signUpError.message);
         toast.error(signUpError.message);
-        setIsLoading(false);
         return;
       }
 
-      // Wait for user to be available
-      if (!user) {
-        // User will be created by trigger, but we need to wait a bit
-        setTimeout(async () => {
-          const currentUser = (await import('@/lib/supabase')).supabase.auth.getUser();
-          const { data: { user: newUser } } = await currentUser;
-          
-          if (newUser) {
-            // Create profile with additional data
-            await profileService.updateProfile(newUser.id, {
-              username: formData.username.trim() || buildDefaultUsername(formData.name),
-              full_name: formData.name,
-              profession: formData.profession,
-              location: formData.location,
-              bio: formData.bio,
-              phone: formData.phone,
-              profile_type: profileType!,
-            });
-            
-            toast.success("Profile created successfully!");
-            navigate("/");
-          }
-        }, 1000);
+      if (needsEmailConfirmation) {
+        showEmailConfirmation(formData.email);
+        return;
       }
+
+      const { data: { user: newUser } } = await (await import("@/lib/supabase")).supabase.auth.getUser();
+      if (newUser) {
+        await profileService.updateProfile(newUser.id, {
+          username,
+          full_name: formData.name,
+          profession: formData.profession,
+          location: formData.location,
+          bio: formData.bio,
+          phone: formData.phone,
+          profile_type: profileType!,
+        });
+      }
+
+      toast.success("Profile created successfully!");
+      navigate("/");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(errorMessage);
       toast.error(errorMessage);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -144,6 +197,31 @@ const CreateProfile = () => {
           Create {profileType === "craftsman" ? "Craftsman" : "Craftsman Hunter"} Profile
         </h1>
       </div>
+
+      <AlertDialog open={emailSent} onOpenChange={setEmailSent}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Check your email to confirm</AlertDialogTitle>
+            <AlertDialogDescription>
+              We sent a confirmation link to <span className="font-medium text-foreground">{formData.email}</span>.
+              Open that email and confirm your account before you log in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isResending}
+              onClick={handleResendConfirmation}
+            >
+              {isResending ? "Sending..." : "Resend email"}
+            </Button>
+            <AlertDialogAction onClick={() => navigate("/login")}>
+              Go to login
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 max-w-2xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">

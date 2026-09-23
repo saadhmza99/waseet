@@ -48,7 +48,7 @@ const Login = () => {
             <LogIn className="w-8 h-8 sm:w-10 sm:h-10 text-accent" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-card-foreground mb-2">Welcome Back</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Log in to your Sefarah account</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Log in to your Sifarah account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">

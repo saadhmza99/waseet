@@ -109,7 +109,7 @@ const AppHeader = () => {
           </div>
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer" onClick={() => navigate("/")}>
             <Wrench className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
-            <span className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold tracking-tight">Sefarah</span>
+            <span className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold tracking-tight">Sifarah</span>
           </div>
           <div className="flex justify-end items-center gap-2 sm:gap-3">
             <DropdownMenu>
@@ -217,7 +217,7 @@ const AppHeader = () => {
           <div className="flex items-center gap-4 lg:gap-8">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
               <Wrench className="w-6 h-6 sm:w-7 sm:h-7" />
-              <span className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Sefarah</span>
+              <span className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Sifarah</span>
             </div>
             {/* Desktop Navigation - next to logo */}
             <nav className="flex items-center gap-2">

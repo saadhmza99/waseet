@@ -45,7 +45,7 @@ const Sidebar = () => {
       <div className="bg-gradient-to-br from-accent/10 to-primary/10 rounded-xl border border-accent/20 p-5">
         <h3 className="text-lg font-bold text-card-foreground mb-3">Get Started</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Join thousands of professionals and clients connecting on Sefarah
+          Join thousands of professionals and clients connecting on Sifarah
         </p>
         <button
           onClick={() => navigate("/create-profile")}

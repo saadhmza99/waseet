@@ -3,13 +3,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/services/profileService';
 
 export const useProfile = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadProfile = async () => {
+      if (authLoading) return;
       if (!user) {
+        setProfile(null);
         setLoading(false);
         return;
       }
@@ -25,7 +27,7 @@ export const useProfile = () => {
     };
 
     loadProfile();
-  }, [user]);
+  }, [user, authLoading]);
 
   return { profile, loading };
 };

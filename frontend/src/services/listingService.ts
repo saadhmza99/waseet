@@ -9,6 +9,9 @@ export interface ListingData {
   image_url?: string;
   image_count?: number;
   is_sponsored?: boolean;
+  images?: string[];
+  property_details?: Record<string, unknown> | null;
+  contact_phone?: string | null;
 }
 
 export const listingService = {

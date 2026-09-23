@@ -14,7 +14,7 @@ import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [allPosts, setAllPosts] = useState<any[]>([]);
   const [followingPosts, setFollowingPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
@@ -31,6 +31,7 @@ const Index = () => {
 
   // Load posts and sponsored listings
   useEffect(() => {
+    if (authLoading) return;
     const loadData = async () => {
       try {
         setLoading(true);
@@ -57,7 +58,7 @@ const Index = () => {
     };
 
     loadData();
-  }, [offset, user]);
+  }, [offset, user, authLoading]);
 
   // Format time ago
   const formatTimeAgo = (date: string) => {
@@ -89,7 +90,7 @@ const Index = () => {
     if (user) {
       try {
       await postService.createPost(user.id, {
-        title: postData.text?.split("\n")[0] || (postData.postType === "property" ? "Bien" : "Nouveau post"),
+        title: postData.title || postData.text?.split("\n")[0] || (postData.postType === "property" ? "Bien" : "Nouveau post"),
         description: postData.text,
         before_image_url: postData.beforeImage,
         after_image_url: postData.afterImage,
@@ -100,6 +101,7 @@ const Index = () => {
         surface: postData.surface || null,
         beds: postData.beds ?? null,
         baths: postData.baths ?? null,
+        property_details: postData.propertyDetails || {},
       });
       toast({
         title: "Post publié",
@@ -353,7 +355,7 @@ const Index = () => {
   return (
     <div className="pb-20">
       {/* Normal Feed */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-xl px-3 sm:px-4 md:max-w-2xl">
         {/* Initial Sponsored Banners */}
         {sponsoredListings.length >= 2 && (
           <div className="my-4 sm:my-6 space-y-3 sm:space-y-4">
