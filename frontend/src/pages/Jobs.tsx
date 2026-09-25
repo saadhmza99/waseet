@@ -42,7 +42,7 @@ const Jobs = () => {
               username={job.profiles?.username || "Utilisateur"}
               location={job.location || ""}
               timeAgo="récemment"
-              title={job.title || "Annonce"}
+              title={job.title || "service"}
               image={job.image_url || ""}
               budgetRange="1 professionnel"
               profession={job.profession || "Service"}

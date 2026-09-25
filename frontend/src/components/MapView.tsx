@@ -11,7 +11,7 @@ const MapView = ({ userLocation }: MapViewProps) => {
         <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
         <p className="text-card-foreground font-medium mb-1">Vue carte indisponible</p>
         <p className="text-sm text-muted-foreground">
-          Cette section affichera les annonces géolocalisées réelles une fois les coordonnées stockées.
+          Cette section affichera les services géolocalisées réelles une fois les coordonnées stockées.
         </p>
         {userLocation && (
           <p className="text-xs text-muted-foreground mt-2">

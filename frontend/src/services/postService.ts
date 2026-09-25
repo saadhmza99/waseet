@@ -77,27 +77,61 @@ export const postService = {
   },
 
   // Get posts by user
-  async getPostsByUser(userId: string) {
-    const { data, error } = await supabase
+  async getPostsByUser(userId: string, limit?: number, offset = 0) {
+    let query = supabase
       .from('posts')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+    if (limit != null) query = query.range(offset, offset + limit);
 
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
 
-  async getPortfolioPostsByUser(userId: string) {
-    const { data, error } = await supabase
+  async getPortfolioPostsByUser(
+    userId: string,
+    options?: { types?: string[]; limit?: number; offset?: number }
+  ) {
+    const types = options?.types?.length
+      ? options.types
+      : ['property', 'project', 'bien', 'propriete', 'propriété'];
+    let query = supabase
       .from('posts')
       .select('*')
       .eq('user_id', userId)
-      .in('post_type', ['property', 'project', 'bien', 'propriete', 'propriété'])
+      .in('post_type', types)
       .order('created_at', { ascending: false });
+    if (options?.limit != null) {
+      const offset = options.offset ?? 0;
+      query = query.range(offset, offset + options.limit);
+    }
 
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
+  },
+
+  async countPostsByUser(userId: string, types?: string[]) {
+    let query = supabase
+      .from('posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    if (types?.length) query = query.in('post_type', types);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count || 0;
+  },
+
+  async countPortfolioPostsByUser(userId: string) {
+    const propertyTypes = ['property', 'bien', 'propriete', 'propriété'];
+    const projectTypes = ['project'];
+    const [properties, projects] = await Promise.all([
+      this.countPostsByUser(userId, propertyTypes),
+      this.countPostsByUser(userId, projectTypes),
+    ]);
+    return properties + projects;
   },
 
   // Like a post

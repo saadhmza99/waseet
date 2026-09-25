@@ -10,7 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
 
-const tabs = ["Posts", "Annonces", "Reels"] as const;
+const tabs = ["Posts", "services", "Reels"] as const;
 
 const Saved = () => {
   const navigate = useNavigate();
@@ -127,10 +127,10 @@ const Saved = () => {
                   </div>
                 )}
 
-                {activeTab === "Annonces" && (
+                {activeTab === "services" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {savedListings.length === 0 ? (
-                      <div className="col-span-full text-center py-8 text-muted-foreground">Aucune annonce enregistrée</div>
+                      <div className="col-span-full text-center py-8 text-muted-foreground">Aucun service enregistrée</div>
                     ) : (
                       savedListings.map((saved) => {
                         const listing = saved.listings;

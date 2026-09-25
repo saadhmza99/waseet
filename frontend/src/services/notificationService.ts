@@ -22,6 +22,16 @@ export const notificationService = {
   }) {
     if (params.actorUserId === params.targetUserId) return null;
 
+    const { data: rpcId, error: rpcError } = await supabase.rpc("create_notification", {
+      p_target_user_id: params.targetUserId,
+      p_type: params.type,
+      p_entity_type: params.entityType,
+      p_entity_id: params.entityId ?? null,
+      p_message: params.message,
+    });
+
+    if (!rpcError) return rpcId ? { id: rpcId } : null;
+
     const { data, error } = await supabase
       .from("notifications")
       .insert({
@@ -35,7 +45,10 @@ export const notificationService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("createNotification:", rpcError || error);
+      return null;
+    }
     return data;
   },
 

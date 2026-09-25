@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import ReportAbuseModal from "@/components/ReportAbuseModal";
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,7 +45,6 @@ import { toast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -82,7 +82,6 @@ const Reels = () => {
   >([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [reportReelId, setReportReelId] = useState<string | null>(null);
-  const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [deletingReelId, setDeletingReelId] = useState<string | null>(null);
   const [pausedByUser, setPausedByUser] = useState<Record<string, boolean>>({});
@@ -395,14 +394,16 @@ const Reels = () => {
     }
   };
 
-  const submitReelReport = async () => {
-    if (!user || !reportReelId) return;
-    const reason = reportReason.trim() || "user_report";
+  const submitReelReport = async (payload: { reason: string; details: string }) => {
+    if (!reportReelId) return;
+    if (!user) {
+      toast({ title: "Connexion requise", description: "Connecte-toi pour signaler un contenu." });
+      return;
+    }
     setReportSubmitting(true);
     try {
-      await moderationService.reportReel(reportReelId, user.id, reason);
+      await moderationService.reportReel(reportReelId, user.id, payload.reason, payload.details);
       setReportReelId(null);
-      setReportReason("");
       toast({ title: "Signalement envoyé", description: "Merci, nous examinerons ce contenu." });
     } catch (e) {
       console.error(e);
@@ -838,16 +839,7 @@ const Reels = () => {
                     <DropdownMenuContent align="end" className="w-48">
                       {!(user && reel.user_id === user.id) ? (
                         <DropdownMenuItem
-                          onClick={() => {
-                            if (!user) {
-                              toast({
-                                title: "Connexion requise",
-                                description: "Connecte-toi pour signaler un contenu.",
-                              });
-                              return;
-                            }
-                            setReportReelId(reel.id);
-                          }}
+                          onClick={() => setReportReelId(reel.id)}
                         >
                           <Flag className="mr-2 h-4 w-4" />
                           Signaler
@@ -921,36 +913,13 @@ const Reels = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={Boolean(reportReelId)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setReportReelId(null);
-            setReportReason("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Signaler ce reel</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            placeholder="Décris le problème (optionnel)"
-            value={reportReason}
-            onChange={(e) => setReportReason(e.target.value)}
-            rows={4}
-            className="mt-2"
-          />
-          <DialogFooter className="mt-4 gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => setReportReelId(null)}>
-              Annuler
-            </Button>
-            <Button type="button" disabled={reportSubmitting} onClick={() => void submitReelReport()}>
-              Envoyer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReportAbuseModal
+        isOpen={Boolean(reportReelId)}
+        onClose={() => setReportReelId(null)}
+        title="Report this post"
+        submitting={reportSubmitting}
+        onSubmit={submitReelReport}
+      />
     </div>
   );
 };

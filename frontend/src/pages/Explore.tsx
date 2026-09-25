@@ -62,7 +62,7 @@ const Explore = () => {
           image: listing.image_url || "",
           imageCount: listing.image_count || 1,
           location: listing.location || "",
-          title: listing.title || "Annonce",
+          title: listing.title || "service",
           profession: listing.profession || "Autre",
           priceRange: listing.price_range || "Prix sur demande",
           isSponsored: Boolean(listing.is_sponsored),
@@ -151,13 +151,13 @@ const Explore = () => {
       {viewMode === "list" ? (
         <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
           {loading && (
-            <div className="text-center py-6 text-muted-foreground">Chargement des annonces...</div>
+            <div className="text-center py-6 text-muted-foreground">Chargement des services...</div>
           )}
 
           {/* Sponsored Section */}
           {!loading && allSponsoredListings.length > 0 && (
             <CategorySection
-              title="Annonces sponsorisées"
+              title="services sponsorisées"
               icon={<Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />}
               maxRows={2}
               isSponsored={true}
@@ -187,7 +187,7 @@ const Explore = () => {
             Object.entries(groupedListings).map(([profession, professionListings]) => (
               <CategorySection
                 key={profession}
-                title={`Nouvelles annonces de ${profession}`}
+                title={`Nouvelles services de ${profession}`}
                 icon={categoryIcon(profession)}
                 onViewMore={() => handleViewMore(profession)}
               >
@@ -212,7 +212,7 @@ const Explore = () => {
             ))}
 
           {!loading && listings.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">Aucune annonce disponible pour le moment.</div>
+            <div className="text-center py-8 text-muted-foreground">Aucun service disponible pour le moment.</div>
           )}
         </div>
       ) : (

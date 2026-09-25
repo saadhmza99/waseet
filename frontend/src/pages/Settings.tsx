@@ -391,6 +391,9 @@ const Settings = () => {
             <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/privacy-settings")}>
               Privacy Settings
             </Button>
+            <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/settings/blocked")}>
+              Manage blocked accounts
+            </Button>
             <Button variant="outline" className="w-full justify-start" disabled>
               Two-Factor Authentication
             </Button>

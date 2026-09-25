@@ -122,7 +122,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
       return;
     }
     if (postType === "property") {
-      toast({ title: "Annonce", description: "Complétez les 4 étapes de l'annonce." });
+      toast({ title: "service", description: "Complétez les 4 étapes de l'service." });
       return;
     }
     if (postType === "project") {
@@ -258,7 +258,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
                       resetForm();
                     } catch (error) {
                       console.error("Error creating property listing:", error);
-                      toast({ title: "Erreur", description: "Impossible de publier l'annonce." });
+                      toast({ title: "Erreur", description: "Impossible de publier l'service." });
                     } finally {
                       setIsSubmitting(false);
                     }

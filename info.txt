@@ -1,0 +1,68 @@
+sifarah guardrails
+ supabase/schema.sql dans SQL Editor pour appliquer ces nouvelles colonnes/contraintes.
+
+Ensuite teste rapidement:
+
+bloquer un profil depuis ... d’un post
+revenir au feed -> ses posts doivent disparaître
+signaler un post -> vérifier qu’une ligne apparaît dans post_reports avec status='pending'
+Si tu veux, je peux faire l’étape suivante: ajouter une page admin simple pour lister les reports et changer leur status depuis l’UI.
+
+
+Great question. For your current app (auth + social actions + posts/listings/reels), these are the key guardrails to implement next:
+
+1) Auth guardrails (frontend)
+Protect private routes: Saved, Settings, post creation flows, moderation actions.
+If not logged in:
+redirect to /login
+disable/hide action buttons that require auth (like/report/save/follow/block/comment).
+Add a central RequireAuth route wrapper instead of ad-hoc checks everywhere.
+2) RLS guardrails (Supabase) — most critical
+Ensure every write table enforces owner/auth checks (already partly done).
+Add/verify RLS for new tables:
+post_comment_settings
+post_reports
+blocked_users
+Make sure users cannot:
+update/delete others’ data
+spoof user_id fields on inserts
+view moderation data they shouldn’t.
+3) Abuse/moderation guardrails
+Rate-limit report creation (prevent spam reports).
+Block duplicate/self-report behavior cleanly.
+Hide blocked users’ content consistently across:
+feed
+explore
+profile
+saved
+comments/reels (not just index feed).
+Add server-side checks for comment permission (off, follow_back) via policy or RPC (not only frontend).
+4) Data integrity guardrails
+Add DB constraints:
+post title length / description length limits
+URL format checks where applicable
+prevent invalid enum values (already started with status).
+Use transactions/RPC for counter updates (likes/comments/shares) to avoid race/drift.
+5) Security guardrails
+Never expose privileged tokens in frontend (CLOUDFLARE_STREAM_TOKEN must stay server-side).
+Rotate keys that were shared.
+Add CSP/security headers on Cloudflare (at least baseline).
+Validate uploaded file types/sizes before upload.
+6) UX guardrails
+Replace alert(...) with consistent toasts.
+Add loading/disabled states for all destructive actions.
+Add confirm dialogs for delete/block/unfollow.
+Graceful error messages from API errors (not raw exceptions).
+7) Deployment/ops guardrails
+Protect main branch + PR checks required before merge.
+Add CI checks:
+npm run build
+lint
+optional test smoke.
+Keep dependency versions compatible/pinned for lint/build tools.
+If you want, I can implement the highest-impact set now in this order:
+
+RequireAuth wrapper for protected routes
+remove action access for anonymous users globally
+replace alerts with toast + confirmations
+extend blocked-content filtering beyond feed.

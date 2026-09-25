@@ -6,14 +6,26 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
+const RESET_COOLDOWN_MS = 60_000;
+
+const messageForAuthError = (message: string) => {
+  const lower = message.toLowerCase();
+  if (lower.includes("rate limit") || lower.includes("over_email_send_rate_limit")) {
+    return "Trop de demandes. Attendez quelques minutes, puis réessayez avec un seul clic.";
+  }
+  return message;
+};
+
 const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resetCooldownUntil, setResetCooldownUntil] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,8 +37,9 @@ const Login = () => {
       const { error } = await signIn(email, password);
       
       if (error) {
-        setError(error.message);
-        toast.error(error.message);
+        const message = messageForAuthError(error.message);
+        setError(message);
+        toast.error(message);
       } else {
         toast.success("Logged in successfully!");
         navigate(searchParams.get("redirect") || "/");
@@ -37,6 +50,46 @@ const Login = () => {
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      const message = "Enter your email to reset your password.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (Date.now() < resetCooldownUntil) {
+      const message = "Un email a déjà été demandé. Vérifiez votre boîte de réception, ou attendez une minute.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    setError(null);
+    setResettingPassword(true);
+    try {
+      const { error: resetError } = await resetPassword(trimmed);
+      if (resetError) {
+        const message = messageForAuthError(resetError.message);
+        setError(message);
+        toast.error(message);
+        if (message !== resetError.message) {
+          setResetCooldownUntil(Date.now() + RESET_COOLDOWN_MS);
+        }
+        return;
+      }
+      setResetCooldownUntil(Date.now() + RESET_COOLDOWN_MS);
+      toast.success("Check your email for a password reset link.");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unable to send reset email.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -106,9 +159,11 @@ const Login = () => {
             </label>
             <button
               type="button"
-              className="text-accent hover:underline font-medium"
+              onClick={handleForgotPassword}
+              disabled={resettingPassword}
+              className="text-accent hover:underline font-medium disabled:opacity-60"
             >
-              Forgot password?
+              {resettingPassword ? "Sending..." : "Forgot password?"}
             </button>
           </div>
 

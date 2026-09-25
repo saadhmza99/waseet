@@ -1,5 +1,6 @@
-import { MapPin, User, MoreHorizontal } from "lucide-react";
+import { MapPin, User, MoreHorizontal, Banknote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { listingBudgetLabel } from "@/lib/utils";
 
 interface JobCardProps {
   avatar: string;
@@ -69,7 +70,10 @@ const JobCard = ({
             </div>
           </div>
           <div className="flex items-center justify-between mt-1 sm:mt-2">
-            <span className="text-sm sm:text-base font-semibold text-card-foreground">{priceRange}</span>
+            <span className="inline-flex items-center gap-1.5 text-sm sm:text-base font-semibold text-card-foreground">
+              <Banknote className="h-4 w-4 shrink-0 text-muted-foreground" />
+              {listingBudgetLabel(priceRange)}
+            </span>
             <button
               onClick={handleViewJob}
               className="bg-primary text-primary-foreground text-xs sm:text-sm font-semibold px-4 sm:px-6 py-1.5 sm:py-2 rounded-md hover:bg-primary/90 transition-colors"

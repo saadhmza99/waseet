@@ -1,10 +1,11 @@
-import { MapPin, User, MoreHorizontal, Sparkles, Bookmark } from "lucide-react";
+import { MapPin, User, MoreHorizontal, Sparkles, Bookmark, Banknote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { savedService } from "@/services/savedService";
 import { notificationService } from "@/services/notificationService";
 import { toast } from "@/components/ui/use-toast";
+import { listingBudgetLabel } from "@/lib/utils";
 
 interface ListingCardProps {
   id?: string;
@@ -69,13 +70,13 @@ const ListingCard = ({
             type: "listing_save",
             entityType: "listing",
             entityId: id,
-            message: "a enregistré votre annonce.",
+            message: "a enregistré votre service.",
           });
         }
       }
     } catch (error) {
       console.error("Error toggling listing save:", error);
-      toast({ title: "Erreur", description: "Impossible d'enregistrer cette annonce." });
+      toast({ title: "Erreur", description: "Impossible d'enregistrer cette service." });
     }
   };
 
@@ -180,7 +181,10 @@ const ListingCard = ({
 
         {/* Price and Action */}
         <div className={`flex items-center justify-between border-t border-border ${isLarge ? 'pt-2 sm:pt-3' : 'pt-2'}`}>
-          <span className={`font-bold text-card-foreground ${isLarge ? 'text-sm sm:text-base md:text-lg' : 'text-sm sm:text-base'}`}>{priceRange}</span>
+          <span className={`inline-flex items-center gap-1.5 font-bold text-card-foreground ${isLarge ? 'text-sm sm:text-base md:text-lg' : 'text-sm sm:text-base'}`}>
+            <Banknote className={`shrink-0 text-muted-foreground ${isLarge ? 'h-4 w-4 sm:h-5 sm:w-5' : 'h-4 w-4'}`} />
+            {listingBudgetLabel(priceRange)}
+          </span>
           <div className="flex items-center gap-2">
             <button
               onClick={handleSaveListing}

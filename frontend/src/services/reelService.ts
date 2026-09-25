@@ -74,8 +74,8 @@ export const reelService = {
   },
 
   // Get reels by user (profiles join matches global feed shape for /reels viewer)
-  async getReelsByUser(userId: string) {
-    const { data, error } = await supabase
+  async getReelsByUser(userId: string, limit?: number, offset = 0) {
+    let query = supabase
       .from('reels')
       .select(`
         *,
@@ -87,7 +87,9 @@ export const reelService = {
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+    if (limit != null) query = query.range(offset, offset + limit);
 
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },

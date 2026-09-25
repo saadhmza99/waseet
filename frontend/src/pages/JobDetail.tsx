@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Clock, Phone, Shield, AlertTriangle, Share2, Bookmark } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Phone, Shield, AlertTriangle, Share2, Bookmark, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
+import { listingBudgetLabel } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 const JobDetail = () => {
   const location = useLocation();
@@ -21,7 +23,7 @@ const JobDetail = () => {
     return (
       <div className="pb-20 bg-background min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground mb-4">Annonce introuvable.</p>
+          <p className="text-muted-foreground mb-4">service introuvable.</p>
           <Button onClick={() => navigate("/explore")}>Retour à Explorer</Button>
         </div>
       </div>
@@ -91,8 +93,9 @@ const JobDetail = () => {
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-card-foreground flex-1">
               {job.title}
             </h1>
-            <span className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
-              {job.priceRange}
+            <span className="inline-flex items-center gap-2 text-2xl sm:text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+              <Banknote className="h-7 w-7 shrink-0 sm:h-8 sm:w-8" />
+              {listingBudgetLabel(job.priceRange)}
             </span>
           </div>
         </div>
@@ -175,9 +178,14 @@ const JobDetail = () => {
       </div>
 
       {/* Report Abuse Modal */}
-      <ReportAbuseModal 
-        isOpen={showReportModal} 
-        onClose={() => setShowReportModal(false)} 
+      <ReportAbuseModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Report this post"
+        onSubmit={() => {
+          setShowReportModal(false);
+          toast({ title: "Signalement envoyé", description: "Merci, nous examinerons ce contenu." });
+        }}
       />
     </div>
   );

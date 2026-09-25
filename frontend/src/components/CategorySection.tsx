@@ -26,7 +26,7 @@ const CategorySection = ({ title, icon, children, onViewMore, maxRows = 1, isSpo
             onClick={onViewMore}
             className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base text-muted-foreground hover:text-accent transition-colors"
           >
-            <span className="hidden sm:inline">Plus d'annonces</span>
+            <span className="hidden sm:inline">Plus d'services</span>
             <span className="sm:hidden">Plus</span>
      
           </button>

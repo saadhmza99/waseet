@@ -2,14 +2,29 @@ import { supabase } from '@/lib/supabase';
 
 export type ReportStatus = 'pending' | 'reviewing' | 'resolved' | 'dismissed';
 
+export const BLOCK_COOLDOWN_HOURS = 48;
+
+export function isBlockCooldownError(error: unknown) {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: string }).message)
+      : String(error || "");
+  return message.includes("BLOCK_COOLDOWN");
+}
+
 export const moderationService = {
-  async reportPost(postId: string, reporterId: string, reason: string = 'user_report') {
+  storedReason(reason: string, details?: string) {
+    const extra = (details || "").trim();
+    return extra ? `${reason}\n${extra}` : reason;
+  },
+
+  async reportPost(postId: string, reporterId: string, reason: string = 'user_report', details: string = '') {
     const { data, error } = await supabase
       .from('post_reports')
       .insert({
         post_id: postId,
         reporter_id: reporterId,
-        reason,
+        reason: this.storedReason(reason, details),
       })
       .select()
       .single();
@@ -18,13 +33,28 @@ export const moderationService = {
     return data;
   },
 
-  async reportReel(reelId: string, reporterId: string, reason: string = 'user_report') {
+  async reportProfile(profileId: string, reporterId: string, reason: string = 'user_report', details: string = '') {
+    const { data, error } = await supabase
+      .from('profile_reports')
+      .insert({
+        profile_id: profileId,
+        reporter_id: reporterId,
+        reason: this.storedReason(reason, details),
+      })
+      .select()
+      .single();
+
+    if (error && error.code !== '23505') throw error;
+    return data;
+  },
+
+  async reportReel(reelId: string, reporterId: string, reason: string = 'user_report', details: string = '') {
     const { data, error } = await supabase
       .from('reel_reports')
       .insert({
         reel_id: reelId,
         reporter_id: reporterId,
-        reason,
+        reason: this.storedReason(reason, details),
       })
       .select()
       .single();
@@ -45,6 +75,86 @@ export const moderationService = {
 
     if (error && error.code !== '23505') throw error;
     return data;
+  },
+
+  async getReblockBlockedUntil(blockerId: string, blockedId: string): Promise<Date | null> {
+    const { data, error } = await supabase
+      .from('block_cooldowns')
+      .select('unblocked_at')
+      .eq('blocker_id', blockerId)
+      .eq('blocked_id', blockedId)
+      .maybeSingle();
+
+    if (error) {
+      const missing =
+        error.code === 'PGRST205' ||
+        error.code === '42P01' ||
+        /Could not find the table/i.test(error.message || '');
+      if (missing) return null;
+      throw error;
+    }
+    if (!data?.unblocked_at) return null;
+
+    const until = new Date(new Date(data.unblocked_at).getTime() + BLOCK_COOLDOWN_HOURS * 60 * 60 * 1000);
+    return until.getTime() > Date.now() ? until : null;
+  },
+
+  async unblockUser(blockerId: string, blockedId: string) {
+    const { error } = await supabase.rpc('unblock_account', { target_id: blockedId });
+    if (!error) return;
+
+    const rpcMissing =
+      error.code === 'PGRST202' ||
+      error.code === 'PGRST205' ||
+      /Could not find the function/i.test(error.message || '');
+    if (!rpcMissing) throw error;
+
+    const { error: deleteError } = await supabase
+      .from('blocked_users')
+      .delete()
+      .eq('blocker_id', blockerId)
+      .eq('blocked_id', blockedId);
+    if (deleteError) throw deleteError;
+  },
+
+  async getBlockedAccounts(userId: string): Promise<
+    {
+      blockedId: string;
+      blockedAt: string;
+      username: string;
+      fullName: string;
+      avatarUrl: string | null;
+      profileType?: string | null;
+    }[]
+  > {
+    const { data, error } = await supabase
+      .from('blocked_users')
+      .select(`
+        blocked_id,
+        created_at,
+        profiles:blocked_id (
+          username,
+          full_name,
+          avatar_url,
+          profile_type
+        )
+      `)
+      .eq('blocker_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((row: any) => {
+      const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      return {
+        blockedId: row.blocked_id,
+        blockedAt: row.created_at,
+        username: profile?.username || "",
+        fullName: profile?.full_name || profile?.username || "Utilisateur",
+        avatarUrl: profile?.avatar_url || null,
+        profileType: profile?.profile_type || null,
+      };
+    });
   },
 
   async getBlockedUserIds(userId: string): Promise<string[]> {

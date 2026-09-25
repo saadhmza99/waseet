@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, Navigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import ProfileHeader from "@/components/ProfileHeader";
@@ -24,7 +24,7 @@ import {
   REEL_UPLOAD_MAX_BYTES,
   streamService,
 } from "@/services/streamService";
-import { moderationService } from "@/services/moderationService";
+import { moderationService, isBlockCooldownError } from "@/services/moderationService";
 import { followService } from "@/services/followService";
 import { storageService } from "@/services/storageService";
 import { notificationService } from "@/services/notificationService";
@@ -53,28 +53,65 @@ import { getDefaultAvatar } from "@/lib/avatar";
 import AboutRichEditor from "@/components/AboutRichEditor";
 import { aboutHtmlIsEmpty, sanitizeAboutHtml, toAboutHtml } from "@/lib/aboutHtml";
 import PortfolioGrid from "@/components/PortfolioGrid";
-import ProfileInfosCard, { locationsFrom, type InfosField } from "@/components/ProfileInfosCard";
+import ProfileInfosCard, { locationsFrom, ProfileDetailsFields, type InfosField } from "@/components/ProfileInfosCard";
 import UploadProgressRing from "@/components/UploadProgressRing";
+import ReportAbuseModal from "@/components/ReportAbuseModal";
+import BlockMemberModal from "@/components/BlockMemberModal";
+import AboutThisMemberSheet from "@/components/AboutThisMemberSheet";
+import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, MessageCircle, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
 
-const tabs = ["Détails", "Posts", "Portfolio", "Annonces"] as const;
+const tabs = ["Posts", "Portfolio", "Services"] as const;
 type PostsView = "grid" | "reels";
 const MAX_ABOUT_LENGTH = 50000;
+const ABOUT_QUERY_TABS = new Set(["about", "details", "apropos"]);
 const tabToQuery: Record<(typeof tabs)[number], string> = {
-  Détails: "details",
   Posts: "posts",
   Portfolio: "portfolio",
-  Annonces: "annonces",
+  Services: "services",
 };
 
 const queryToTab: Record<string, (typeof tabs)[number]> = {
-  details: "Détails",
-  about: "Détails",
-  apropos: "Détails",
   posts: "Posts",
   portfolio: "Portfolio",
-  annonces: "Annonces",
+  services: "Services",
   reels: "Posts",
+};
+
+const PAGE = {
+  posts: 12,
+  reels: 9,
+  listings: 12,
+  properties: 12,
+  projects: 10,
+} as const;
+const PROPERTY_POST_TYPES = ["property", "bien", "propriete", "propriété"];
+const PROJECT_POST_TYPES = ["project"];
+
+const takePage = <T,>(rows: T[] | null | undefined, limit: number) => {
+  const list = rows || [];
+  return { items: list.slice(0, limit), hasMore: list.length > limit };
+};
+
+const LoadMoreButton = ({
+  hasMore,
+  loading,
+  onClick,
+  label = "Charger plus",
+}: {
+  hasMore: boolean;
+  loading: boolean;
+  onClick: () => void;
+  label?: string;
+}) => {
+  if (!hasMore) return null;
+  return (
+    <div className="flex justify-center py-4">
+      <Button type="button" variant="outline" size="sm" onClick={onClick} disabled={loading}>
+        {loading ? "Chargement…" : label}
+      </Button>
+    </div>
+  );
 };
 
 const coverOfPost = (post: any) => {
@@ -208,6 +245,7 @@ const Profile = () => {
     queryToTab[searchParams.get("tab") || ""] || "Posts"
   );
   const [showReviews, setShowReviews] = useState(searchParams.get("tab") === "avis");
+  const [showAbout, setShowAbout] = useState(ABOUT_QUERY_TABS.has(searchParams.get("tab") || ""));
   const [feedPostId, setFeedPostId] = useState<string | null>(null);
   const [hoveredPostId, setHoveredPostId] = useState<string | null>(null);
   const [postsView, setPostsView] = useState<PostsView>(
@@ -215,12 +253,31 @@ const Profile = () => {
   );
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [postsHasMore, setPostsHasMore] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
   const [listings, setListings] = useState<any[]>([]);
+  const [listingsHasMore, setListingsHasMore] = useState(false);
+  const [loadingMoreListings, setLoadingMoreListings] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reels, setReels] = useState<any[]>([]);
-  const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
+  const [reelsHasMore, setReelsHasMore] = useState(false);
+  const [loadingMoreReels, setLoadingMoreReels] = useState(false);
+  const [propertyItems, setPropertyItems] = useState<any[]>([]);
+  const [propertiesHasMore, setPropertiesHasMore] = useState(false);
+  const [loadingMoreProperties, setLoadingMoreProperties] = useState(false);
+  const [projectItems, setProjectItems] = useState<any[]>([]);
+  const [projectsHasMore, setProjectsHasMore] = useState(false);
+  const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
+  const [postsCount, setPostsCount] = useState(0);
+  const [portfolioCount, setPortfolioCount] = useState(0);
+  const [listingsCount, setListingsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isBlockedProfile, setIsBlockedProfile] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockSubmitting, setBlockSubmitting] = useState(false);
+  const [showAboutMember, setShowAboutMember] = useState(false);
   const [followers, setFollowers] = useState<any[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
@@ -264,6 +321,8 @@ const Profile = () => {
 
   const goToTab = (tab: (typeof tabs)[number]) => {
     setShowReviews(false);
+    setShowAbout(false);
+    setEditingAbout(false);
     if (tab !== "Posts") setFeedPostId(null);
     setActiveTab(tab);
     revealTabs();
@@ -304,12 +363,18 @@ const Profile = () => {
     const tabParam = searchParams.get("tab") || "";
     if (tabParam === "avis") {
       setShowReviews(true);
+      setShowAbout(false);
+      return;
+    }
+    if (ABOUT_QUERY_TABS.has(tabParam)) {
+      setShowAbout(true);
+      setShowReviews(false);
       return;
     }
     setShowReviews(false);
+    setShowAbout(false);
     const viewParam = searchParams.get("view");
-    const fromQuery =
-      viewParam === "annonces" ? "Annonces" : queryToTab[tabParam];
+    const fromQuery = queryToTab[tabParam];
     if (fromQuery && fromQuery !== activeTab) {
       setActiveTab(fromQuery);
     }
@@ -325,6 +390,9 @@ const Profile = () => {
       if (showReviews) {
         next.set("tab", "avis");
         next.delete("view");
+      } else if (showAbout) {
+        next.set("tab", "about");
+        next.delete("view");
       } else {
         next.set("tab", tabToQuery[activeTab]);
         if (activeTab === "Posts" && postsView !== "grid") next.set("view", postsView);
@@ -332,7 +400,7 @@ const Profile = () => {
       }
       return next.toString() === prev.toString() ? prev : next;
     }, { replace: true });
-  }, [activeTab, postsView, showReviews]);
+  }, [activeTab, postsView, showReviews, showAbout]);
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -357,14 +425,27 @@ const Profile = () => {
           return;
         }
 
-        const [postsData, listingsData, reviewsData, reelsData, portfolioData, blockedIds, followersData] = await Promise.all([
-          postService.getPostsByUser(profileData.id),
-          listingService.getListingsByUser(profileData.id),
+        const [postsData, listingsData, reviewsData, reelsData, propertiesData, projectsData, blockedIds, followersData, postsTotal, propertiesTotal, projectsTotal, listingsTotal] = await Promise.all([
+          postService.getPostsByUser(profileData.id, PAGE.posts, 0),
+          listingService.getListingsByUser(profileData.id, PAGE.listings, 0),
           reviewService.getReviewsByUser(profileData.id),
-          reelService.getReelsByUser(profileData.id),
-          postService.getPortfolioPostsByUser(profileData.id),
+          reelService.getReelsByUser(profileData.id, PAGE.reels, 0),
+          postService.getPortfolioPostsByUser(profileData.id, {
+            types: PROPERTY_POST_TYPES,
+            limit: PAGE.properties,
+            offset: 0,
+          }),
+          postService.getPortfolioPostsByUser(profileData.id, {
+            types: PROJECT_POST_TYPES,
+            limit: PAGE.projects,
+            offset: 0,
+          }),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           followService.getFollowers(profileData.id),
+          postService.countPostsByUser(profileData.id),
+          postService.countPostsByUser(profileData.id, PROPERTY_POST_TYPES),
+          postService.countPostsByUser(profileData.id, PROJECT_POST_TYPES),
+          listingService.countListingsByUser(profileData.id),
         ]);
         const blockedSet = new Set(blockedIds || []);
         setIsBlockedProfile(blockedSet.has(profileData.id));
@@ -382,11 +463,25 @@ const Profile = () => {
           website: profileData.website_url || "",
         });
         setEditingAbout(false);
-        setPosts(postsData || []);
-        setListings(listingsData || []);
+        const postsPage = takePage(postsData, PAGE.posts);
+        const listingsPage = takePage(listingsData, PAGE.listings);
+        const reelsPage = takePage(reelsData, PAGE.reels);
+        const propertiesPage = takePage(propertiesData, PAGE.properties);
+        const projectsPage = takePage(projectsData, PAGE.projects);
+        setPosts(postsPage.items);
+        setPostsHasMore(postsPage.hasMore);
+        setListings(listingsPage.items);
+        setListingsHasMore(listingsPage.hasMore);
         setReviews(reviewsData || []);
-        setReels(reelsData || []);
-        setPortfolioItems(portfolioData || []);
+        setReels(reelsPage.items);
+        setReelsHasMore(reelsPage.hasMore);
+        setPropertyItems(propertiesPage.items);
+        setPropertiesHasMore(propertiesPage.hasMore);
+        setProjectItems(projectsPage.items);
+        setProjectsHasMore(projectsPage.hasMore);
+        setPostsCount(postsTotal || 0);
+        setPortfolioCount((propertiesTotal || 0) + (projectsTotal || 0));
+        setListingsCount(listingsTotal || 0);
         setFollowers(followersData || []);
         if (user && user.id !== profileData.id) {
           const following = await followService.isFollowing(user.id, profileData.id);
@@ -421,6 +516,14 @@ const Profile = () => {
     }
   };
 
+  const portfolioItems = useMemo(
+    () =>
+      [...propertyItems, ...projectItems].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      ),
+    [propertyItems, projectItems]
+  );
+
   const isOwnProfile = Boolean(
     user &&
       profile &&
@@ -433,7 +536,102 @@ const Profile = () => {
   const profileAvatar = profile?.avatar_url || getDefaultAvatar(profile?.profile_type);
   const memberLabel = profile?.full_name || profile?.username || "ce membre";
 
+  const loadMorePosts = async () => {
+    if (!profile?.id || loadingMorePosts || !postsHasMore) return;
+    setLoadingMorePosts(true);
+    try {
+      const page = takePage(
+        await postService.getPostsByUser(profile.id, PAGE.posts, posts.length),
+        PAGE.posts
+      );
+      setPosts((prev) => [...prev, ...page.items]);
+      setPostsHasMore(page.hasMore);
+    } catch (error) {
+      console.error("Error loading more posts:", error);
+    } finally {
+      setLoadingMorePosts(false);
+    }
+  };
+
+  const loadMoreReels = async () => {
+    if (!profile?.id || loadingMoreReels || !reelsHasMore) return;
+    setLoadingMoreReels(true);
+    try {
+      const page = takePage(
+        await reelService.getReelsByUser(profile.id, PAGE.reels, reels.length),
+        PAGE.reels
+      );
+      setReels((prev) => [...prev, ...page.items]);
+      setReelsHasMore(page.hasMore);
+    } catch (error) {
+      console.error("Error loading more reels:", error);
+    } finally {
+      setLoadingMoreReels(false);
+    }
+  };
+
+  const loadMoreListings = async () => {
+    if (!profile?.id || loadingMoreListings || !listingsHasMore) return;
+    setLoadingMoreListings(true);
+    try {
+      const page = takePage(
+        await listingService.getListingsByUser(profile.id, PAGE.listings, listings.length),
+        PAGE.listings
+      );
+      setListings((prev) => [...prev, ...page.items]);
+      setListingsHasMore(page.hasMore);
+    } catch (error) {
+      console.error("Error loading more listings:", error);
+    } finally {
+      setLoadingMoreListings(false);
+    }
+  };
+
+  const loadMoreProperties = async () => {
+    if (!profile?.id || loadingMoreProperties || !propertiesHasMore) return;
+    setLoadingMoreProperties(true);
+    try {
+      const page = takePage(
+        await postService.getPortfolioPostsByUser(profile.id, {
+          types: PROPERTY_POST_TYPES,
+          limit: PAGE.properties,
+          offset: propertyItems.length,
+        }),
+        PAGE.properties
+      );
+      setPropertyItems((prev) => [...prev, ...page.items]);
+      setPropertiesHasMore(page.hasMore);
+    } catch (error) {
+      console.error("Error loading more properties:", error);
+    } finally {
+      setLoadingMoreProperties(false);
+    }
+  };
+
+  const loadMoreProjects = async () => {
+    if (!profile?.id || loadingMoreProjects || !projectsHasMore) return;
+    setLoadingMoreProjects(true);
+    try {
+      const page = takePage(
+        await postService.getPortfolioPostsByUser(profile.id, {
+          types: PROJECT_POST_TYPES,
+          limit: PAGE.projects,
+          offset: projectItems.length,
+        }),
+        PAGE.projects
+      );
+      setProjectItems((prev) => [...prev, ...page.items]);
+      setProjectsHasMore(page.hasMore);
+    } catch (error) {
+      console.error("Error loading more projects:", error);
+    } finally {
+      setLoadingMoreProjects(false);
+    }
+  };
+
   const openAvis = () => {
+    setShowAbout(false);
+    setEditingAbout(false);
     setShowReviews(true);
     revealTabs();
   };
@@ -441,6 +639,32 @@ const Profile = () => {
   const closeAvis = () => {
     setShowReviews(false);
     revealTabs();
+  };
+
+  const openAbout = () => {
+    setShowReviews(false);
+    setShowAbout(true);
+    revealTabs();
+  };
+
+  const closeAbout = () => {
+    setShowAbout(false);
+    setEditingAbout(false);
+    revealTabs();
+  };
+
+  const openInfosEditor = (field?: InfosField) => {
+    setInfosEditField(field ?? "all");
+    if (field === "location") {
+      setEditForm((prev) => {
+        const rows = prev.location.length ? prev.location.split("\n") : [];
+        if (!rows.length || rows[rows.length - 1].trim()) {
+          return { ...prev, location: [...rows, ""].join("\n") };
+        }
+        return prev;
+      });
+    }
+    setShowEditInfosModal(true);
   };
 
   const renderFeedPost = (post: any) => (
@@ -495,26 +719,67 @@ const Profile = () => {
   };
 
   const handleReportMember = async () => {
+    if (!profile) return;
+    setShowReportModal(true);
+  };
+
+  const submitProfileReport = async (payload: { reason: string; details: string }) => {
     if (!user || !profile) {
       toast({ title: "Connexion requise", description: "Connectez-vous pour signaler ce profil." });
       return;
     }
-    toast({ title: "Signalement envoyé", description: `${memberLabel} a été signalé.` });
+    setReportSubmitting(true);
+    try {
+      await moderationService.reportProfile(profile.id, user.id, payload.reason, payload.details);
+      setShowReportModal(false);
+      toast({ title: "Report submitted" });
+    } catch (error) {
+      console.error("Error reporting profile:", error);
+      toast({ title: "Erreur", description: "Impossible de signaler ce profil pour le moment." });
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   const handleBlockMember = async () => {
+    if (user && profile) {
+      try {
+        const until = await moderationService.getReblockBlockedUntil(user.id, profile.id);
+        if (until) {
+          toast({
+            title: "You can't block this account again until after 48 hours.",
+            description: `Available ${until.toLocaleString()}`,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking block cooldown:", error);
+      }
+    }
+    setShowBlockModal(true);
+  };
+
+  const confirmBlockMember = async () => {
     if (!user || !profile) {
       toast({ title: "Connexion requise", description: "Connectez-vous pour bloquer ce profil." });
       return;
     }
-    if (!window.confirm(`Bloquer ${memberLabel} ? Vous ne verrez plus ce profil.`)) return;
+    setBlockSubmitting(true);
     try {
       await moderationService.blockUser(user.id, profile.id);
-      setIsBlockedProfile(true);
-      toast({ title: "Profil bloqué", description: `${memberLabel} est maintenant bloqué.` });
+      setShowBlockModal(false);
+      blockedAccountsToast(memberLabel);
+      navigate("/", { replace: true });
     } catch (error) {
       console.error("Error blocking profile:", error);
-      toast({ title: "Erreur", description: "Impossible de bloquer ce profil." });
+      toast({
+        title: isBlockCooldownError(error)
+          ? "You can't block this account again until after 48 hours."
+          : "Erreur",
+        description: isBlockCooldownError(error) ? undefined : "Impossible de bloquer ce profil.",
+      });
+    } finally {
+      setBlockSubmitting(false);
     }
   };
 
@@ -535,10 +800,35 @@ const Profile = () => {
         baths: postData.baths ?? null,
         property_details: postData.propertyDetails || {},
       });
-      const postsData = await postService.getPostsByUser(user.id);
-      const portfolioData = await postService.getPortfolioPostsByUser(user.id);
-      setPosts(postsData || []);
-      setPortfolioItems(portfolioData || []);
+      const postsPage = takePage(await postService.getPostsByUser(user.id, PAGE.posts, 0), PAGE.posts);
+      const propertiesPage = takePage(
+        await postService.getPortfolioPostsByUser(user.id, {
+          types: PROPERTY_POST_TYPES,
+          limit: PAGE.properties,
+          offset: 0,
+        }),
+        PAGE.properties
+      );
+      const projectsPage = takePage(
+        await postService.getPortfolioPostsByUser(user.id, {
+          types: PROJECT_POST_TYPES,
+          limit: PAGE.projects,
+          offset: 0,
+        }),
+        PAGE.projects
+      );
+      setPosts(postsPage.items);
+      setPostsHasMore(postsPage.hasMore);
+      setPropertyItems(propertiesPage.items);
+      setPropertiesHasMore(propertiesPage.hasMore);
+      setProjectItems(projectsPage.items);
+      setProjectsHasMore(projectsPage.hasMore);
+      setPostsCount(await postService.countPostsByUser(user.id));
+      const [propertiesTotal, projectsTotal] = await Promise.all([
+        postService.countPostsByUser(user.id, PROPERTY_POST_TYPES),
+        postService.countPostsByUser(user.id, PROJECT_POST_TYPES),
+      ]);
+      setPortfolioCount(propertiesTotal + projectsTotal);
       toast({
         title: "Post publié",
         description:
@@ -575,13 +865,18 @@ const Profile = () => {
       property_details: details,
       contact_phone: details.phones[0] || null,
     });
-    const listingsData = await listingService.getListingsByUser(user.id);
-    setListings(listingsData || []);
+    const listingsPage = takePage(
+      await listingService.getListingsByUser(user.id, PAGE.listings, 0),
+      PAGE.listings
+    );
+    setListings(listingsPage.items);
+    setListingsHasMore(listingsPage.hasMore);
+    setListingsCount(await listingService.countListingsByUser(user.id));
     setShowCreateListingForm(false);
-    toast({ title: "Annonce créée", description: "Votre annonce a été publiée." });
+    toast({ title: "Service créé", description: "Votre service a été publié." });
     } catch (error) {
       console.error("Error creating listing:", error);
-      toast({ title: "Erreur", description: "Impossible de créer l'annonce." });
+      toast({ title: "Erreur", description: "Impossible de créer le service." });
       throw error;
     }
   };
@@ -698,8 +993,9 @@ const Profile = () => {
         description: reelDescription.trim(),
         duration_seconds: uploadResult?.video?.durationSeconds ?? null,
       });
-      const reelsData = await reelService.getReelsByUser(user.id);
-      setReels(reelsData || []);
+      const reelsPage = takePage(await reelService.getReelsByUser(user.id, PAGE.reels, 0), PAGE.reels);
+      setReels(reelsPage.items);
+      setReelsHasMore(reelsPage.hasMore);
       setReelVideoFile(null);
       setReelTitle("");
       setReelDescription("");
@@ -726,9 +1022,14 @@ const Profile = () => {
       const usernameOrId = profile?.username || profile?.id;
       const link = showReviews
         ? `${window.location.origin}/profile/${encodeURIComponent(usernameOrId)}?tab=avis`
-        : buildSectionLink(section);
+        : showAbout
+          ? `${window.location.origin}/profile/${encodeURIComponent(usernameOrId)}?tab=about`
+          : buildSectionLink(section);
       await navigator.clipboard.writeText(link);
-      toast({ title: "Lien copié", description: `Lien de la section ${showReviews ? "Avis" : title} copié.` });
+      toast({
+        title: "Lien copié",
+        description: `Lien de la section ${showReviews ? "Avis" : showAbout ? "Infos" : title} copié.`,
+      });
     } catch {
       toast({ title: "Erreur", description: "Impossible de copier le lien." });
     }
@@ -743,7 +1044,7 @@ const Profile = () => {
   }
 
   if (isBlockedProfile) {
-    return <div className="py-10 text-center text-muted-foreground">Ce profil est bloqué.</div>;
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -753,20 +1054,24 @@ const Profile = () => {
         avatar={profileAvatar}
         fullName={profile.full_name || profile.username}
         username={profile.username || "Utilisateur"}
-        followers={followers.length}
         coverPhoto={profile.cover_photo_url}
         bio={profile.bio}
+        profession={profile.profession}
+        location={profile.location}
         isOwnProfile={isOwnProfile}
         authReady={!authLoading}
         isFollowing={isFollowing}
         phone={profile.phone}
         websiteUrl={profile.website_url}
         onToggleFollow={handleToggleFollow}
-        onFollowersClick={() => setShowFollowersModal(true)}
         onEditProfile={() => setShowEditProfileModal(true)}
         onReportMember={handleReportMember}
         onBlockMember={handleBlockMember}
-        onAboutMember={() => goToTab("Détails")}
+        onAboutMember={openAbout}
+        onAboutThisMember={() => setShowAboutMember(true)}
+        rating={rating}
+        reviewCount={reviews.length}
+        onOpenReviews={openAvis}
       />
 
       <div className="mx-auto max-w-5xl">
@@ -778,33 +1083,17 @@ const Profile = () => {
             rating={rating}
             reviewCount={reviews.length}
             layout="wide"
-            onEdit={(field) => {
-              setInfosEditField(field ?? "all");
-              if (field === "location") {
-                setEditForm((prev) => {
-                  const rows = prev.location.length ? prev.location.split("\n") : [];
-                  if (!rows.length || rows[rows.length - 1].trim()) {
-                    return { ...prev, location: [...rows, ""].join("\n") };
-                  }
-                  return prev;
-                });
-              }
-              setShowEditInfosModal(true);
-            }}
-            onReviewsClick={openAvis}
-            reviewsActive={showReviews}
+            onEdit={openInfosEditor}
           />
         </div>
 
         <div
           ref={tabsContentRef}
-          className={
-            activeTab === "Détails" && !showReviews ? "scroll-mt-2 px-0 sm:px-4 md:px-6" : "scroll-mt-2 px-3 sm:px-4 md:px-6"
-          }
+          className="scroll-mt-2 px-3 sm:px-4 md:px-6"
         >
         <div
           className={`mb-1 flex items-center bg-card px-2 py-1 sm:px-1 ${
-            showReviews ? "sticky top-0 z-20 border-b border-border" : ""
+            showReviews || showAbout ? "sticky top-0 z-20 border-b border-border" : ""
           }`}
         >
           {showReviews ? (
@@ -819,21 +1108,60 @@ const Profile = () => {
               </button>
               <p className="min-w-0 flex-1 text-sm font-semibold text-card-foreground">Avis</p>
             </>
+          ) : showAbout ? (
+            <>
+              <button
+                type="button"
+                onClick={closeAbout}
+                className="mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-secondary"
+                aria-label="Retour"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <p className="min-w-0 flex-1 text-sm font-semibold text-card-foreground">Infos</p>
+              {isOwnProfile ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => openInfosEditor()}
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" />
+                  Modifier
+                </Button>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => copySectionLink("Posts", "Infos")}
+                className="h-9 w-9 shrink-0"
+                aria-label="Partager la section"
+                title="Partager la section"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+            </>
           ) : (
-            <div className="flex min-w-0 flex-1">
-              {tabs.map((tab) => (
+            <div className="flex min-w-0 flex-1 border-b border-border">
+              {tabs.map((tab) => {
+                const count =
+                  tab === "Posts" ? postsCount : tab === "Portfolio" ? portfolioCount : listingsCount;
+                return (
                 <button
                   key={tab}
                   onClick={() => goToTab(tab)}
-                  className={`min-w-0 flex-1 rounded-md px-2 py-2.5 text-center text-sm font-semibold transition-colors sm:flex-none sm:px-4 ${
+                  className={`inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-center transition-colors sm:flex-none sm:px-4 ${
                     activeTab === tab
-                      ? "bg-accent/15 text-accent"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      ? "-mb-px border-accent text-accent"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {tab}
+                  <span className="text-sm font-medium tabular-nums">{count}</span>
+                  <span className="text-sm font-semibold">{tab}</span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -841,27 +1169,28 @@ const Profile = () => {
         <div className="min-w-0">
           <div
             className={`min-w-0 ${
-              showReviews || activeTab === "Posts" || activeTab === "Détails"
+              showReviews || showAbout || activeTab === "Posts"
                 ? ""
                 : "rounded-lg border border-border bg-card"
             }`}
           >
 
-          {!showReviews && activeTab === "Détails" && (
-            <div className="min-w-0 overflow-hidden border-t border-border bg-card py-6 sm:rounded-lg sm:border">
-              <div className="mb-4 flex items-start justify-between gap-3 px-4 sm:px-6 md:px-8">
-                <h2 className="text-lg font-bold text-card-foreground">À propos</h2>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => copySectionLink("Détails", "Détails")}
-                    className="h-9 w-9"
-                    aria-label="Partager la section"
-                    title="Partager la section"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
+          {showAbout && (
+            <div id="about" className="min-w-0 overflow-hidden border-t border-border bg-card py-6 sm:rounded-lg sm:border">
+              <div className="mb-6 px-4 sm:px-6 md:px-8">
+                <ProfileDetailsFields
+                  profile={profile}
+                  isOwnProfile={isOwnProfile}
+                  userEmail={user?.email}
+                  onEdit={openInfosEditor}
+                />
+              </div>
+
+              <section className="px-4 sm:px-6 md:px-8">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Présentation
+                  </h3>
                   {isOwnProfile && !aboutHtmlIsEmpty(profile.about_text) && !editingAbout ? (
                     <Button
                       type="button"
@@ -877,64 +1206,62 @@ const Profile = () => {
                     </Button>
                   ) : null}
                 </div>
-              </div>
 
-              {isOwnProfile && editingAbout ? (
-                <div className="space-y-3 px-4 sm:px-6 md:px-8">
-                  <AboutRichEditor
-                    value={editForm.about}
-                    onChange={(html) => setEditForm((prev) => ({ ...prev, about: html.slice(0, MAX_ABOUT_LENGTH) }))}
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
-                        setEditingAbout(false);
-                      }}
-                    >
-                      Annuler
-                    </Button>
-                    <Button type="button" onClick={handleSaveAbout} disabled={savingProfile}>
-                      {savingProfile ? "Enregistrement..." : "Enregistrer"}
-                    </Button>
+                {isOwnProfile && editingAbout ? (
+                  <div className="space-y-3">
+                    <AboutRichEditor
+                      value={editForm.about}
+                      onChange={(html) => setEditForm((prev) => ({ ...prev, about: html.slice(0, MAX_ABOUT_LENGTH) }))}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
+                          setEditingAbout(false);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                      <Button type="button" onClick={handleSaveAbout} disabled={savingProfile}>
+                        {savingProfile ? "Enregistrement..." : "Enregistrer"}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ) : !aboutHtmlIsEmpty(profile.about_text) ? (
-                <div
-                  className={`about-content w-full min-w-0 max-w-full overflow-hidden text-sm leading-relaxed text-card-foreground ${
-                    isOwnProfile ? "cursor-pointer" : ""
-                  }`}
-                  onClick={() => {
-                    if (!isOwnProfile) return;
-                    setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
-                    setEditingAbout(true);
-                  }}
-                  dangerouslySetInnerHTML={{
-                    __html: sanitizeAboutHtml(toAboutHtml(profile.about_text)),
-                  }}
-                />
-              ) : isOwnProfile ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
-                    setEditingAbout(true);
-                  }}
-                  className="mx-4 flex min-h-[180px] w-[calc(100%-2rem)] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground hover:border-accent hover:text-foreground sm:mx-6 sm:w-[calc(100%-3rem)] md:mx-8 md:w-[calc(100%-4rem)]"
-                >
-                  Cliquez pour rédiger votre À propos
-                </button>
-              ) : (
-                <p className="px-4 text-sm text-muted-foreground sm:px-6 md:px-8">
-                  Aucune section À propos pour le moment.
-                </p>
-              )}
+                ) : !aboutHtmlIsEmpty(profile.about_text) ? (
+                  <div
+                    className={`about-content w-full min-w-0 max-w-full overflow-hidden text-base leading-relaxed text-card-foreground ${
+                      isOwnProfile ? "cursor-pointer" : ""
+                    }`}
+                    onClick={() => {
+                      if (!isOwnProfile) return;
+                      setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
+                      setEditingAbout(true);
+                    }}
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeAboutHtml(toAboutHtml(profile.about_text)),
+                    }}
+                  />
+                ) : isOwnProfile ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
+                      setEditingAbout(true);
+                    }}
+                    className="flex min-h-[180px] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground hover:border-accent hover:text-foreground"
+                  >
+                    Cliquez pour rédiger votre présentation
+                  </button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aucune présentation pour le moment.</p>
+                )}
+              </section>
             </div>
           )}
 
-          {!showReviews && activeTab === "Portfolio" && (
+          {!showReviews && !showAbout && activeTab === "Portfolio" && (
             <div className="px-4 sm:px-6 md:px-8 py-6">
               <div className="mb-3 flex justify-end">
                 <Button
@@ -953,6 +1280,7 @@ const Profile = () => {
                   Aucun bien ni projet dans le portfolio...
                 </p>
               ) : (
+                <>
                 <PortfolioGrid
                   items={portfolioItems.map((item) => {
                     const images = Array.isArray(item.images) ? item.images : [];
@@ -979,55 +1307,74 @@ const Profile = () => {
                     };
                   })}
                 />
+                {(propertiesHasMore || projectsHasMore) ? (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <LoadMoreButton
+                      hasMore={propertiesHasMore}
+                      loading={loadingMoreProperties}
+                      onClick={loadMoreProperties}
+                      label="Charger plus de biens"
+                    />
+                    <LoadMoreButton
+                      hasMore={projectsHasMore}
+                      loading={loadingMoreProjects}
+                      onClick={loadMoreProjects}
+                      label="Charger plus de projets"
+                    />
+                  </div>
+                ) : null}
+                </>
               )}
             </div>
           )}
 
-          {!showReviews && activeTab === "Posts" && (
+          {!showReviews && !showAbout && activeTab === "Posts" && (
             <div>
-              <div className="flex justify-end px-1 py-0.5">
+              <div className="mb-1 flex items-center justify-end gap-1 border-b border-border px-1 py-1">
+                <div className="inline-flex rounded-md border border-border p-0.5">
+                  <button
+                    type="button"
+                    aria-label="Publications"
+                    onClick={() => {
+                      setFeedPostId(null);
+                      setPostsView("grid");
+                    }}
+                    className={`inline-flex h-7 w-8 items-center justify-center rounded-sm transition-colors ${
+                      postsView === "grid"
+                        ? "bg-accent/15 text-accent"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    }`}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Réels"
+                    onClick={() => {
+                      setFeedPostId(null);
+                      setPostsView("reels");
+                    }}
+                    className={`inline-flex h-7 w-8 items-center justify-center rounded-sm transition-colors ${
+                      postsView === "reels"
+                        ? "bg-accent/15 text-accent"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    }`}
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => copySectionLink("Posts", "Posts")}
-                  className="h-9 w-9 shrink-0"
-                  aria-label="Partager la section"
-                  title="Partager la section"
+                  onClick={() =>
+                    copySectionLink("Posts", postsView === "reels" ? "Réels" : "Posts")
+                  }
+                  className="h-8 w-8 shrink-0"
+                  aria-label={postsView === "reels" ? "Partager les réels" : "Partager les posts"}
+                  title={postsView === "reels" ? "Partager les réels" : "Partager les posts"}
                 >
                   <Share2 className="h-4 w-4" />
                 </Button>
-              </div>
-              <div className="mb-1 flex gap-1 border-b border-border px-1 py-1">
-                <button
-                  type="button"
-                  aria-label="Publications"
-                  onClick={() => {
-                    setFeedPostId(null);
-                    setPostsView("grid");
-                  }}
-                  className={`flex flex-1 items-center justify-center rounded-md py-2.5 transition-colors ${
-                    postsView === "grid"
-                      ? "bg-accent/15 text-accent"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
-                  <LayoutGrid className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Réels"
-                  onClick={() => {
-                    setFeedPostId(null);
-                    setPostsView("reels");
-                  }}
-                  className={`flex flex-1 items-center justify-center rounded-md py-2.5 transition-colors ${
-                    postsView === "reels"
-                      ? "bg-accent/15 text-accent"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
-                  <Video className="h-5 w-5" />
-                </button>
               </div>
 
               {postsView === "grid" ? (
@@ -1099,6 +1446,11 @@ const Profile = () => {
                       })}
                     </div>
                   )}
+                  <LoadMoreButton
+                    hasMore={postsHasMore}
+                    loading={loadingMorePosts}
+                    onClick={loadMorePosts}
+                  />
                 </>
               ) : (
                 <div className="px-0 py-2 sm:py-3">
@@ -1219,18 +1571,23 @@ const Profile = () => {
                       })}
                     </div>
                   )}
+                  <LoadMoreButton
+                    hasMore={reelsHasMore}
+                    loading={loadingMoreReels}
+                    onClick={loadMoreReels}
+                  />
                 </div>
               )}
             </div>
           )}
 
-          {!showReviews && activeTab === "Annonces" && (
+          {!showReviews && !showAbout && activeTab === "Services" && (
             <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8">
               <div className="mb-3 flex justify-end">
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => copySectionLink("Annonces", "Annonces")}
+                  onClick={() => copySectionLink("Services", "Services")}
                   className="h-9 w-9"
                   aria-label="Partager la section"
                   title="Partager la section"
@@ -1244,7 +1601,7 @@ const Profile = () => {
                     onClick={() => setShowCreateListingForm((prev) => !prev)}
                     className="mb-3"
                   >
-                    {showCreateListingForm ? "Annuler" : "Créer nouvelle annonce"}
+                    {showCreateListingForm ? "Annuler" : "Créer un nouveau service"}
                   </Button>
                   {showCreateListingForm && (
                     <FullScreenPopup open onClose={() => setShowCreateListingForm(false)}>
@@ -1257,8 +1614,9 @@ const Profile = () => {
                 </div>
               )}
               {listings.length === 0 ? (
-                <div className="py-6 text-center text-muted-foreground">Aucune annonce publiée.</div>
+                <div className="py-6 text-center text-muted-foreground">Aucun service publié.</div>
               ) : (
+                <>
                 <div
                   className={`grid gap-4 sm:gap-6 ${
                     listings.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
@@ -1275,7 +1633,7 @@ const Profile = () => {
                       image={listing.image_url || ""}
                       imageCount={listing.image_count || 1}
                       location={listing.location || ""}
-                      title={listing.title || "Annonce"}
+                      title={listing.title || "Service"}
                       profession={listing.profession}
                       priceRange={listing.price_range || "Prix sur demande"}
                       isSponsored={Boolean(listing.is_sponsored)}
@@ -1283,6 +1641,12 @@ const Profile = () => {
                     />
                   ))}
                 </div>
+                <LoadMoreButton
+                  hasMore={listingsHasMore}
+                  loading={loadingMoreListings}
+                  onClick={loadMoreListings}
+                />
+                </>
               )}
             </div>
           )}
@@ -1483,12 +1847,14 @@ const Profile = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {infosEditField === "all" || infosEditField === "profession" ? (
             <Input
               value={editForm.profession}
               onChange={(e) => setEditForm((prev) => ({ ...prev, profession: e.target.value }))}
               placeholder="Profession"
-              disabled={infosEditField !== "all" && infosEditField !== "profession"}
             />
+            ) : null}
+            {infosEditField === "all" || infosEditField === "location" ? (
             <div className="space-y-2">
               {(editForm.location.length ? editForm.location.split("\n") : [""]).map((lieu, index, rows) => (
                 <div key={index} className="flex items-center gap-2">
@@ -1500,9 +1866,8 @@ const Profile = () => {
                       setEditForm((prev) => ({ ...prev, location: next.join("\n") }));
                     }}
                     placeholder={`Lieu ${index + 1} (ville, région, pays)`}
-                    disabled={infosEditField !== "all" && infosEditField !== "location"}
                   />
-                  {rows.length > 1 && (infosEditField === "all" || infosEditField === "location") ? (
+                  {rows.length > 1 ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -1519,43 +1884,45 @@ const Profile = () => {
                   ) : null}
                 </div>
               ))}
-              {infosEditField === "all" || infosEditField === "location" ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
-                  onClick={() =>
-                    setEditForm((prev) => {
-                      const rows = prev.location.length ? prev.location.split("\n") : [""];
-                      return { ...prev, location: [...rows, ""].join("\n") };
-                    })
-                  }
-                >
-                  <Plus className="h-4 w-4" />
-                  Ajouter un lieu
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+                onClick={() =>
+                  setEditForm((prev) => {
+                    const rows = prev.location.length ? prev.location.split("\n") : [""];
+                    return { ...prev, location: [...rows, ""].join("\n") };
+                  })
+                }
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter un lieu
+              </button>
             </div>
+            ) : null}
+            {infosEditField === "all" || infosEditField === "email" ? (
             <Input
               type="email"
               value={editForm.email}
               onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
               placeholder="Email de contact"
-              disabled={infosEditField !== "all" && infosEditField !== "email"}
             />
+            ) : null}
+            {infosEditField === "all" || infosEditField === "phone" ? (
             <Input
               type="tel"
               value={editForm.phone}
               onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
               placeholder="Téléphone"
-              disabled={infosEditField !== "all" && infosEditField !== "phone"}
             />
+            ) : null}
+            {infosEditField === "all" || infosEditField === "website" ? (
             <Textarea
               value={editForm.website}
               onChange={(e) => setEditForm((prev) => ({ ...prev, website: e.target.value }))}
               rows={3}
               placeholder="Liens de sites web (un par ligne)"
-              disabled={infosEditField !== "all" && infosEditField !== "website"}
             />
+            ) : null}
             <div className="flex justify-end">
               <Button onClick={handleSaveInfos} disabled={savingProfile}>
                 {savingProfile ? "Enregistrement..." : "Enregistrer"}
@@ -1564,6 +1931,32 @@ const Profile = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ReportAbuseModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        variant="profile"
+        subjectName={memberLabel}
+        title="Report this profile"
+        submitting={reportSubmitting}
+        onSubmit={submitProfileReport}
+      />
+      <BlockMemberModal
+        isOpen={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        message={`Bloquer ${memberLabel} ? Vous ne verrez plus ce profil.`}
+        submitting={blockSubmitting}
+        onConfirm={confirmBlockMember}
+      />
+      <AboutThisMemberSheet
+        open={showAboutMember}
+        onOpenChange={setShowAboutMember}
+        createdAt={profile.created_at}
+        contactUpdatedAt={profile.contact_updated_at}
+        avatarUpdatedAt={profile.avatar_updated_at}
+        isVerified={profile.is_verified}
+        verifiedAt={profile.verified_at}
+      />
     </div>
   );
 };

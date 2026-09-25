@@ -3,8 +3,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLanguageProvider } from "@/contexts/AppLanguageContext";
 import AppHeader from "@/components/AppHeader";
 import TabNav from "@/components/TabNav";
@@ -22,6 +22,7 @@ import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import RequireAuth from "@/components/RequireAuth";
 import AdminModeration from "./pages/AdminModeration";
+import BlockedAccounts from "./pages/BlockedAccounts";
 
 const Profile = lazy(() => import("./pages/Profile"));
 
@@ -35,17 +36,23 @@ const queryClient = new QueryClient();
 
 const AppLayout = () => {
   const { pathname } = useLocation();
+  const { isPasswordRecovery } = useAuth();
   const isProfile = pathname.startsWith("/profile");
+  const lockToReset = isPasswordRecovery;
+
+  if (lockToReset && pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
+  }
 
   return (
         <div className="w-full min-h-screen bg-background flex flex-col">
-          {isProfile ? null : (
+          {isProfile || lockToReset ? null : (
             <>
               <AppHeader />
               <TabNav />
             </>
           )}
-          <div className={`${isProfile ? "pt-0" : "pt-[108px] sm:pt-[124px] lg:pt-0"} flex-1`}>
+          <div className={`${isProfile || lockToReset ? "pt-0" : "pt-[108px] sm:pt-[124px] lg:pt-0"} flex-1`}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/job/:title" element={<JobDetail />} />
@@ -56,7 +63,8 @@ const AppLayout = () => {
             <Route path="/profile" element={<RequireAuth><ProfileRoute /></RequireAuth>} />
               <Route path="/login" element={<Login />} />
               <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
-              <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
+              <Route path="/settings/blocked" element={<RequireAuth><BlockedAccounts /></RequireAuth>} />
+              <Route path="/change-password" element={<ChangePassword />} />
               <Route path="/privacy-settings" element={<RequireAuth><PrivacySettings /></RequireAuth>} />
               <Route path="/admin/moderation" element={<RequireAuth><AdminModeration /></RequireAuth>} />
               <Route path="/create-profile" element={<CreateProfile />} />
@@ -73,9 +81,14 @@ const App = () => (
     <AuthProvider>
       <AppLanguageProvider>
       <TooltipProvider>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
         <Toaster />
         <Sonner />
-        <BrowserRouter>
         <AppLayout />
       </BrowserRouter>
     </TooltipProvider>

@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { postService } from "@/services/postService";
 import { savedService } from "@/services/savedService";
 import { commentService } from "@/services/commentService";
-import { moderationService } from "@/services/moderationService";
+import { moderationService, isBlockCooldownError } from "@/services/moderationService";
 import { followService } from "@/services/followService";
 import { notificationService } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
@@ -25,6 +25,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
+import ReportAbuseModal from "@/components/ReportAbuseModal";
+import BlockMemberModal from "@/components/BlockMemberModal";
+import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 
 interface FeedPostProps {
   postId?: string;
@@ -89,6 +92,10 @@ const FeedPost = ({
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
   const [displayTitle, setDisplayTitle] = useState(title);
   const [displayDescription, setDisplayDescription] = useState(description || "");
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockSubmitting, setBlockSubmitting] = useState(false);
   const commentsModalRef = useRef<HTMLDivElement>(null);
   const postPreviewRef = useRef<HTMLDivElement>(null);
   const isOwnPost = Boolean(user && postUserId && user.id === postUserId);
@@ -144,7 +151,7 @@ const FeedPost = ({
 
   const handleProfileClick = () => {
     const slug = (username || "").replace(/^@/, "").trim();
-    navigate(`/profile/${encodeURIComponent(slug)}?tab=about`);
+    navigate(`/profile/${encodeURIComponent(slug)}?tab=posts`);
   };
 
   const [postComments, setPostComments] = useState<any[]>([]);
@@ -341,29 +348,69 @@ const FeedPost = ({
   };
 
   const handleReportPost = () => {
-    if (!postId || !user) return;
-    moderationService
-      .reportPost(postId, user.id)
-      .then(() => toast({ title: "Signalement envoyé", description: "Merci, le post a été signalé." }))
-      .catch((error) => {
-        console.error("Error reporting post:", error);
-        toast({ title: "Erreur", description: "Impossible de signaler ce post pour le moment." });
-      });
+    if (!postId) return;
+    setShowReportModal(true);
   };
 
-  const handleBlockProfile = () => {
-    if (!user || !postUserId) return;
-    if (!window.confirm("Bloquer ce profil ? Vous ne verrez plus ses contenus.")) return;
-    moderationService
-      .blockUser(user.id, postUserId)
-      .then(() => {
-        toast({ title: "Profil bloqué", description: "Ce profil est maintenant bloqué." });
-        setIsHidden(true);
-      })
-      .catch((error) => {
-        console.error("Error blocking profile:", error);
-        toast({ title: "Erreur", description: "Impossible de bloquer ce profil pour le moment." });
+  const submitPostReport = async (payload: { reason: string; details: string }) => {
+    if (!user) {
+      toast({ title: "Connexion requise", description: "Connectez-vous pour signaler ce post." });
+      return;
+    }
+    if (!postId) return;
+    setReportSubmitting(true);
+    try {
+      await moderationService.reportPost(postId, user.id, payload.reason, payload.details);
+      setShowReportModal(false);
+      toast({ title: "Signalement envoyé", description: "Merci, le post a été signalé." });
+    } catch (error) {
+      console.error("Error reporting post:", error);
+      toast({ title: "Erreur", description: "Impossible de signaler ce post pour le moment." });
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
+  const handleBlockProfile = async () => {
+    if (user && postUserId) {
+      try {
+        const until = await moderationService.getReblockBlockedUntil(user.id, postUserId);
+        if (until) {
+          toast({
+            title: "You can't block this account again until after 48 hours.",
+            description: `Available ${until.toLocaleString()}`,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking block cooldown:", error);
+      }
+    }
+    setShowBlockModal(true);
+  };
+
+  const confirmBlockProfile = async () => {
+    if (!user || !postUserId) {
+      toast({ title: "Connexion requise", description: "Connectez-vous pour bloquer ce profil." });
+      return;
+    }
+    setBlockSubmitting(true);
+    try {
+      await moderationService.blockUser(user.id, postUserId);
+      setShowBlockModal(false);
+      blockedAccountsToast(username || "this");
+      setIsHidden(true);
+    } catch (error) {
+      console.error("Error blocking profile:", error);
+      toast({
+        title: isBlockCooldownError(error)
+          ? "You can't block this account again until after 48 hours."
+          : "Erreur",
+        description: isBlockCooldownError(error) ? undefined : "Impossible de bloquer ce profil pour le moment.",
       });
+    } finally {
+      setBlockSubmitting(false);
+    }
   };
 
   const handleUnfollow = () => {
@@ -797,6 +844,21 @@ const FeedPost = ({
           </div>
         </div>
       )}
+
+      <ReportAbuseModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Report this post"
+        submitting={reportSubmitting}
+        onSubmit={submitPostReport}
+      />
+      <BlockMemberModal
+        isOpen={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        message={`Bloquer ${username || "ce membre"} ? Vous ne verrez plus ce profil.`}
+        submitting={blockSubmitting}
+        onConfirm={confirmBlockProfile}
+      />
     </article>
   );
 };

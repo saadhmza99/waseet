@@ -14,7 +14,7 @@
 
 - **profiles** - Profils utilisateurs (étend auth.users)
 - **posts** - Posts du feed
-- **listings** - Annonces/Jobs
+- **listings** - services/Jobs
 - **comments** - Commentaires sur les posts
 - **post_likes** - Likes sur les posts
 - **portfolio_items** - Portfolio des utilisateurs

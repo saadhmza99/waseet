@@ -126,7 +126,7 @@ const LocationPicker = ({
 const PropertyListingWizard = ({
   onCancel,
   onComplete,
-  submitLabel = "Créer mon annonce",
+  submitLabel = "Créer mon service",
 }: PropertyListingWizardProps) => {
   const [step, setStep] = useState(1);
   const [details, setDetails] = useState<PropertyDetails>(emptyPropertyDetails);
@@ -242,7 +242,7 @@ const PropertyListingWizard = ({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card p-4 sm:p-6">
       <div className="shrink-0">
-        <h3 className="text-lg font-semibold text-card-foreground">Créer annonce: Étape {step}</h3>
+        <h3 className="text-lg font-semibold text-card-foreground">Créer service: Étape {step}</h3>
         <div className="mt-3 flex gap-2">
           {[1, 2, 3, 4].map((n) => (
             <button

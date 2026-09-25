@@ -9,13 +9,84 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   profession TEXT,
   location TEXT,
   bio TEXT CHECK (char_length(bio) <= 165),
+  about_text TEXT,
   avatar_url TEXT,
   cover_photo_url TEXT,
   profile_type TEXT CHECK (profile_type IN ('craftsman', 'hunter')),
   phone TEXT,
+  email TEXT,
+  website_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS website_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS about_text TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE NOT NULL;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS contact_updated_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMP WITH TIME ZONE;
+
+COMMENT ON COLUMN public.profiles.is_verified IS
+  'True when this profile has passed Sifarah verification. Default false until a moderator sets it.';
+COMMENT ON COLUMN public.profiles.verified_at IS
+  'UTC time when is_verified became true. Cleared if verification is revoked.';
+COMMENT ON COLUMN public.profiles.contact_updated_at IS
+  'UTC time when phone, email, or website_url last changed.';
+COMMENT ON COLUMN public.profiles.avatar_updated_at IS
+  'UTC time when avatar_url last changed.';
+
+UPDATE public.profiles
+SET
+  is_verified = COALESCE(is_verified, FALSE),
+  contact_updated_at = COALESCE(contact_updated_at, updated_at, created_at),
+  avatar_updated_at = COALESCE(avatar_updated_at, updated_at, created_at)
+WHERE contact_updated_at IS NULL
+   OR avatar_updated_at IS NULL
+   OR is_verified IS NULL;
+
+CREATE OR REPLACE FUNCTION public.track_profile_field_updates()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.is_verified := COALESCE(NEW.is_verified, FALSE);
+    NEW.contact_updated_at := COALESCE(NEW.contact_updated_at, NEW.created_at, NOW());
+    NEW.avatar_updated_at := COALESCE(NEW.avatar_updated_at, NEW.created_at, NOW());
+    IF NEW.is_verified IS TRUE THEN
+      NEW.verified_at := COALESCE(NEW.verified_at, NOW());
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.phone IS DISTINCT FROM OLD.phone
+     OR NEW.email IS DISTINCT FROM OLD.email
+     OR NEW.website_url IS DISTINCT FROM OLD.website_url THEN
+    NEW.contact_updated_at := NOW();
+  END IF;
+
+  IF NEW.avatar_url IS DISTINCT FROM OLD.avatar_url THEN
+    NEW.avatar_updated_at := NOW();
+  END IF;
+
+  IF NEW.is_verified IS DISTINCT FROM OLD.is_verified THEN
+    IF NEW.is_verified THEN
+      NEW.verified_at := COALESCE(NEW.verified_at, NOW());
+    ELSE
+      NEW.verified_at := NULL;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS track_profile_field_updates_trigger ON public.profiles;
+CREATE TRIGGER track_profile_field_updates_trigger
+  BEFORE INSERT OR UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.track_profile_field_updates();
 
 -- Posts table
 CREATE TABLE IF NOT EXISTS public.posts (
@@ -254,11 +325,21 @@ WHERE username IS NULL
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, username, full_name)
+  INSERT INTO public.profiles (id, username, full_name, profession, location, bio, phone, email, profile_type)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'username', 'user_' || substr(NEW.id::text, 1, 8)),
-    COALESCE(NEW.raw_user_meta_data->>'full_name', '')
+    COALESCE(NULLIF(btrim(NEW.raw_user_meta_data->>'username'), ''), 'user_' || substr(NEW.id::text, 1, 8)),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    NEW.raw_user_meta_data->>'profession',
+    NEW.raw_user_meta_data->>'location',
+    NEW.raw_user_meta_data->>'bio',
+    NEW.raw_user_meta_data->>'phone',
+    NULLIF(btrim(NEW.email), ''),
+    CASE
+      WHEN NEW.raw_user_meta_data->>'profile_type' IN ('craftsman', 'hunter')
+      THEN NEW.raw_user_meta_data->>'profile_type'
+      ELSE 'craftsman'
+    END
   );
   RETURN NEW;
 END;
@@ -681,6 +762,59 @@ CREATE POLICY "Users can manage their own post comment settings"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+CREATE TABLE IF NOT EXISTS public.profile_reports (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  reporter_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  reason TEXT DEFAULT 'user_report' NOT NULL,
+  status TEXT CHECK (status IN ('pending', 'reviewing', 'resolved', 'dismissed')) DEFAULT 'pending' NOT NULL,
+  reviewed_by UUID REFERENCES public.profiles(id),
+  reviewed_at TIMESTAMP WITH TIME ZONE,
+  resolution_note TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(profile_id, reporter_id)
+);
+
+ALTER TABLE public.profile_reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can create profile reports" ON public.profile_reports;
+CREATE POLICY "Users can create profile reports"
+  ON public.profile_reports FOR INSERT
+  WITH CHECK (auth.uid() = reporter_id);
+
+DROP POLICY IF EXISTS "Users can view their own profile reports" ON public.profile_reports;
+CREATE POLICY "Users can view their own profile reports"
+  ON public.profile_reports FOR SELECT
+  USING (auth.uid() = reporter_id);
+
+DROP POLICY IF EXISTS "Moderators can view all profile reports" ON public.profile_reports;
+CREATE POLICY "Moderators can view all profile reports"
+  ON public.profile_reports FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.moderation_admins ma
+      WHERE ma.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Moderators can update profile reports" ON public.profile_reports;
+CREATE POLICY "Moderators can update profile reports"
+  ON public.profile_reports FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.moderation_admins ma
+      WHERE ma.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.moderation_admins ma
+      WHERE ma.user_id = auth.uid()
+    )
+  );
+
+GRANT SELECT, INSERT ON public.profile_reports TO authenticated;
+
 -- RLS policies for post_reports
 DROP POLICY IF EXISTS "Users can create post reports" ON public.post_reports;
 CREATE POLICY "Users can create post reports"
@@ -729,10 +863,107 @@ CREATE POLICY "Users can view their own blocks"
   ON public.blocked_users FOR SELECT
   USING (auth.uid() = blocker_id);
 
+-- Direct DELETE is revoked: unblocking must go through unblock_account() so the 48h cooldown is stored.
 DROP POLICY IF EXISTS "Users can remove their own blocks" ON public.blocked_users;
-CREATE POLICY "Users can remove their own blocks"
-  ON public.blocked_users FOR DELETE
+
+REVOKE ALL ON TABLE public.blocked_users FROM PUBLIC;
+GRANT SELECT, INSERT ON TABLE public.blocked_users TO authenticated;
+
+-- After an unblock, the same blocker cannot block that account again for 48 hours.
+-- unblocked_at is written by unblock_account(); the timer is unblocked_at + 48 hours (UTC).
+CREATE TABLE IF NOT EXISTS public.block_cooldowns (
+  blocker_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  blocked_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  unblocked_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  PRIMARY KEY (blocker_id, blocked_id),
+  CHECK (blocker_id != blocked_id)
+);
+
+COMMENT ON TABLE public.block_cooldowns IS
+  'Stores the last unblock time per blocker/blocked pair. A new row in blocked_users is rejected until unblocked_at + 48 hours.';
+COMMENT ON COLUMN public.block_cooldowns.unblocked_at IS
+  'UTC timestamp of the last successful unblock. Re-block is allowed only after unblocked_at + interval 48 hours.';
+
+ALTER TABLE public.block_cooldowns ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own block cooldowns" ON public.block_cooldowns;
+CREATE POLICY "Users can view their own block cooldowns"
+  ON public.block_cooldowns FOR SELECT
   USING (auth.uid() = blocker_id);
+
+REVOKE ALL ON TABLE public.block_cooldowns FROM PUBLIC;
+GRANT SELECT ON TABLE public.block_cooldowns TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.enforce_block_cooldown()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  last_unblock TIMESTAMP WITH TIME ZONE;
+BEGIN
+  SELECT c.unblocked_at
+    INTO last_unblock
+  FROM public.block_cooldowns c
+  WHERE c.blocker_id = NEW.blocker_id
+    AND c.blocked_id = NEW.blocked_id;
+
+  IF last_unblock IS NOT NULL
+     AND last_unblock + INTERVAL '48 hours' > NOW() THEN
+    RAISE EXCEPTION 'BLOCK_COOLDOWN'
+      USING ERRCODE = 'P0001',
+            DETAIL = 'Cannot block this account again until 48 hours after the last unblock.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.enforce_block_cooldown() IS
+  'BEFORE INSERT on blocked_users: rejects a block when the same pair was unblocked less than 48 hours ago.';
+
+DROP TRIGGER IF EXISTS trg_enforce_block_cooldown ON public.blocked_users;
+CREATE TRIGGER trg_enforce_block_cooldown
+  BEFORE INSERT ON public.blocked_users
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_block_cooldown();
+
+CREATE OR REPLACE FUNCTION public.unblock_account(target_id UUID)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  actor UUID := auth.uid();
+  removed INTEGER;
+BEGIN
+  IF actor IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+  IF target_id IS NULL OR target_id = actor THEN
+    RAISE EXCEPTION 'Invalid target';
+  END IF;
+
+  DELETE FROM public.blocked_users
+  WHERE blocker_id = actor
+    AND blocked_id = target_id;
+
+  GET DIAGNOSTICS removed = ROW_COUNT;
+  IF removed = 0 THEN
+    RAISE EXCEPTION 'Not blocked';
+  END IF;
+
+  INSERT INTO public.block_cooldowns (blocker_id, blocked_id, unblocked_at)
+  VALUES (actor, target_id, NOW())
+  ON CONFLICT (blocker_id, blocked_id)
+  DO UPDATE SET unblocked_at = EXCLUDED.unblocked_at;
+END;
+$$;
+
+COMMENT ON FUNCTION public.unblock_account(UUID) IS
+  'Removes the current block and records unblocked_at. The blocker cannot block target_id again for 48 hours.';
+
+REVOKE ALL ON FUNCTION public.unblock_account(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.unblock_account(UUID) TO authenticated;
 
 -- RLS policies for moderation_admins
 DROP POLICY IF EXISTS "Users can view own moderation membership" ON public.moderation_admins;
@@ -804,21 +1035,77 @@ CREATE INDEX IF NOT EXISTS idx_notifications_target_created_at
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT, INSERT, UPDATE ON public.notifications TO authenticated;
+
 DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications"
   ON public.notifications FOR SELECT
+  TO authenticated
   USING (auth.uid() = target_user_id);
 
 DROP POLICY IF EXISTS "Authenticated users can create notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can insert notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can create their own notifications" ON public.notifications;
 CREATE POLICY "Authenticated users can create notifications"
   ON public.notifications FOR INSERT
-  WITH CHECK (auth.uid() = actor_user_id);
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = actor_user_id
+    AND actor_user_id IS DISTINCT FROM target_user_id
+  );
 
 DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
 CREATE POLICY "Users can update their own notifications"
   ON public.notifications FOR UPDATE
+  TO authenticated
   USING (auth.uid() = target_user_id)
   WITH CHECK (auth.uid() = target_user_id);
+
+CREATE OR REPLACE FUNCTION public.create_notification(
+  p_target_user_id UUID,
+  p_type TEXT,
+  p_entity_type TEXT,
+  p_entity_id UUID DEFAULT NULL,
+  p_message TEXT DEFAULT ''
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  nid UUID;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'not authenticated';
+  END IF;
+  IF auth.uid() = p_target_user_id THEN
+    RETURN NULL;
+  END IF;
+
+  INSERT INTO public.notifications (
+    actor_user_id,
+    target_user_id,
+    type,
+    entity_type,
+    entity_id,
+    message
+  ) VALUES (
+    auth.uid(),
+    p_target_user_id,
+    p_type,
+    p_entity_type,
+    p_entity_id,
+    p_message
+  )
+  RETURNING id INTO nid;
+
+  RETURN nid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.create_notification(UUID, TEXT, TEXT, UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.create_notification(UUID, TEXT, TEXT, UUID, TEXT) TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Reel limits (law): max 1000 minutes stored platform-wide; max 3 reels per
@@ -969,8 +1256,38 @@ ALTER TABLE public.posts
   ADD COLUMN IF NOT EXISTS price TEXT,
   ADD COLUMN IF NOT EXISTS surface TEXT,
   ADD COLUMN IF NOT EXISTS beds INTEGER,
-  ADD COLUMN IF NOT EXISTS baths INTEGER;
+  ADD COLUMN IF NOT EXISTS baths INTEGER,
+  ADD COLUMN IF NOT EXISTS property_details JSONB DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.listings
+  ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS property_details JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 
 CREATE INDEX IF NOT EXISTS posts_user_id_post_type_idx
   ON public.posts (user_id, post_type, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.property_inquiries (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+  listing_id UUID REFERENCES public.listings(id) ON DELETE CASCADE,
+  seller_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  needs TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.property_inquiries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can send a property inquiry" ON public.property_inquiries;
+CREATE POLICY "Anyone can send a property inquiry"
+  ON public.property_inquiries FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Sellers can view their property inquiries" ON public.property_inquiries;
+CREATE POLICY "Sellers can view their property inquiries"
+  ON public.property_inquiries FOR SELECT
+  USING (auth.uid() = seller_id);
 

@@ -77,15 +77,26 @@ export const listingService = {
   },
 
   // Get listings by user
-  async getListingsByUser(userId: string) {
-    const { data, error } = await supabase
+  async getListingsByUser(userId: string, limit?: number, offset = 0) {
+    let query = supabase
       .from('listings')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+    if (limit != null) query = query.range(offset, offset + limit);
 
+    const { data, error } = await query;
     if (error) throw error;
     return data;
+  },
+
+  async countListingsByUser(userId: string) {
+    const { count, error } = await supabase
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    if (error) throw error;
+    return count || 0;
   },
 
   // Delete listing

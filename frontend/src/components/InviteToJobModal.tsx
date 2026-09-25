@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Image, MapPin, DollarSign, Briefcase } from "lucide-react";
+import { X, Image, MapPin, Banknote, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +19,7 @@ const mockUserListings = [
     id: 1,
     title: "Rénovation de cuisine complète",
     location: "Marrakech, Sidi Ghanem",
-    budget: "15000 - 25000 DH",
+    budget: "",
     description: "Rénovation complète d'une cuisine avec nouveaux équipements et design moderne",
   },
   {
@@ -164,7 +164,7 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
               Inviter {professionalName} à un job
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Choisissez une annonce existante ou créez une invitation personnalisée
+              Choisissez un service existant ou créez une invitation personnalisée
             </p>
           </div>
           <button
@@ -190,7 +190,7 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
             }`}
           >
             <Briefcase className="w-4 h-4" />
-            Choisir parmi ses annonces
+            Choisir parmi ses services
           </button>
           <button
             type="button"
@@ -214,7 +214,7 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
           {mode === "listings" && (
             <div className="space-y-3">
               <label className="block text-sm font-medium text-card-foreground mb-2">
-                Sélectionnez une annonce *
+                Sélectionnez un service *
               </label>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {mockUserListings.map((listing) => (
@@ -236,8 +236,8 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
                         {listing.location}
                       </span>
                       <span className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" />
-                        {listing.budget}
+                        <Banknote className="w-3 h-3" />
+                        {listing.budget?.trim() || "— / à discuter"}
                       </span>
                     </div>
                   </button>
@@ -306,13 +306,14 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
               Budget (optionnel)
             </label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="budget"
                 type="text"
-                placeholder="Ex: 5000 - 10000 DH"
+                placeholder="Ex: à discuter"
+                maxLength={26}
                 value={budget}
-                onChange={(e) => setBudget(e.target.value)}
+                onChange={(e) => setBudget(e.target.value.slice(0, 26))}
                 className="w-full pl-10"
               />
             </div>

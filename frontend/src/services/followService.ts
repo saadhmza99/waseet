@@ -98,14 +98,15 @@ export const followService = {
 
   // Check if user is following another user
   async isFollowing(followerId: string, followingId: string): Promise<boolean> {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('follows')
       .select('id')
       .eq('follower_id', followerId)
       .eq('following_id', followingId)
-      .single();
+      .maybeSingle();
 
-    return !!data;
+    if (error) throw error;
+    return Boolean(data);
   },
 };
 
