@@ -6,6 +6,7 @@ import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import { followService } from "@/services/followService";
 import { moderationService } from "@/services/moderationService";
+import { muteService } from "@/services/muteService";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReactElement } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -35,17 +36,24 @@ const Index = () => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [postsData, listingsData, followingData, blockedUserIds] = await Promise.all([
+        const [postsData, listingsData, followingData, blockedUserIds, mutedIds] = await Promise.all([
           postService.getPosts(limit, offset),
           listingService.getListings(10, 0, true), // Get sponsored listings
           user ? followService.getPostsFromFollowing(user.id, 100) : Promise.resolve([]),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
+          user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
         ]);
 
         const blockedSet = new Set(blockedUserIds || []);
-        const filteredPosts = (postsData || []).filter((post) => !blockedSet.has(post.user_id));
-        const filteredFollowingPosts = (followingData || []).filter((post) => !blockedSet.has(post.user_id));
-        const filteredListings = (listingsData || []).filter((listing) => !blockedSet.has(listing.user_id));
+        const filteredPosts = (postsData || []).filter(
+          (post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)
+        );
+        const filteredFollowingPosts = (followingData || []).filter(
+          (post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)
+        );
+        const filteredListings = (listingsData || []).filter(
+          (listing) => !blockedSet.has(listing.user_id) && !mutedIds.services.has(listing.user_id)
+        );
 
         setAllPosts(filteredPosts);
         setSponsoredListings(filteredListings);
@@ -111,14 +119,15 @@ const Index = () => {
             : "Votre post a été publié avec succès.",
       });
         // Reload posts
-        const [postsData, followingData, blockedUserIds] = await Promise.all([
+        const [postsData, followingData, blockedUserIds, mutedIds] = await Promise.all([
           postService.getPosts(limit, 0),
           user ? followService.getPostsFromFollowing(user.id, 100) : Promise.resolve([]),
           moderationService.getBlockedUserIds(user.id),
+          muteService.getMutedIds(user.id),
         ]);
         const blockedSet = new Set(blockedUserIds || []);
-        setAllPosts((postsData || []).filter((post) => !blockedSet.has(post.user_id)));
-        setFollowingPosts((followingData || []).filter((post) => !blockedSet.has(post.user_id)));
+        setAllPosts((postsData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)));
+        setFollowingPosts((followingData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)));
         // Reset tracking when new posts are loaded
         shownFollowingPostsRef.current.clear();
         userPostIndicesRef.current.clear();

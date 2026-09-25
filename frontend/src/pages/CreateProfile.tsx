@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService } from "@/services/profileService";
 import { supabase } from "@/lib/supabase";
+import { lookupSignupGeo } from "@/lib/signupGeo";
 import { toast } from "sonner";
 
 const CreateProfile = () => {
@@ -90,6 +91,7 @@ const CreateProfile = () => {
 
     try {
       const username = formData.username.trim() || buildDefaultUsername(formData.name);
+      const geo = await lookupSignupGeo();
       const { error: signUpError, needsEmailConfirmation } = await signUp(
         formData.email,
         formData.password,
@@ -101,6 +103,9 @@ const CreateProfile = () => {
           bio: formData.bio,
           phone: formData.phone,
           profile_type: profileType!,
+          signup_ip: geo.ip || "",
+          signup_country: geo.country || "",
+          signup_country_code: geo.countryCode || "",
         }
       );
 

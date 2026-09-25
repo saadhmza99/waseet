@@ -9,6 +9,8 @@ export interface UserSettingsData {
   show_phone: boolean;
   allow_direct_messages: boolean;
   show_activity_status: boolean;
+  comment_permission: "followers" | "follow_back" | "off";
+  tag_permission: "everyone" | "following" | "off";
 }
 
 export const defaultUserSettings: UserSettingsData = {
@@ -20,6 +22,8 @@ export const defaultUserSettings: UserSettingsData = {
   show_phone: false,
   allow_direct_messages: true,
   show_activity_status: true,
+  comment_permission: "followers",
+  tag_permission: "everyone",
 };
 
 export const userSettingsService = {
@@ -42,6 +46,14 @@ export const userSettingsService = {
       show_phone: data.show_phone ?? false,
       allow_direct_messages: data.allow_direct_messages ?? true,
       show_activity_status: data.show_activity_status ?? true,
+      comment_permission:
+        data.comment_permission === "follow_back" || data.comment_permission === "off"
+          ? data.comment_permission
+          : "followers",
+      tag_permission:
+        data.tag_permission === "following" || data.tag_permission === "off"
+          ? data.tag_permission
+          : "everyone",
     };
   },
 

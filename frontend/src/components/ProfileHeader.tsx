@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, Ban, Briefcase, ChevronRight, Edit, Flag, Globe, Info, MessageCircle, MoreVertical, Phone, Star, UserPlus, UserCheck } from "lucide-react";
+import { ArrowLeft, Ban, Briefcase, ChevronRight, Edit, Flag, Globe, Info, MessageCircle, MessageSquare, MoreVertical, Phone, Share2, Star, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InviteToJobModal from "./InviteToJobModal";
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
+import { profileHandle } from "@/lib/profileHandle";
 
 interface ProfileHeaderProps {
   profileId?: string;
@@ -30,6 +31,7 @@ interface ProfileHeaderProps {
   onBlockMember?: () => void;
   onAboutMember?: () => void;
   onAboutThisMember?: () => void;
+  onMuteMember?: () => void;
   rating?: number;
   reviewCount?: number;
   onOpenReviews?: () => void;
@@ -108,6 +110,7 @@ const ProfileHeader = ({
   onBlockMember,
   onAboutMember,
   onAboutThisMember,
+  onMuteMember,
   rating = 0,
   reviewCount = 0,
   onOpenReviews,
@@ -117,6 +120,7 @@ const ProfileHeader = ({
   const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
   const hasWebsite = Boolean(websiteUrl?.trim());
   const name = (fullName || "").trim() || username;
+  const handle = profileHandle(username);
   const agency = (profession || "").trim();
   const place = locationSummary(location);
 
@@ -140,6 +144,52 @@ const ProfileHeader = ({
     if (!websiteUrl?.trim()) return;
     window.open(normalizeWebsiteHref(websiteUrl), "_blank", "noopener,noreferrer");
   };
+
+  const openSms = () => {
+    if (!phone || !hasPhone) {
+      toast({ title: "Unavailable", description: "This profile has no phone number." });
+      return;
+    }
+    window.location.href = `sms:${digitsOnly(phone)}`;
+  };
+
+  const shareProfile = async () => {
+    const url =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/profile/${encodeURIComponent(username)}`
+        : `/profile/${encodeURIComponent(username)}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: name,
+          text: handle,
+          url,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Lien copié", description: "Le lien du profil a été copié." });
+    } catch (error) {
+      if ((error as { name?: string } | null)?.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Lien copié", description: "Le lien du profil a été copié." });
+      } catch {
+        toast({ title: "Partage", description: url });
+      }
+    }
+  };
+
+  const shareButton = (
+    <button
+      type="button"
+      onClick={() => void shareProfile()}
+      className="-mr-0.5 inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+      aria-label="Share profile"
+    >
+      <Share2 className="h-5 w-5" />
+    </button>
+  );
 
   const hasCover = Boolean(coverPhoto?.trim());
 
@@ -215,6 +265,7 @@ const ProfileHeader = ({
                 <Edit className="h-4 w-4" />
                 Modifier
               </button>
+              {shareButton}
               <button
                 type="button"
                 onClick={() => navigate("/settings")}
@@ -240,6 +291,7 @@ const ProfileHeader = ({
                   {isFollowing ? "Suivi" : "Follow"}
                 </button>
               ) : null}
+              {shareButton}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -253,11 +305,15 @@ const ProfileHeader = ({
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem onClick={onReportMember}>
                     <Flag className="mr-2 h-4 w-4" />
-                    Report {name}
+                    Report {handle}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={onBlockMember}>
                     <Ban className="mr-2 h-4 w-4" />
-                    Block {name}
+                    Block {handle}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onMuteMember}>
+                    <VolumeX className="mr-2 h-4 w-4" />
+                    Mute this profile
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={onAboutThisMember || onAboutMember}>
                     <Info className="mr-2 h-4 w-4" />
@@ -309,6 +365,10 @@ const ProfileHeader = ({
                 <DropdownMenuItem onClick={openWhatsApp}>
                   <MessageCircle className="mr-2 h-4 w-4" />
                   WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openSms}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  SMS
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={openCall}>
                   <Phone className="mr-2 h-4 w-4" />

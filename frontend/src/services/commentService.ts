@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { tagService } from '@/services/tagService';
 
 export const commentService = {
   // Get comments for a post
@@ -48,6 +49,8 @@ export const commentService = {
       row_id: postId,
       increment_value: 1,
     });
+
+    void tagService.tagFromText("comment", data.id, userId, content);
 
     return data;
   },

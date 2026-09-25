@@ -1,4 +1,3 @@
-import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +12,7 @@ import Explore from "./pages/Explore";
 import Reels from "./pages/Reels";
 import Saved from "./pages/Saved";
 import JobDetail from "./pages/JobDetail";
+import PostDetail from "./pages/PostDetail";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import ChangePassword from "./pages/ChangePassword.tsx";
@@ -24,13 +24,7 @@ import RequireAuth from "@/components/RequireAuth";
 import AdminModeration from "./pages/AdminModeration";
 import BlockedAccounts from "./pages/BlockedAccounts";
 
-const Profile = lazy(() => import("./pages/Profile"));
-
-const ProfileRoute = () => (
-  <Suspense fallback={<div className="py-10 text-center text-muted-foreground">Chargement du profil...</div>}>
-    <Profile />
-  </Suspense>
-);
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -55,12 +49,13 @@ const AppLayout = () => {
           <div className={`${isProfile || lockToReset ? "pt-0" : "pt-[108px] sm:pt-[124px] lg:pt-0"} flex-1`}>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/post/:id" element={<PostDetail />} />
             <Route path="/job/:title" element={<JobDetail />} />
             <Route path="/explore" element={<Explore />} />
               <Route path="/reels" element={<Reels />} />
               <Route path="/saved" element={<RequireAuth><Saved /></RequireAuth>} />
-            <Route path="/profile/:id" element={<ProfileRoute />} />
-            <Route path="/profile" element={<RequireAuth><ProfileRoute /></RequireAuth>} />
+            <Route path="/profile/:id" element={<Profile />} />
+            <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
               <Route path="/login" element={<Login />} />
               <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
               <Route path="/settings/blocked" element={<RequireAuth><BlockedAccounts /></RequireAuth>} />

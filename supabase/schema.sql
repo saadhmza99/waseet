@@ -27,6 +27,9 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS contact_updated_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signup_ip TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signup_country TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signup_country_code TEXT;
 
 COMMENT ON COLUMN public.profiles.is_verified IS
   'True when this profile has passed Sifarah verification. Default false until a moderator sets it.';
@@ -36,6 +39,12 @@ COMMENT ON COLUMN public.profiles.contact_updated_at IS
   'UTC time when phone, email, or website_url last changed.';
 COMMENT ON COLUMN public.profiles.avatar_updated_at IS
   'UTC time when avatar_url last changed.';
+COMMENT ON COLUMN public.profiles.signup_ip IS
+  'Public IP observed at account creation. Used only to derive signup_country; not shown on the profile.';
+COMMENT ON COLUMN public.profiles.signup_country IS
+  'Country name resolved from signup_ip at account creation. Immutable after first save.';
+COMMENT ON COLUMN public.profiles.signup_country_code IS
+  'ISO country code resolved from signup_ip at account creation.';
 
 UPDATE public.profiles
 SET
@@ -69,6 +78,17 @@ BEGIN
 
   IF NEW.avatar_url IS DISTINCT FROM OLD.avatar_url THEN
     NEW.avatar_updated_at := NOW();
+  END IF;
+
+  -- Signup origin is written once from the creation IP and must not be rewritten later.
+  IF OLD.signup_ip IS NOT NULL THEN
+    NEW.signup_ip := OLD.signup_ip;
+  END IF;
+  IF OLD.signup_country IS NOT NULL THEN
+    NEW.signup_country := OLD.signup_country;
+  END IF;
+  IF OLD.signup_country_code IS NOT NULL THEN
+    NEW.signup_country_code := OLD.signup_country_code;
   END IF;
 
   IF NEW.is_verified IS DISTINCT FROM OLD.is_verified THEN
@@ -325,7 +345,10 @@ WHERE username IS NULL
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, username, full_name, profession, location, bio, phone, email, profile_type)
+  INSERT INTO public.profiles (
+    id, username, full_name, profession, location, bio, phone, email, profile_type,
+    signup_ip, signup_country, signup_country_code
+  )
   VALUES (
     NEW.id,
     COALESCE(NULLIF(btrim(NEW.raw_user_meta_data->>'username'), ''), 'user_' || substr(NEW.id::text, 1, 8)),
@@ -339,7 +362,10 @@ BEGIN
       WHEN NEW.raw_user_meta_data->>'profile_type' IN ('craftsman', 'hunter')
       THEN NEW.raw_user_meta_data->>'profile_type'
       ELSE 'craftsman'
-    END
+    END,
+    NULLIF(btrim(NEW.raw_user_meta_data->>'signup_ip'), ''),
+    NULLIF(btrim(NEW.raw_user_meta_data->>'signup_country'), ''),
+    NULLIF(btrim(NEW.raw_user_meta_data->>'signup_country_code'), '')
   );
   RETURN NEW;
 END;
@@ -993,6 +1019,33 @@ ALTER TABLE IF EXISTS public.user_settings
   ADD COLUMN IF NOT EXISTS allow_direct_messages BOOLEAN DEFAULT TRUE NOT NULL;
 ALTER TABLE IF EXISTS public.user_settings
   ADD COLUMN IF NOT EXISTS show_activity_status BOOLEAN DEFAULT TRUE NOT NULL;
+ALTER TABLE IF EXISTS public.user_settings
+  ADD COLUMN IF NOT EXISTS comment_permission TEXT DEFAULT 'followers' NOT NULL;
+ALTER TABLE IF EXISTS public.user_settings
+  ADD COLUMN IF NOT EXISTS tag_permission TEXT DEFAULT 'everyone' NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'user_settings_comment_permission_check'
+  ) THEN
+    ALTER TABLE public.user_settings
+      ADD CONSTRAINT user_settings_comment_permission_check
+      CHECK (comment_permission IN ('followers', 'follow_back', 'off'));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'user_settings_tag_permission_check'
+  ) THEN
+    ALTER TABLE public.user_settings
+      ADD CONSTRAINT user_settings_tag_permission_check
+      CHECK (tag_permission IN ('everyone', 'following', 'off'));
+  END IF;
+END $$;
+
+COMMENT ON COLUMN public.user_settings.comment_permission IS
+  'Who may comment on this user''s posts unless a post overrides it: followers, follow_back, or off.';
+COMMENT ON COLUMN public.user_settings.tag_permission IS
+  'Who may tag this user: everyone, people they follow (following), or off.';
 
 DROP TRIGGER IF EXISTS update_user_settings_updated_at ON public.user_settings;
 CREATE TRIGGER update_user_settings_updated_at
@@ -1016,6 +1069,205 @@ CREATE POLICY "Users can update their own settings"
   ON public.user_settings FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+GRANT SELECT, INSERT, UPDATE ON public.user_settings TO authenticated;
+
+-- Muted accounts (hide posts and/or services in the viewer feed)
+CREATE TABLE IF NOT EXISTS public.muted_accounts (
+  muter_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  muted_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  mute_posts BOOLEAN DEFAULT FALSE NOT NULL,
+  mute_services BOOLEAN DEFAULT FALSE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  PRIMARY KEY (muter_id, muted_id),
+  CHECK (muter_id != muted_id),
+  CHECK (mute_posts OR mute_services)
+);
+
+COMMENT ON TABLE public.muted_accounts IS
+  'Viewer-chosen mutes. mute_posts hides that account''s posts; mute_services hides their listings/jobs.';
+
+ALTER TABLE public.muted_accounts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage their own mutes" ON public.muted_accounts;
+CREATE POLICY "Users can manage their own mutes"
+  ON public.muted_accounts FOR ALL
+  USING (auth.uid() = muter_id)
+  WITH CHECK (auth.uid() = muter_id);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.muted_accounts TO authenticated;
+
+-- @username tags on posts and comments
+CREATE TABLE IF NOT EXISTS public.user_tags (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  tagged_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  tagged_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  entity_type TEXT CHECK (entity_type IN ('post', 'comment')) NOT NULL,
+  entity_id UUID NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE (entity_type, entity_id, tagged_user_id)
+);
+
+COMMENT ON TABLE public.user_tags IS
+  'Mentions created from @username in posts or comments. Insert is rejected when the tagged user disallows tags.';
+
+ALTER TABLE public.user_tags ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Tags are viewable by everyone" ON public.user_tags;
+CREATE POLICY "Tags are viewable by everyone"
+  ON public.user_tags FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create tags they author" ON public.user_tags;
+CREATE POLICY "Users can create tags they author"
+  ON public.user_tags FOR INSERT
+  WITH CHECK (auth.uid() = tagged_by);
+
+DROP POLICY IF EXISTS "Tag authors can delete tags" ON public.user_tags;
+CREATE POLICY "Tag authors can delete tags"
+  ON public.user_tags FOR DELETE
+  USING (auth.uid() = tagged_by OR auth.uid() = tagged_user_id);
+
+GRANT SELECT, INSERT, DELETE ON public.user_tags TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.enforce_tag_permission()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  perm TEXT;
+  tagger_is_followed BOOLEAN;
+BEGIN
+  IF NEW.tagged_user_id = NEW.tagged_by THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT tag_permission INTO perm
+  FROM public.user_settings
+  WHERE user_id = NEW.tagged_user_id;
+  perm := COALESCE(perm, 'everyone');
+
+  IF perm = 'off' THEN
+    RAISE EXCEPTION 'TAG_NOT_ALLOWED'
+      USING ERRCODE = 'P0001',
+            DETAIL = 'This account does not allow tags.';
+  END IF;
+
+  IF perm = 'following' THEN
+    SELECT EXISTS (
+      SELECT 1 FROM public.follows
+      WHERE follower_id = NEW.tagged_user_id
+        AND following_id = NEW.tagged_by
+    ) INTO tagger_is_followed;
+    IF NOT tagger_is_followed THEN
+      RAISE EXCEPTION 'TAG_NOT_ALLOWED'
+        USING ERRCODE = 'P0001',
+              DETAIL = 'This account only allows tags from people they follow.';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_enforce_tag_permission ON public.user_tags;
+CREATE TRIGGER trg_enforce_tag_permission
+  BEFORE INSERT ON public.user_tags
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_tag_permission();
+
+CREATE OR REPLACE FUNCTION public.enforce_comment_permission()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  author UUID;
+  perm TEXT;
+  commenter_follows BOOLEAN;
+  author_follows BOOLEAN;
+BEGIN
+  SELECT user_id INTO author FROM public.posts WHERE id = NEW.post_id;
+  IF author IS NULL OR author = NEW.user_id THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT permission INTO perm
+  FROM public.post_comment_settings
+  WHERE post_id = NEW.post_id;
+
+  IF perm IS NULL THEN
+    SELECT comment_permission INTO perm
+    FROM public.user_settings
+    WHERE user_id = author;
+    perm := COALESCE(perm, 'followers');
+  END IF;
+
+  IF perm = 'anyone' THEN
+    RETURN NEW;
+  END IF;
+  IF perm = 'off' THEN
+    RAISE EXCEPTION 'COMMENTS_OFF' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.follows
+    WHERE follower_id = NEW.user_id AND following_id = author
+  ) INTO commenter_follows;
+  SELECT EXISTS (
+    SELECT 1 FROM public.follows
+    WHERE follower_id = author AND following_id = NEW.user_id
+  ) INTO author_follows;
+
+  IF perm = 'followers' AND NOT commenter_follows THEN
+    RAISE EXCEPTION 'COMMENTS_FOLLOWERS_ONLY' USING ERRCODE = 'P0001';
+  END IF;
+  IF perm = 'follow_back' AND NOT (commenter_follows AND author_follows) THEN
+    RAISE EXCEPTION 'COMMENTS_FOLLOW_BACK_ONLY' USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_enforce_comment_permission ON public.post_comments;
+CREATE TRIGGER trg_enforce_comment_permission
+  BEFORE INSERT ON public.post_comments
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_comment_permission();
+
+CREATE OR REPLACE FUNCTION public.get_effective_comment_permission(p_post_id UUID)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(
+    (SELECT permission FROM public.post_comment_settings WHERE post_id = p_post_id),
+    (
+      SELECT us.comment_permission
+      FROM public.posts p
+      LEFT JOIN public.user_settings us ON us.user_id = p.user_id
+      WHERE p.id = p_post_id
+    ),
+    'followers'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_effective_comment_permission(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_effective_comment_permission(UUID) TO anon;
+
+DO $$
+BEGIN
+  ALTER TABLE public.post_comment_settings DROP CONSTRAINT IF EXISTS post_comment_settings_permission_check;
+  ALTER TABLE public.post_comment_settings
+    ADD CONSTRAINT post_comment_settings_permission_check
+    CHECK (permission IN ('anyone', 'followers', 'follow_back', 'off'));
+EXCEPTION WHEN undefined_table THEN
+  NULL;
+END $$;
 
 -- Notifications table (in-app bell notifications)
 CREATE TABLE IF NOT EXISTS public.notifications (

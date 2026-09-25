@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import JobCard from "@/components/JobCard";
 import { listingService } from "@/services/listingService";
+import { muteService } from "@/services/muteService";
+import { moderationService } from "@/services/moderationService";
+import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultAvatar } from "@/lib/avatar";
 
 const Jobs = () => {
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -11,8 +15,17 @@ const Jobs = () => {
     const loadJobs = async () => {
       try {
         setLoading(true);
-        const data = await listingService.getListings(50, 0);
-        setJobs(data || []);
+        const [data, blockedIds, mutedIds] = await Promise.all([
+          listingService.getListings(50, 0),
+          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
+          user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
+        ]);
+        const blockedSet = new Set(blockedIds || []);
+        setJobs(
+          (data || []).filter(
+            (job) => !blockedSet.has(job.user_id) && !mutedIds.services.has(job.user_id)
+          )
+        );
       } catch (error) {
         console.error("Error loading jobs:", error);
         setJobs([]);
@@ -22,7 +35,7 @@ const Jobs = () => {
     };
 
     loadJobs();
-  }, []);
+  }, [user]);
 
   return (
     <div className="pb-20">

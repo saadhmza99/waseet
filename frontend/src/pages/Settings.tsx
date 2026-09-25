@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Bell, Shield, Moon, Globe, Trash2, User } from "lucide-react";
+import { ArrowLeft, Bell, Shield, Moon, Globe, Trash2, User, Users, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +13,8 @@ import { storageService } from "@/services/storageService";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
 import { userSettingsService } from "@/services/userSettingsService";
+import { muteService, type MutedAccount } from "@/services/muteService";
+import { profileHandle } from "@/lib/profileHandle";
 import { useAppLanguage } from "@/contexts/AppLanguageContext";
 
 const Settings = () => {
@@ -33,6 +35,9 @@ const Settings = () => {
   const [showPhone, setShowPhone] = useState(false);
   const [allowDirectMessages, setAllowDirectMessages] = useState(true);
   const [showActivityStatus, setShowActivityStatus] = useState(true);
+  const [commentPermission, setCommentPermission] = useState<"followers" | "follow_back" | "off">("followers");
+  const [tagPermission, setTagPermission] = useState<"everyone" | "following" | "off">("everyone");
+  const [mutedAccounts, setMutedAccounts] = useState<MutedAccount[]>([]);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const MAX_BIO_LENGTH = 165;
   const { setLanguage: setAppLanguage } = useAppLanguage();
@@ -95,7 +100,11 @@ const Settings = () => {
         setShowPhone(settings.show_phone);
         setAllowDirectMessages(settings.allow_direct_messages);
         setShowActivityStatus(settings.show_activity_status);
+        setCommentPermission(settings.comment_permission);
+        setTagPermission(settings.tag_permission);
         setAppLanguage(settings.language);
+        const muted = await muteService.getMutedAccounts(user.id);
+        setMutedAccounts(muted);
       } catch (error) {
         console.error("Error loading user settings:", error);
       }
@@ -180,6 +189,8 @@ const Settings = () => {
         show_phone: showPhone,
         allow_direct_messages: allowDirectMessages,
         show_activity_status: showActivityStatus,
+        comment_permission: commentPermission,
+        tag_permission: tagPermission,
       });
       setAppLanguage(language);
       toast({
@@ -376,6 +387,99 @@ const Settings = () => {
               </Button>
             </div>
           </div>
+        </div>
+
+        <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Interagir avec les autres</h2>
+          </div>
+          <div className="space-y-4 sm:space-y-5">
+            <div>
+              <Label htmlFor="comment-permission" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                Who can comment
+              </Label>
+              <select
+                id="comment-permission"
+                value={commentPermission}
+                onChange={(e) => setCommentPermission(e.target.value as typeof commentPermission)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="followers">Your followers</option>
+                <option value="follow_back">Followers you follow back</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="tag-permission" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                Who can tag you
+              </Label>
+              <select
+                id="tag-permission"
+                value={tagPermission}
+                onChange={(e) => setTagPermission(e.target.value as typeof tagPermission)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="everyone">Everyone</option>
+                <option value="following">People you follow</option>
+                <option value="off">{`Don't allow tags`}</option>
+              </select>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !user}>
+                {isSavingPreferences ? "Enregistrement..." : "Enregistrer"}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">What you see</h2>
+          </div>
+          {mutedAccounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No muted accounts.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {mutedAccounts.map((row) => (
+                <li key={row.mutedId} className="flex items-center gap-3 py-3">
+                  <img
+                    src={row.avatarUrl || getDefaultAvatar(row.profileType || undefined)}
+                    alt=""
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{profileHandle(row.username)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.mutePosts && row.muteServices
+                        ? "Posts and services"
+                        : row.mutePosts
+                          ? "Posts"
+                          : "Services"}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!user) return;
+                      try {
+                        await muteService.unmuteAccount(user.id, row.mutedId);
+                        setMutedAccounts((prev) => prev.filter((item) => item.mutedId !== row.mutedId));
+                      } catch (error) {
+                        console.error(error);
+                        toast({ title: "Erreur", description: "Impossible de rétablir ce compte." });
+                      }
+                    }}
+                  >
+                    Unmute
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Privacy & Security */}

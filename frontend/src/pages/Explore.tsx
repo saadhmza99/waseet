@@ -6,6 +6,7 @@ import CategorySection from "@/components/CategorySection";
 import SearchBar from "@/components/SearchBar";
 import { listingService } from "@/services/listingService";
 import { moderationService } from "@/services/moderationService";
+import { muteService } from "@/services/muteService";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultAvatar } from "@/lib/avatar";
 
@@ -48,9 +49,10 @@ const Explore = () => {
     const loadListings = async () => {
       try {
         setLoading(true);
-        const [data, blockedIds] = await Promise.all([
+        const [data, blockedIds, mutedIds] = await Promise.all([
           listingService.getListings(100, 0),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
+          user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
         ]);
         const blockedSet = new Set(blockedIds || []);
         const mapped = (data || []).map((listing) => ({
@@ -67,7 +69,9 @@ const Explore = () => {
           priceRange: listing.price_range || "Prix sur demande",
           isSponsored: Boolean(listing.is_sponsored),
         }));
-        setListings(mapped.filter((listing) => !blockedSet.has(listing.userId)));
+        setListings(
+          mapped.filter((listing) => !blockedSet.has(listing.userId) && !mutedIds.services.has(listing.userId))
+        );
       } catch (error) {
         console.error("Error loading listings:", error);
         setListings([]);

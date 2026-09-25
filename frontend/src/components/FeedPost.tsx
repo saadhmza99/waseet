@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { ThumbsUp, MessageCircle, Share2, MoreHorizontal, Sparkles, X, ChevronLeft, ChevronRight, Bookmark } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Ban, Bookmark, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, MessageCircle, MoreHorizontal, Pencil, Settings2, Share2, Sparkles, ThumbsUp, Trash2, UserCheck, Users, X, XCircle } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import CommentSection from "./CommentSection";
 import { useAuth } from "@/contexts/AuthContext";
-import { postService } from "@/services/postService";
+import { postService, type PostCommentPermission } from "@/services/postService";
 import { savedService } from "@/services/savedService";
 import { commentService } from "@/services/commentService";
 import { moderationService, isBlockCooldownError } from "@/services/moderationService";
@@ -15,19 +15,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { profileHandle } from "@/lib/profileHandle";
+import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import BlockMemberModal from "@/components/BlockMemberModal";
-import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
+import { TaggedText } from "@/lib/mentions";
+import { postAbsoluteUrl, postPath } from "@/lib/postUrl";
 
 interface FeedPostProps {
   postId?: string;
@@ -77,6 +78,7 @@ const FeedPost = ({
   baths,
 }: FeedPostProps) => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user } = useAuth();
   const [showComments, setShowComments] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -88,7 +90,7 @@ const FeedPost = ({
   const [showAllImages, setShowAllImages] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
-  const [commentPermission, setCommentPermission] = useState<"anyone" | "follow_back" | "off">("anyone");
+  const [commentOverride, setCommentOverride] = useState<"default" | PostCommentPermission>("default");
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
   const [displayTitle, setDisplayTitle] = useState(title);
   const [displayDescription, setDisplayDescription] = useState(description || "");
@@ -99,6 +101,8 @@ const FeedPost = ({
   const commentsModalRef = useRef<HTMLDivElement>(null);
   const postPreviewRef = useRef<HTMLDivElement>(null);
   const isOwnPost = Boolean(user && postUserId && user.id === postUserId);
+  const postHref = postId ? postPath(postId) : "";
+  const isStandalonePost = Boolean(postId && pathname === postHref);
 
   useEffect(() => {
     setDisplayTitle(title);
@@ -122,8 +126,8 @@ const FeedPost = ({
   useEffect(() => {
     if (!postId || !isOwnPost) return;
     postService
-      .getCommentPermission(postId)
-      .then((permission) => setCommentPermission(permission))
+      .getPostCommentOverride(postId)
+      .then((permission) => setCommentOverride(permission || "default"))
       .catch(console.error);
   }, [postId, isOwnPost]);
 
@@ -220,13 +224,19 @@ const FeedPost = ({
         });
       }
       
-      // Also try native share
-      if (navigator.share) {
-        navigator.share({
-          title: title,
-          text: description,
-          url: window.location.href,
-        });
+      // Also try native share of this post's unique URL
+      if (postId) {
+        const shareUrl = postAbsoluteUrl(postId);
+        if (navigator.share) {
+          void navigator.share({
+            title,
+            text: description,
+            url: shareUrl,
+          });
+        } else {
+          void navigator.clipboard.writeText(shareUrl);
+          toast({ title: "Lien copié", description: "Le lien de ce post a été copié." });
+        }
       }
     } catch (error) {
       console.error("Error sharing post:", error);
@@ -267,14 +277,25 @@ const FeedPost = ({
 
     if (!isOwnPost && postUserId) {
       try {
-        const permission = await postService.getCommentPermission(postId);
+        const permission = await postService.getCommentPermission(postId, postUserId);
         if (permission === "off") {
           toast({ title: "Commentaires désactivés", description: "Les commentaires sont désactivés pour ce post." });
           return;
         }
+        if (permission === "followers") {
+          const follows = await followService.isFollowing(user.id, postUserId);
+          if (!follows) {
+            toast({
+              title: "Commentaire non autorisé",
+              description: "Seuls vos abonnés peuvent commenter.",
+            });
+            return;
+          }
+        }
         if (permission === "follow_back") {
-          const canComment = await followService.isFollowing(postUserId, user.id);
-          if (!canComment) {
+          const theyFollow = await followService.isFollowing(user.id, postUserId);
+          const youFollow = await followService.isFollowing(postUserId, user.id);
+          if (!theyFollow || !youFollow) {
             toast({
               title: "Commentaire non autorisé",
               description: "Seules les personnes suivies en retour peuvent commenter ce post.",
@@ -342,9 +363,22 @@ const FeedPost = ({
       });
   };
 
-  const handleShareVia = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast({ title: "Lien copié", description: "Le lien du post a été copié." });
+  const applyCommentOverride = async (value: string) => {
+    if (!postId || !user || !isOwnPost) return;
+    const next = value as "default" | PostCommentPermission;
+    const previous = commentOverride;
+    setCommentOverride(next);
+    try {
+      if (next === "default") {
+        await postService.clearCommentPermission(postId, user.id);
+      } else {
+        await postService.setCommentPermission(postId, user.id, next);
+      }
+    } catch (error) {
+      console.error("Error updating comment permission:", error);
+      setCommentOverride(previous);
+      toast({ title: "Erreur", description: "Impossible de mettre à jour cette option." });
+    }
   };
 
   const handleReportPost = () => {
@@ -398,7 +432,7 @@ const FeedPost = ({
     try {
       await moderationService.blockUser(user.id, postUserId);
       setShowBlockModal(false);
-      blockedAccountsToast(username || "this");
+      blockedAccountsToast(profileHandle(username));
       setIsHidden(true);
     } catch (error) {
       console.error("Error blocking profile:", error);
@@ -411,19 +445,6 @@ const FeedPost = ({
     } finally {
       setBlockSubmitting(false);
     }
-  };
-
-  const handleUnfollow = () => {
-    if (!user || !postUserId) return;
-    if (!window.confirm("Ne plus suivre ce profil ?")) return;
-    followService
-      .unfollowUser(user.id, postUserId)
-      .then(() => toast({ title: "Suivi retiré", description: "Vous ne suivez plus ce profil." }))
-      .then(() => setIsFollowingAuthor(false))
-      .catch((error) => {
-        console.error("Error unfollowing profile:", error);
-        toast({ title: "Erreur", description: "Impossible d'arrêter le suivi pour le moment." });
-      });
   };
 
   const handleFollowAuthor = async () => {
@@ -504,54 +525,75 @@ const FeedPost = ({
               <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" collisionPadding={12} className="w-56 max-h-[min(70vh,28rem)] overflow-y-auto">
             {isOwnPost ? (
               <>
-                <DropdownMenuItem onClick={handleEditPost}>Modifier le post</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleEditPost}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Modifier le post
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleDeletePost} className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Supprimer le post
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleShareVia}>Copier le lien du post</DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Qui peut commenter</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuRadioGroup
-                      value={commentPermission}
-                      onValueChange={(value) => {
-                        const nextPermission = value as "anyone" | "follow_back" | "off";
-                        setCommentPermission(nextPermission);
-                        if (postId && user) {
-                          postService
-                            .setCommentPermission(postId, user.id, nextPermission)
-                            .catch((error) => {
-                              console.error("Error updating comment permission:", error);
-                              toast({ title: "Erreur", description: "Impossible de mettre à jour cette option." });
-                            });
-                        }
-                      }}
-                    >
-                      <DropdownMenuRadioItem value="anyone">Anyone</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="follow_back">People I follow back</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="font-semibold">Qui peut commenter</DropdownMenuLabel>
+                <p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">This post only. Overrides your settings.</p>
+                <DropdownMenuRadioGroup value={commentOverride} onValueChange={(value) => void applyCommentOverride(value)}>
+                  <DropdownMenuRadioItem value="default">
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Account setting
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="anyone">
+                    <Globe className="mr-2 h-4 w-4" />
+                    Anyone
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="followers">
+                    <Users className="mr-2 h-4 w-4" />
+                    Your followers
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="follow_back">
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    Followers you follow back
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="off">
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Off
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
               </>
             ) : (
               <>
-                <DropdownMenuItem onClick={handleHidePost}>Hide post</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleReportPost}>Report post</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleHidePost}>
+                  <EyeOff className="mr-2 h-4 w-4" />
+                  Hide post
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleReportPost}>
+                  <Flag className="mr-2 h-4 w-4" />
+                  Report post
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleBlockProfile}>Block profile</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleUnfollow}>Unfollow</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleBlockProfile}>
+                  <Ban className="mr-2 h-4 w-4" />
+                  Block profile
+                </DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <h3 className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground break-words overflow-hidden">
-        {displayTitle}
+      <h3
+        className={`px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground break-words overflow-hidden ${
+          postId && !isStandalonePost ? "cursor-pointer hover:opacity-80" : ""
+        }`}
+        onClick={(event) => {
+          if (!postId || isStandalonePost) return;
+          if ((event.target as HTMLElement).closest("a")) return;
+          navigate(postHref);
+        }}
+      >
+        <TaggedText text={displayTitle} />
       </h3>
       {postType && postType !== "standard" ? (
         <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2">
@@ -576,7 +618,7 @@ const FeedPost = ({
               captionExpanded ? "" : "line-clamp-4"
             }`}
           >
-            {displayDescription}
+            <TaggedText text={displayDescription} />
           </p>
           {displayDescription.length > 180 ? (
             <button
@@ -855,7 +897,7 @@ const FeedPost = ({
       <BlockMemberModal
         isOpen={showBlockModal}
         onClose={() => setShowBlockModal(false)}
-        message={`Bloquer ${username || "ce membre"} ? Vous ne verrez plus ce profil.`}
+        message={`Bloquer ${profileHandle(username)} ? Vous ne verrez plus ce profil.`}
         submitting={blockSubmitting}
         onConfirm={confirmBlockProfile}
       />

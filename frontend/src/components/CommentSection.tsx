@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { TaggedText } from "@/lib/mentions";
 
 interface Comment {
   id: string | number;
@@ -84,7 +85,9 @@ const CommentSection = ({ comments, onAddComment }: CommentSectionProps) => {
                 </button>
                 <span className="text-xs sm:text-sm text-muted-foreground">{c.timeAgo}</span>
               </div>
-              <p className="text-sm sm:text-base text-card-foreground leading-relaxed">{c.text}</p>
+              <p className="text-sm sm:text-base text-card-foreground leading-relaxed">
+                <TaggedText text={c.text} />
+              </p>
             </div>
           </div>
         ))}

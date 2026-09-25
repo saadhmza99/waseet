@@ -14,6 +14,7 @@ type AboutThisMemberSheetProps = {
   createdAt?: string | null;
   contactUpdatedAt?: string | null;
   avatarUpdatedAt?: string | null;
+  signupCountry?: string | null;
   isVerified?: boolean | null;
   verifiedAt?: string | null;
 };
@@ -31,6 +32,7 @@ const AboutThisMemberSheet = ({
   createdAt,
   contactUpdatedAt,
   avatarUpdatedAt,
+  signupCountry,
   isVerified,
   verifiedAt,
 }: AboutThisMemberSheetProps) => {
@@ -55,6 +57,9 @@ const AboutThisMemberSheet = ({
           <section>
             <h3 className="text-sm font-semibold text-card-foreground">Account history</h3>
             <p className="mt-1 text-sm text-muted-foreground">Joined Sifarah {formatDay(createdAt)}</p>
+            {signupCountry?.trim() ? (
+              <p className="mt-1 text-sm text-muted-foreground">Created from {signupCountry.trim()}</p>
+            ) : null}
           </section>
           <section>
             <h3 className="text-sm font-semibold text-card-foreground">Contact info</h3>

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams, Navigate } from "react-router-
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import ProfileHeader from "@/components/ProfileHeader";
+import ProfilePageSkeleton, { ProfileMediaGridSkeleton } from "@/components/ProfilePageSkeleton";
 import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
 import ReviewCard from "@/components/ReviewCard";
 import FeedPost from "@/components/FeedPost";
@@ -12,6 +13,7 @@ import PropertyListingWizard from "@/components/PropertyListingWizard";
 import FullScreenPopup from "@/components/FullScreenPopup";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { profileBuffer, type ProfileBufferBundle } from "@/lib/profileBuffer";
 import { profileService } from "@/services/profileService";
 import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
@@ -50,6 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { profileHandle } from "@/lib/profileHandle";
 import AboutRichEditor from "@/components/AboutRichEditor";
 import { aboutHtmlIsEmpty, sanitizeAboutHtml, toAboutHtml } from "@/lib/aboutHtml";
 import PortfolioGrid from "@/components/PortfolioGrid";
@@ -57,7 +60,9 @@ import ProfileInfosCard, { locationsFrom, ProfileDetailsFields, type InfosField 
 import UploadProgressRing from "@/components/UploadProgressRing";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import BlockMemberModal from "@/components/BlockMemberModal";
+import MuteProfileModal from "@/components/MuteProfileModal";
 import AboutThisMemberSheet from "@/components/AboutThisMemberSheet";
+import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, MessageCircle, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
 
@@ -91,6 +96,15 @@ const PROJECT_POST_TYPES = ["project"];
 const takePage = <T,>(rows: T[] | null | undefined, limit: number) => {
   const list = rows || [];
   return { items: list.slice(0, limit), hasMore: list.length > limit };
+};
+
+const forgetBufferedProfile = (
+  profileLike: { id?: string; username?: string } | null | undefined,
+  viewerId?: string | null
+) => {
+  if (!profileLike) return;
+  if (profileLike.id) profileBuffer.invalidate(profileLike.id, viewerId);
+  if (profileLike.username) profileBuffer.invalidate(profileLike.username, viewerId);
 };
 
 const LoadMoreButton = ({
@@ -272,12 +286,15 @@ const Profile = () => {
   const [portfolioCount, setPortfolioCount] = useState(0);
   const [listingsCount, setListingsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(true);
   const [isBlockedProfile, setIsBlockedProfile] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockSubmitting, setBlockSubmitting] = useState(false);
   const [showAboutMember, setShowAboutMember] = useState(false);
+  const [showMuteModal, setShowMuteModal] = useState(false);
+  const [muteSubmitting, setMuteSubmitting] = useState(false);
   const [followers, setFollowers] = useState<any[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
@@ -403,13 +420,65 @@ const Profile = () => {
   }, [activeTab, postsView, showReviews, showAbout]);
 
   useEffect(() => {
+    const applyBundle = (bundle: ProfileBufferBundle) => {
+      const profileData = bundle.profile;
+      setProfile(profileData);
+      setEditForm({
+        fullName: profileData.full_name || "",
+        username: profileData.username || "",
+        bio: profileData.bio || "",
+        about: profileData.about_text || "",
+        profession: profileData.profession || "",
+        location: profileData.location || "",
+        phone: profileData.phone || "",
+        email: profileData.email || (user?.id === profileData.id ? user.email : "") || "",
+        website: profileData.website_url || "",
+      });
+      setEditingAbout(false);
+      setPosts(bundle.posts);
+      setPostsHasMore(bundle.postsHasMore);
+      setListings(bundle.listings);
+      setListingsHasMore(bundle.listingsHasMore);
+      setReviews(bundle.reviews);
+      setReels(bundle.reels);
+      setReelsHasMore(bundle.reelsHasMore);
+      setPropertyItems(bundle.propertyItems);
+      setPropertiesHasMore(bundle.propertiesHasMore);
+      setProjectItems(bundle.projectItems);
+      setProjectsHasMore(bundle.projectsHasMore);
+      setPostsCount(bundle.postsCount);
+      setPortfolioCount(bundle.portfolioCount);
+      setListingsCount(bundle.listingsCount);
+      setFollowers(bundle.followers);
+      setIsBlockedProfile(bundle.isBlockedProfile);
+      setIsFollowing(bundle.isFollowing);
+      setLoading(false);
+      setContentLoading(false);
+    };
+
     const loadProfileData = async () => {
+      const slug = id ? decodeURIComponent(id).replace(/^@/, "").trim() : "";
+      const cached = profileBuffer.read([slug, user?.id], user?.id);
+      if (cached) {
+        applyBundle(cached);
+        return;
+      }
+
       try {
         setLoading(true);
+        setContentLoading(true);
+        setProfile(null);
+        setPosts([]);
+        setPropertyItems([]);
+        setProjectItems([]);
+        setListings([]);
+        setReels([]);
+        setPostsCount(0);
+        setPortfolioCount(0);
+        setListingsCount(0);
 
         let profileData = null;
-        if (id) {
-          const slug = decodeURIComponent(id).replace(/^@/, "").trim();
+        if (slug) {
           const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
           if (looksLikeId) {
             profileData = await profileService.getProfile(slug).catch(() => null);
@@ -422,8 +491,24 @@ const Profile = () => {
         }
         if (!profileData) {
           setProfile(null);
+          setContentLoading(false);
           return;
         }
+
+        setProfile(profileData);
+        setEditForm({
+          fullName: profileData.full_name || "",
+          username: profileData.username || "",
+          bio: profileData.bio || "",
+          about: profileData.about_text || "",
+          profession: profileData.profession || "",
+          location: profileData.location || "",
+          phone: profileData.phone || "",
+          email: profileData.email || (user?.id === profileData.id ? user.email : "") || "",
+          website: profileData.website_url || "",
+        });
+        setEditingAbout(false);
+        setLoading(false);
 
         const [postsData, listingsData, reviewsData, reelsData, propertiesData, projectsData, blockedIds, followersData, postsTotal, propertiesTotal, projectsTotal, listingsTotal] = await Promise.all([
           postService.getPostsByUser(profileData.id, PAGE.posts, 0),
@@ -448,47 +533,45 @@ const Profile = () => {
           listingService.countListingsByUser(profileData.id),
         ]);
         const blockedSet = new Set(blockedIds || []);
-        setIsBlockedProfile(blockedSet.has(profileData.id));
+        const isBlocked = blockedSet.has(profileData.id);
+        setIsBlockedProfile(isBlocked);
 
-        setProfile(profileData);
-        setEditForm({
-          fullName: profileData.full_name || "",
-          username: profileData.username || "",
-          bio: profileData.bio || "",
-          about: profileData.about_text || "",
-          profession: profileData.profession || "",
-          location: profileData.location || "",
-          phone: profileData.phone || "",
-          email: profileData.email || (user?.id === profileData.id ? user.email : "") || "",
-          website: profileData.website_url || "",
-        });
-        setEditingAbout(false);
         const postsPage = takePage(postsData, PAGE.posts);
         const listingsPage = takePage(listingsData, PAGE.listings);
         const reelsPage = takePage(reelsData, PAGE.reels);
         const propertiesPage = takePage(propertiesData, PAGE.properties);
         const projectsPage = takePage(projectsData, PAGE.projects);
-        setPosts(postsPage.items);
-        setPostsHasMore(postsPage.hasMore);
-        setListings(listingsPage.items);
-        setListingsHasMore(listingsPage.hasMore);
-        setReviews(reviewsData || []);
-        setReels(reelsPage.items);
-        setReelsHasMore(reelsPage.hasMore);
-        setPropertyItems(propertiesPage.items);
-        setPropertiesHasMore(propertiesPage.hasMore);
-        setProjectItems(projectsPage.items);
-        setProjectsHasMore(projectsPage.hasMore);
-        setPostsCount(postsTotal || 0);
-        setPortfolioCount((propertiesTotal || 0) + (projectsTotal || 0));
-        setListingsCount(listingsTotal || 0);
-        setFollowers(followersData || []);
-        if (user && user.id !== profileData.id) {
-          const following = await followService.isFollowing(user.id, profileData.id);
-          setIsFollowing(following);
-        } else {
-          setIsFollowing(false);
-        }
+        const following =
+          user && user.id !== profileData.id
+            ? await followService.isFollowing(user.id, profileData.id)
+            : false;
+
+        const bundle: ProfileBufferBundle = {
+          profile: profileData,
+          posts: postsPage.items,
+          postsHasMore: postsPage.hasMore,
+          listings: listingsPage.items,
+          listingsHasMore: listingsPage.hasMore,
+          reviews: reviewsData || [],
+          reels: reelsPage.items,
+          reelsHasMore: reelsPage.hasMore,
+          propertyItems: propertiesPage.items,
+          propertiesHasMore: propertiesPage.hasMore,
+          projectItems: projectsPage.items,
+          projectsHasMore: projectsPage.hasMore,
+          postsCount: postsTotal || 0,
+          portfolioCount: (propertiesTotal || 0) + (projectsTotal || 0),
+          listingsCount: listingsTotal || 0,
+          followers: followersData || [],
+          isBlockedProfile: isBlocked,
+          isFollowing: following,
+        };
+        applyBundle(bundle);
+        profileBuffer.write(
+          [slug, profileData.id, profileData.username, user?.id === profileData.id ? user.id : null],
+          user?.id,
+          bundle
+        );
       } catch (error) {
         console.error("Error loading profile:", error);
         setProfile(null);
@@ -496,6 +579,7 @@ const Profile = () => {
         setFollowers([]);
       } finally {
         setLoading(false);
+        setContentLoading(false);
       }
     };
 
@@ -534,7 +618,7 @@ const Profile = () => {
           String(currentProfile.username).toLowerCase() === String(profile.username).toLowerCase()))
   );
   const profileAvatar = profile?.avatar_url || getDefaultAvatar(profile?.profile_type);
-  const memberLabel = profile?.full_name || profile?.username || "ce membre";
+  const memberLabel = profileHandle(profile?.username);
 
   const loadMorePosts = async () => {
     if (!profile?.id || loadingMorePosts || !postsHasMore) return;
@@ -712,6 +796,7 @@ const Profile = () => {
           message: "a commencé à vous suivre.",
         });
       }
+      forgetBufferedProfile(profile, user.id);
     } catch (error) {
       console.error("Error toggling follow:", error);
       toast({ title: "Erreur", description: "Impossible de mettre à jour le suivi." });
@@ -829,6 +914,7 @@ const Profile = () => {
         postService.countPostsByUser(user.id, PROJECT_POST_TYPES),
       ]);
       setPortfolioCount(propertiesTotal + projectsTotal);
+      forgetBufferedProfile({ id: user.id, username: profile?.username }, user.id);
       toast({
         title: "Post publié",
         description:
@@ -873,6 +959,7 @@ const Profile = () => {
     setListingsHasMore(listingsPage.hasMore);
     setListingsCount(await listingService.countListingsByUser(user.id));
     setShowCreateListingForm(false);
+    forgetBufferedProfile({ id: user.id, username: profile?.username }, user.id);
     toast({ title: "Service créé", description: "Votre service a été publié." });
     } catch (error) {
       console.error("Error creating listing:", error);
@@ -921,6 +1008,7 @@ const Profile = () => {
       setCoverImageFile(null);
       setRemoveCover(false);
       setRemoveAvatar(false);
+      forgetBufferedProfile(updated, user.id);
       toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -943,6 +1031,7 @@ const Profile = () => {
       });
       setProfile(updated);
       setShowEditInfosModal(false);
+      forgetBufferedProfile(updated, user.id);
       toast({ title: "Infos mises à jour", description: "Les informations de cette section ont été enregistrées." });
     } catch (error) {
       console.error("Error updating infos:", error);
@@ -961,6 +1050,7 @@ const Profile = () => {
       });
       setProfile(updated);
       setEditingAbout(false);
+      forgetBufferedProfile(updated, user.id);
       toast({ title: "À propos enregistré", description: "Votre section À propos a été mise à jour." });
     } catch (error) {
       console.error("Error updating about:", error);
@@ -1000,6 +1090,7 @@ const Profile = () => {
       setReelTitle("");
       setReelDescription("");
       setReelPublishFormOpen(false);
+      forgetBufferedProfile({ id: user.id, username: profile?.username }, user.id);
       toast({ title: "Reel publie", description: "Votre reel a ete ajoute." });
     } catch (error) {
       console.error("Error creating reel:", error);
@@ -1035,12 +1126,11 @@ const Profile = () => {
     }
   };
 
-  if (loading) {
-    return <div className="py-10 text-center text-muted-foreground">Chargement du profil...</div>;
-  }
-
-  if (!profile) {
-    return <div className="py-10 text-center text-muted-foreground">Profil introuvable.</div>;
+  if (loading || !profile) {
+    if (!loading && !profile) {
+      return <div className="py-10 text-center text-muted-foreground">Profil introuvable.</div>;
+    }
+    return <ProfilePageSkeleton />;
   }
 
   if (isBlockedProfile) {
@@ -1069,6 +1159,7 @@ const Profile = () => {
         onBlockMember={handleBlockMember}
         onAboutMember={openAbout}
         onAboutThisMember={() => setShowAboutMember(true)}
+        onMuteMember={() => setShowMuteModal(true)}
         rating={rating}
         reviewCount={reviews.length}
         onOpenReviews={openAvis}
@@ -1157,7 +1248,11 @@ const Profile = () => {
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <span className="text-sm font-medium tabular-nums">{count}</span>
+                  {contentLoading ? (
+                    <span className="inline-block h-4 w-6 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
+                  ) : (
+                    <span className="text-sm font-medium tabular-nums">{count}</span>
+                  )}
                   <span className="text-sm font-semibold">{tab}</span>
                 </button>
                 );
@@ -1275,7 +1370,9 @@ const Profile = () => {
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
-              {portfolioItems.length === 0 ? (
+              {contentLoading ? (
+                <ProfileMediaGridSkeleton />
+              ) : portfolioItems.length === 0 ? (
                 <p className="py-12 text-center text-sm text-muted-foreground">
                   Aucun bien ni projet dans le portfolio...
                 </p>
@@ -1379,8 +1476,10 @@ const Profile = () => {
 
               {postsView === "grid" ? (
                 <>
-                  {isOwnProfile && <CreatePost onPostCreated={handlePostCreated} />}
-                  {posts.length === 0 ? (
+                  {isOwnProfile && !contentLoading && <CreatePost onPostCreated={handlePostCreated} />}
+                  {contentLoading ? (
+                    <ProfileMediaGridSkeleton />
+                  ) : posts.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">Aucun post publié.</div>
                   ) : feedPostId ? (
                     <div className="scroll-mt-2">
@@ -1411,11 +1510,11 @@ const Profile = () => {
                             tabIndex={0}
                             data-post-id={id}
                             aria-label={post.title || "Voir le post"}
-                            onClick={() => setFeedPostId(id)}
+                            onClick={() => navigate(`/post/${id}`)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {
                                 event.preventDefault();
-                                setFeedPostId(id);
+                                navigate(`/post/${id}`);
                               }
                             }}
                             className={`profile-post-thumb relative aspect-square ${
@@ -1532,7 +1631,9 @@ const Profile = () => {
                       </Collapsible>
                     </div>
                   )}
-                  {reels.length === 0 ? (
+                  {contentLoading ? (
+                    <ProfileMediaGridSkeleton />
+                  ) : reels.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">Aucun reel publie.</div>
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
@@ -1595,7 +1696,7 @@ const Profile = () => {
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
-              {isOwnProfile && (
+              {isOwnProfile && !contentLoading && (
                 <div className="mb-4">
                   <Button
                     onClick={() => setShowCreateListingForm((prev) => !prev)}
@@ -1613,7 +1714,9 @@ const Profile = () => {
                   )}
                 </div>
               )}
-              {listings.length === 0 ? (
+              {contentLoading ? (
+                <ProfileMediaGridSkeleton />
+              ) : listings.length === 0 ? (
                 <div className="py-6 text-center text-muted-foreground">Aucun service publié.</div>
               ) : (
                 <>
@@ -1948,12 +2051,37 @@ const Profile = () => {
         submitting={blockSubmitting}
         onConfirm={confirmBlockMember}
       />
+      <MuteProfileModal
+        isOpen={showMuteModal}
+        onClose={() => setShowMuteModal(false)}
+        handle={memberLabel}
+        submitting={muteSubmitting}
+        onConfirm={async (scope: MuteScope) => {
+          if (!user || !profile) {
+            toast({ title: "Connexion requise", description: "Connectez-vous pour masquer ce profil." });
+            return;
+          }
+          setMuteSubmitting(true);
+          try {
+            await muteService.muteAccount(user.id, profile.id, scope);
+            setShowMuteModal(false);
+            toast({ title: "Compte masqué" });
+            navigate("/", { replace: true });
+          } catch (error) {
+            console.error("Error muting profile:", error);
+            toast({ title: "Erreur", description: "Impossible de masquer ce profil." });
+          } finally {
+            setMuteSubmitting(false);
+          }
+        }}
+      />
       <AboutThisMemberSheet
         open={showAboutMember}
         onOpenChange={setShowAboutMember}
         createdAt={profile.created_at}
         contactUpdatedAt={profile.contact_updated_at}
         avatarUpdatedAt={profile.avatar_updated_at}
+        signupCountry={profile.signup_country}
         isVerified={profile.is_verified}
         verifiedAt={profile.verified_at}
       />

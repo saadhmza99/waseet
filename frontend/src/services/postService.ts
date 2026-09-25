@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { tagService } from '@/services/tagService';
+import { userSettingsService } from '@/services/userSettingsService';
 
 export type PostType = 'standard' | 'property' | 'project';
 
@@ -18,7 +20,7 @@ export interface PostData {
   property_details?: Record<string, unknown> | null;
 }
 
-export type PostCommentPermission = 'anyone' | 'follow_back' | 'off';
+export type PostCommentPermission = 'anyone' | 'followers' | 'follow_back' | 'off';
 
 export const postService = {
   // Create a new post
@@ -33,6 +35,7 @@ export const postService = {
       .single();
 
     if (error) throw error;
+    void tagService.tagFromText("post", post.id, userId, `${data.title || ""} ${data.description || ""}`);
     return post;
   },
 
@@ -265,15 +268,46 @@ export const postService = {
   },
 
   // Get who can comment setting for a post
-  async getCommentPermission(postId: string): Promise<PostCommentPermission> {
-    const { data, error } = await supabase
-      .from('post_comment_settings')
-      .select('permission')
-      .eq('post_id', postId)
-      .maybeSingle();
+  async getCommentPermission(postId: string, authorId?: string): Promise<PostCommentPermission> {
+    const { data: rpcPermission, error: rpcError } = await supabase.rpc(
+      "get_effective_comment_permission",
+      { p_post_id: postId }
+    );
+    if (!rpcError && typeof rpcPermission === "string" && rpcPermission) {
+      return rpcPermission as PostCommentPermission;
+    }
 
+    const override = await this.getPostCommentOverride(postId);
+    if (override) return override;
+
+    if (authorId) {
+      try {
+        const settings = await userSettingsService.getSettings(authorId);
+        return settings.comment_permission;
+      } catch {
+        return "followers";
+      }
+    }
+    return "followers";
+  },
+
+  async getPostCommentOverride(postId: string): Promise<PostCommentPermission | null> {
+    const { data, error } = await supabase
+      .from("post_comment_settings")
+      .select("permission")
+      .eq("post_id", postId)
+      .maybeSingle();
     if (error) throw error;
-    return (data?.permission as PostCommentPermission) || 'anyone';
+    return (data?.permission as PostCommentPermission) || null;
+  },
+
+  async clearCommentPermission(postId: string, userId: string) {
+    const { error } = await supabase
+      .from("post_comment_settings")
+      .delete()
+      .eq("post_id", postId)
+      .eq("user_id", userId);
+    if (error) throw error;
   },
 
   async isPostLiked(postId: string, userId: string): Promise<boolean> {
