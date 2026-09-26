@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Ban, Bookmark, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreHorizontal, Pencil, Settings2, Sparkles, Trash2, UserCheck, Users, X, XCircle } from "lucide-react";
+import { Ban, Bookmark, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreHorizontal, Pencil, Settings2, Sparkles, Trash2, UserCheck, Users, X, XCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import CommentSection from "./CommentSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,7 +15,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -100,6 +99,7 @@ const FeedPost = ({
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [commentOverride, setCommentOverride] = useState<"default" | PostCommentPermission>("default");
+  const [showCommentOptions, setShowCommentOptions] = useState(false);
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
   const [displayDescription, setDisplayDescription] = useState(description || "");
   const [showReportModal, setShowReportModal] = useState(false);
@@ -526,13 +526,13 @@ const FeedPost = ({
               Suivre
             </button>
           ) : null}
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={(open) => { if (!open) setShowCommentOptions(false); }}>
           <DropdownMenuTrigger asChild>
             <button className="text-muted-foreground hover:opacity-70 transition-opacity ml-2">
               <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" collisionPadding={12} className="w-56 max-h-[min(70vh,28rem)] overflow-y-auto">
+          <DropdownMenuContent align="end" collisionPadding={12} className="w-[min(calc(100vw-1.5rem),16rem)] max-h-[min(70vh,28rem)] overflow-y-auto">
             {isOwnPost ? (
               <>
                 <DropdownMenuItem onClick={handleEditPost}>
@@ -544,30 +544,45 @@ const FeedPost = ({
                   Supprimer le post
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel className="font-semibold">Qui peut commenter</DropdownMenuLabel>
-                <p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">This post only. Overrides your settings.</p>
-                <DropdownMenuRadioGroup value={commentOverride} onValueChange={(value) => void applyCommentOverride(value)}>
-                  <DropdownMenuRadioItem value="default">
-                    <Settings2 className="mr-2 h-4 w-4" />
-                    Account setting
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="anyone">
-                    <Globe className="mr-2 h-4 w-4" />
-                    Anyone
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="followers">
-                    <Users className="mr-2 h-4 w-4" />
-                    Your followers
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="follow_back">
-                    <UserCheck className="mr-2 h-4 w-4" />
-                    Followers you follow back
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="off">
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Off
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setShowCommentOptions((open) => !open);
+                  }}
+                >
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Qui peut commenter
+                  <ChevronDown className={`ml-auto h-4 w-4 transition ${showCommentOptions ? "rotate-180" : ""}`} />
+                </DropdownMenuItem>
+                {showCommentOptions ? (
+                  <div className="px-1 pb-1">
+                    <p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
+                      This post only. 
+                    </p>
+                    <DropdownMenuRadioGroup value={commentOverride} onValueChange={(value) => void applyCommentOverride(value)}>
+                      <DropdownMenuRadioItem value="default">
+                        <Settings2 className="mr-2 h-4 w-4" />
+                        Account setting
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="anyone">
+                        <Globe className="mr-2 h-4 w-4" />
+                        Anyone
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="followers">
+                        <Users className="mr-2 h-4 w-4" />
+                        Your followers
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="follow_back">
+                        <UserCheck className="mr-2 h-4 w-4" />
+                        Followers you follow back
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="off">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Off
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </div>
+                ) : null}
               </>
             ) : (
               <>
@@ -741,10 +756,10 @@ const FeedPost = ({
         <button
           onClick={handleLike}
           className={`flex items-center gap-1.5 text-sm font-medium transition-transform active:scale-90 ${
-            liked ? "text-rose-600" : "text-neutral-700"
+            liked ? "text-accent" : "text-neutral-700"
           }`}
         >
-          <Heart className={`h-7 w-7 ${liked ? "fill-rose-600 text-rose-600" : ""}`} strokeWidth={1.8} />
+          <Heart className={`h-7 w-7 ${liked ? "fill-accent text-accent" : ""}`} strokeWidth={1.8} />
           {showLikeCount ? likeCount : null}
         </button>
         <button

@@ -12,10 +12,12 @@ export const ProfileMediaGridSkeleton = ({ cells = 18 }: { cells?: number }) => 
 const ProfilePageSkeleton = () => (
   <div className="min-h-screen bg-card pb-10 sm:pb-20" aria-busy="true" aria-label="Chargement du profil">
     <div className="border-b border-border bg-card">
-      <div className={`relative h-36 overflow-hidden sm:h-48 md:h-56 ${greenWait}`}>
-        <div className="absolute left-3 right-3 top-3 z-10 flex items-center gap-2">
-          <div className="h-9 w-9 shrink-0 rounded-full bg-black/20" />
-          <div className={`h-7 w-28 rounded-full ${greenWait} ring-1 ring-white/30`} />
+      <div className="mx-auto max-w-5xl sm:px-4 md:px-6">
+        <div className={`relative h-36 overflow-hidden sm:h-48 md:h-56 ${greenWait}`}>
+          <div className="absolute left-3 right-3 top-3 z-10 flex items-center gap-2">
+            <div className="h-9 w-9 shrink-0 rounded-full bg-black/20" />
+            <div className={`h-7 w-28 rounded-full ${greenWait} ring-1 ring-white/30`} />
+          </div>
         </div>
       </div>
       <div className="mx-auto max-w-5xl px-4 sm:px-6">

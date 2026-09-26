@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLanguageProvider } from "@/contexts/AppLanguageContext";
@@ -25,22 +26,30 @@ import AdminModeration from "./pages/AdminModeration";
 import BlockedAccounts from "./pages/BlockedAccounts";
 
 import Profile from "./pages/Profile";
+import Welcome, { hasSeenWelcome } from "./pages/Welcome";
 
 const queryClient = new QueryClient();
 
 const AppLayout = () => {
   const { pathname } = useLocation();
-  const { isPasswordRecovery } = useAuth();
+  const { user, loading: authLoading, isPasswordRecovery } = useAuth();
   const isProfile = pathname.startsWith("/profile");
   const isReels = pathname.startsWith("/reels");
+  const isWelcome = pathname === "/welcome";
+  const [welcomeDone, setWelcomeDone] = useState(() => hasSeenWelcome());
   const lockToReset = isPasswordRecovery;
 
   const hideAppChrome =
+    isWelcome ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/create-profile") ||
     pathname.startsWith("/change-password") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/admin");
+
+  if (!authLoading && !user && !welcomeDone && !lockToReset && !pathname.startsWith("/login") && !pathname.startsWith("/create-profile") && !pathname.startsWith("/change-password")) {
+    return <Welcome onDone={() => setWelcomeDone(true)} />;
+  }
 
   if (lockToReset && pathname !== "/change-password") {
     return <Navigate to="/change-password" replace />;
@@ -53,6 +62,7 @@ const AppLayout = () => {
           <div className={`${lockToReset || hideAppChrome ? "" : "pb-20"} flex-1`}>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/welcome" element={<Welcome onDone={() => setWelcomeDone(true)} />} />
             <Route path="/post/:id" element={<PostDetail />} />
             <Route path="/job/:title" element={<JobDetail />} />
             <Route path="/explore" element={<Explore />} />

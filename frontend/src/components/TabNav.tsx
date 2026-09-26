@@ -1,8 +1,8 @@
-import { Bookmark, Clapperboard, Plus, Search } from "lucide-react";
+import { Bookmark, Plus, Search, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
-const HomeNavIcon = ({ className }: { className?: string }) => (
+const HomeNavIcon = ({ className, active }: { className?: string; active?: boolean }) => (
   <svg
     viewBox="0 0 24 24"
     preserveAspectRatio="none"
@@ -11,7 +11,7 @@ const HomeNavIcon = ({ className }: { className?: string }) => (
   >
     <path
       d="m3.8 10.3 6.9-6.95a1.82 1.82 0 0 1 2.6 0l6.9 6.95a1.35 1.35 0 0 1-.96 2.3h-.99v7.1a2.3 2.3 0 0 1-2.3 2.3h-7.9a2.3 2.3 0 0 1-2.3-2.3v-7.1h-.99a1.35 1.35 0 0 1-.96-2.3Z"
-      fill="#237a5d"
+      fill={active ? "#237a5d" : "currentColor"}
     />
     <path d="M10.3 24v-6.7a1.7 1.7 0 0 1 3.4 0V24z" fill="white" />
   </svg>
@@ -34,9 +34,15 @@ const TabNav = () => {
     return null;
   }
 
+  const creating = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
+
   const goCreate = () => {
     if (!user) {
       navigate("/login");
+      return;
+    }
+    if (creating) {
+      navigate("/", { replace: true, state: {} });
       return;
     }
     navigate("/", { state: { openCreate: true } });
@@ -44,7 +50,7 @@ const TabNav = () => {
 
   const itemClass = (active: boolean) =>
     `flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 whitespace-nowrap py-1 text-[11px] leading-none ${
-      active ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
+      active ? "font-semibold text-[#237a5d]" : "font-medium text-muted-foreground"
     }`;
 
   return (
@@ -52,13 +58,16 @@ const TabNav = () => {
       <div className="mx-auto flex max-w-xl items-center px-1 py-1">
         <button type="button" onClick={() => navigate("/")} className={itemClass(path === "/")}>
           <span className="flex h-8 items-center justify-center">
-            <HomeNavIcon className="h-8 w-9" />
+            <HomeNavIcon className="h-8 w-9" active={path === "/"} />
           </span>
           Fil
         </button>
         <button type="button" onClick={() => navigate("/explore")} className={itemClass(path.startsWith("/explore"))}>
           <span className="flex h-8 items-center justify-center">
-            <Search className="h-7 w-7" />
+            <Search
+              className={`h-7 w-7 ${path.startsWith("/explore") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
+              strokeWidth={path.startsWith("/explore") ? 1.8 : 2}
+            />
           </span>
           Découvrir
         </button>
@@ -66,21 +75,33 @@ const TabNav = () => {
           type="button"
           onClick={goCreate}
           aria-label="Créer"
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-950 text-white shadow-lg hover:bg-black"
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg ${
+            creating ? "bg-black" : "bg-[#174f43] hover:bg-[#123d34]"
+          }`}
         >
           <Plus className="h-8 w-8" strokeWidth={2.5} />
         </button>
-        <button type="button" onClick={() => navigate("/reels")} className={itemClass(path.startsWith("/reels"))}>
-          <span className="flex h-8 items-center justify-center">
-            <Clapperboard className="h-7 w-7" />
-          </span>
-          Réels
-        </button>
         <button type="button" onClick={() => navigate("/saved")} className={itemClass(path.startsWith("/saved"))}>
           <span className="flex h-8 items-center justify-center">
-            <Bookmark className="h-7 w-7" />
+            <Bookmark
+              className={`h-7 w-7 ${path.startsWith("/saved") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
+              strokeWidth={path.startsWith("/saved") ? 1.8 : 2}
+            />
           </span>
           Enregistrés
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(user ? "/profile" : "/login")}
+          className={itemClass(path.startsWith("/profile"))}
+        >
+          <span className="flex h-8 items-center justify-center">
+            <User
+              className={`h-7 w-7 ${path.startsWith("/profile") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
+              strokeWidth={path.startsWith("/profile") ? 1.8 : 2}
+            />
+          </span>
+          Profil
         </button>
       </div>
     </nav>

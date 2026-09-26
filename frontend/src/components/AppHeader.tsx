@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { Bell, Wrench, MapPin, ChevronDown, ChevronLeft, Search, User } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Bell, Wrench, MapPin, ChevronDown, ChevronLeft, Search } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { detectCityFromIp, getStoredFeedCity, setStoredFeedCity } from "@/lib/feedLocation";
 import { MOROCCO_REGION_CITIES } from "@/lib/moroccoPlaces";
-import { useAuth } from "@/contexts/AuthContext";
 
 const AppHeader = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { pathname } = useLocation();
+  const hideSearch = pathname.startsWith("/explore") || pathname.startsWith("/saved");
   const [feedCity, setFeedCity] = useState(() => getStoredFeedCity() || "…");
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationStep, setLocationStep] = useState<"regions" | "cities">("regions");
@@ -62,7 +62,7 @@ const AppHeader = () => {
                 setActiveRegion(null);
                 setRegionQuery("");
               }}
-              className="flex max-w-[35vw] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:bg-neutral-50 sm:max-w-xs"
+              className="flex max-w-[50vw] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:bg-neutral-50 sm:max-w-xs"
             >
               <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
                 <MapPin className="h-5 w-5 fill-current text-black" strokeWidth={2} />
@@ -78,32 +78,26 @@ const AppHeader = () => {
             >
               <Bell className="h-6 w-6" strokeWidth={2} />
             </button>
-            <button
-              type="button"
-              onClick={() => navigate(user ? "/profile" : "/login")}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-black transition hover:text-neutral-600"
-              aria-label="Profil"
-            >
-              <User className="h-6 w-6" strokeWidth={2} />
-            </button>
           </div>
         </div>
-        <form
-          className="relative mt-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const query = searchQuery.trim();
-            if (query) navigate(`/explore?q=${encodeURIComponent(query)}`);
-          }}
-        >
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Rechercher entreprises, catégories…"
-            className="h-10 w-full rounded-full border border-neutral-300 bg-white pl-9 pr-3 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-orange-400"
-          />
-        </form>
+        {hideSearch ? null : (
+          <form
+            className="relative mt-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const query = searchQuery.trim();
+              if (query) navigate(`/explore?q=${encodeURIComponent(query)}`);
+            }}
+          >
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Rechercher entreprises, catégories…"
+              className="h-10 w-full rounded-full border border-neutral-300 bg-white pl-9 pr-3 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-orange-400"
+            />
+          </form>
+        )}
       </div>
 
       {locationOpen ? (

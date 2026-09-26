@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, Ban, Briefcase, ChevronRight, Edit, Flag, Globe, Info, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, Star, UserPlus, UserCheck, VolumeX } from "lucide-react";
+import { ArrowLeft, Ban, Briefcase, ChevronRight, Edit, Flag, Globe, Info, LogOut, MapPin, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, Star, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InviteToJobModal from "./InviteToJobModal";
 import {
@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/use-toast";
 import { profileHandle } from "@/lib/profileHandle";
 import { preferredWebsiteFrom } from "@/components/ProfileInfosCard";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProfileHeaderProps {
   profileId?: string;
@@ -131,6 +132,7 @@ const ProfileHeader = ({
   onOpenReviews,
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
   const preferredWebsite = preferredWebsiteFrom(websiteUrl);
@@ -211,39 +213,41 @@ const ProfileHeader = ({
 
   return (
     <div className="bg-card border-b border-border">
-      <div className="relative">
-        {hasCover ? (
-          <div className="h-36 sm:h-48 md:h-56 overflow-hidden bg-muted">
-            <img src={coverPhoto} alt="" className="h-full w-full object-cover" />
+      <div className="mx-auto max-w-5xl sm:px-4 md:px-6">
+        <div className="relative">
+          {hasCover ? (
+            <div className="h-36 sm:h-48 md:h-56 overflow-hidden bg-muted">
+              <img src={coverPhoto} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className="h-12 sm:h-14 bg-card" />
+          )}
+          <div className="absolute left-3 right-3 top-3 z-10 flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              aria-label="Retour"
+              onClick={() => {
+                const idx = typeof window.history.state?.idx === "number" ? window.history.state.idx : 0;
+                if (idx > 0) {
+                  navigate(-1);
+                  return;
+                }
+                navigate("/");
+              }}
+              className={`shrink-0 rounded-full p-2 ${
+                hasCover ? "bg-black/45 text-white hover:bg-black/60" : "bg-secondary text-foreground hover:bg-secondary/80"
+              }`}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <span
+              className={`min-w-0 truncate px-2.5 py-1.5 text-sm font-medium ${
+                hasCover ? "rounded-full bg-black/45 text-white" : "rounded-full bg-secondary text-foreground"
+              }`}
+            >
+              @{username}
+            </span>
           </div>
-        ) : (
-          <div className="h-12 sm:h-14 bg-card" />
-        )}
-        <div className="absolute left-3 right-3 top-3 z-10 flex min-w-0 items-center gap-2">
-          <button
-            type="button"
-            aria-label="Retour"
-            onClick={() => {
-              const idx = typeof window.history.state?.idx === "number" ? window.history.state.idx : 0;
-              if (idx > 0) {
-                navigate(-1);
-                return;
-              }
-              navigate("/");
-            }}
-            className={`shrink-0 rounded-full p-2 ${
-              hasCover ? "bg-black/45 text-white hover:bg-black/60" : "bg-secondary text-foreground hover:bg-secondary/80"
-            }`}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <span
-            className={`min-w-0 truncate px-2.5 py-1.5 text-sm font-medium ${
-              hasCover ? "rounded-full bg-black/45 text-white" : "rounded-full bg-secondary text-foreground"
-            }`}
-          >
-            @{username}
-          </span>
         </div>
       </div>
 
@@ -294,6 +298,16 @@ const ProfileHeader = ({
                     <Settings className="mr-2 h-4 w-4" />
                     Paramètres
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={async () => {
+                      await signOut();
+                      navigate("/", { replace: true });
+                    }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Se déconnecter
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -306,7 +320,7 @@ const ProfileHeader = ({
                   className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-1.5 text-[13px] font-semibold ${
                     isFollowing
                       ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                      : "bg-emerald-950 text-white hover:bg-black"
+                      : "bg-[#174f43] text-white hover:bg-[#123d34]"
                   }`}
                 >
                   {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
@@ -412,7 +426,7 @@ const ProfileHeader = ({
             <Globe className="h-5 w-5" />
           </CircleAction>
           <CircleAction label="Infos" onClick={onAboutMember}>
-            <Info className="h-5 w-5" />
+            <MapPin className="h-5 w-5" />
           </CircleAction>
         </div>
       </div>

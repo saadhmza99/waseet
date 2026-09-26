@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { LayoutGrid, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import ListingCard from "@/components/ListingCard";
@@ -6,18 +7,29 @@ import FeedPost from "@/components/FeedPost";
 import { savedService } from "@/services/savedService";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
+import { streamService } from "@/services/streamService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
-import { streamService } from "@/services/streamService";
 import { RetryImage } from "@/components/RetryImage";
 
-const tabs = ["Posts", "services", "Reels"] as const;
+const tabs = [
+  { id: "posts", label: "Posts" },
+  { id: "biens", label: "Biens" },
+  { id: "services", label: "Services" },
+] as const;
+
+type SavedTab = (typeof tabs)[number]["id"];
+type PostsView = "grid" | "reels";
+
+const isBienPost = (post: any) =>
+  post?.post_type === "property" || post?.post_type === "project";
 
 const Saved = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Posts");
+  const [activeTab, setActiveTab] = useState<SavedTab>("posts");
+  const [postsView, setPostsView] = useState<PostsView>("grid");
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
   const [savedListings, setSavedListings] = useState<any[]>([]);
   const [savedReels, setSavedReels] = useState<any[]>([]);
@@ -69,179 +81,209 @@ const Saved = () => {
     }
   };
 
+  const regularPosts = useMemo(
+    () => savedPosts.filter((saved) => saved.posts && !isBienPost(saved.posts)),
+    [savedPosts]
+  );
+  const bienPosts = useMemo(
+    () => savedPosts.filter((saved) => saved.posts && isBienPost(saved.posts)),
+    [savedPosts]
+  );
+
+  const tabCounts: Record<SavedTab, number> = {
+    posts: regularPosts.length,
+    biens: bienPosts.length,
+    services: savedListings.length,
+  };
+
+  const renderFeedPost = (saved: any) => {
+    const post = saved.posts;
+    const profile = post?.profiles || {};
+    return (
+      <FeedPost
+        key={post.id}
+        postId={post.id}
+        postUserId={post.user_id}
+        avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
+        username={profile.username || ""}
+        isVerified={Boolean(profile.is_verified)}
+        location={profile.location || ""}
+        profession={profile.profession || ""}
+        timeAgo={formatTimeAgo(post.created_at)}
+        description={post.description}
+        beforeImage={post.before_image_url}
+        afterImage={post.after_image_url}
+        singleImage={post.single_image_url}
+        images={post.images || []}
+        likes={post.likes_count || 0}
+        comments={post.comments_count || 0}
+        shares={post.shares_count || 0}
+        postType={post.post_type}
+        price={post.price}
+        surface={post.surface}
+        beds={post.beds}
+        baths={post.baths}
+      />
+    );
+  };
+
   return (
     <div className="pb-20">
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-card-foreground mb-4 sm:mb-6">
-          Enregistrés
-        </h1>
+      <div className="mx-auto max-w-2xl px-2 sm:px-4">
+        <div className="flex min-w-0 border-b border-border">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (tab.id === "posts") setPostsView("grid");
+              }}
+              className={`inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1 py-2.5 text-center transition-colors ${
+                activeTab === tab.id
+                  ? "-mb-px border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="text-base font-medium tabular-nums sm:text-lg">{tabCounts[tab.id]}</span>
+              <span className="truncate text-base font-semibold sm:text-lg">{tab.label}</span>
+            </button>
+          ))}
+        </div>
 
-        {/* Tab switcher */}
-        <div className="bg-card rounded-lg border border-border mb-4 sm:mb-6">
-          <div className="flex border-b border-border overflow-x-auto">
-            {tabs.map((tab) => (
+        {activeTab === "posts" ? (
+          <div className="mb-1 flex items-center justify-center border-b border-border px-1 py-1">
+            <div className="inline-flex rounded-md border border-border p-0.5">
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 min-w-[120px] py-3 sm:py-4 text-sm sm:text-base font-semibold transition-colors border-b-2 ${
-                  activeTab === tab
-                    ? "text-accent border-accent"
-                    : "text-muted-foreground border-transparent hover:text-foreground"
+                type="button"
+                aria-label="Publications"
+                onClick={() => setPostsView("grid")}
+                className={`inline-flex h-7 w-8 items-center justify-center rounded-sm transition-colors ${
+                  postsView === "grid"
+                    ? "bg-accent/15 text-accent"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
               >
-                {tab}
+                <LayoutGrid className="h-3.5 w-3.5" />
               </button>
-            ))}
+              <button
+                type="button"
+                aria-label="Réels"
+                onClick={() => setPostsView("reels")}
+                className={`inline-flex h-7 w-8 items-center justify-center rounded-sm transition-colors ${
+                  postsView === "reels"
+                    ? "bg-accent/15 text-accent"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <Video className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
+        ) : null}
 
-          {/* Tab content */}
-          <div className="p-4 sm:p-6">
-            {loading ? (
-              <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-            ) : (
-              <>
-                {activeTab === "Posts" && (
-                  <div className="space-y-4">
-                    {savedPosts.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">Aucun post enregistré</div>
-                    ) : (
-                      savedPosts.map((saved) => {
-                        const post = saved.posts;
-                        const profile = post?.profiles || {};
-                        return (
-                          <FeedPost
-                            key={post.id}
-                            postId={post.id}
-                            postUserId={post.user_id}
-                            avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
-                            username={profile.username || ""}
-                            isVerified={Boolean(profile.is_verified)}
-                            location={profile.location || ""}
-                            profession={profile.profession || ""}
-                            timeAgo={formatTimeAgo(post.created_at)}
-                            description={post.description}
-                            beforeImage={post.before_image_url}
-                            afterImage={post.after_image_url}
-                            singleImage={post.single_image_url}
-                            images={post.images || []}
-                            likes={post.likes_count || 0}
-                            comments={post.comments_count || 0}
-                            shares={post.shares_count || 0}
-                            postType={post.post_type}
-                            price={post.price}
-                            surface={post.surface}
-                            beds={post.beds}
-                            baths={post.baths}
-                          />
-                        );
-                      })
-                    )}
-                  </div>
-                )}
+        <div className="pt-3">
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">Chargement...</div>
+          ) : (
+            <>
+              {activeTab === "posts" && postsView === "grid" && (
+                <div className="space-y-4">
+                  {regularPosts.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground">Aucun post enregistré</div>
+                  ) : (
+                    regularPosts.map(renderFeedPost)
+                  )}
+                </div>
+              )}
 
-                {activeTab === "services" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {savedListings.length === 0 ? (
-                      <div className="col-span-full text-center py-8 text-muted-foreground">Aucun service enregistrée</div>
-                    ) : (
-                      savedListings.map((saved) => {
-                        const listing = saved.listings;
-                        const profile = listing?.profiles || {};
-                        return (
-                          <ListingCard
-                            key={listing.id}
-                            id={listing.id}
-                            userId={listing.user_id}
-                            avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
-                            username={profile.username || ""}
-                            isVerified={Boolean(profile.is_verified)}
-                            timeAgo={formatTimeAgo(listing.created_at)}
-                            image={listing.image_url || ""}
-                            location={listing.location}
-                            title={listing.title}
-                            profession={listing.profession}
-                            priceRange={listing.price_range || ""}
-                          />
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-
-                {activeTab === "Reels" && (
-                  <div>
-                    {savedReels.length === 0 ? (
-                      <div className="py-8 text-center text-muted-foreground">
-                        Aucun reel enregistré pour le moment
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {savedReels.filter((saved) => saved.reels?.id).map((saved) => {
+              {activeTab === "posts" && postsView === "reels" && (
+                <div>
+                  {savedReels.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground">Aucun reel enregistré</div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-0.5">
+                      {savedReels
+                        .filter((saved) => saved.reels?.id)
+                        .map((saved) => {
                           const reel = saved.reels;
-                          const profile = reel.profiles || {};
                           const openInReelsViewer = () => {
                             navigate(`/reels?from=saved&reelId=${reel.id}`);
                           };
                           return (
-                            <div
+                            <button
                               key={saved.id ?? `${reel.id}-saved`}
-                              className="overflow-hidden rounded-lg border border-border bg-card transition hover:border-muted-foreground/50"
+                              type="button"
+                              aria-label={reel.title || "Voir le reel"}
+                              onClick={openInReelsViewer}
+                              className="relative aspect-[3/4] overflow-hidden bg-black"
                             >
                               {reel.cloudflare_video_id ? (
-                                <div className="relative aspect-[9/16] w-full max-h-[70vh] bg-black">
-                                  <RetryImage
-                                    src={streamService.getVideoThumbnailUrl(String(reel.cloudflare_video_id).trim())}
-                                    alt={reel.title || "Reel"}
-                                    wrapClassName="h-full w-full"
-                                    className="h-full w-full object-cover"
-                                  />
-                                  <button
-                                    type="button"
-                                    className="absolute inset-0 z-10 bg-transparent cursor-pointer"
-                                    aria-label="Voir le reel"
-                                    onClick={openInReelsViewer}
-                                  />
-                                </div>
+                                <RetryImage
+                                  src={streamService.getVideoThumbnailUrl(String(reel.cloudflare_video_id).trim())}
+                                  alt={reel.title || "Reel"}
+                                  compact
+                                  wrapClassName="h-full w-full"
+                                  className="h-full w-full object-cover"
+                                />
                               ) : (
-                                <div className="flex aspect-[9/16] max-h-[40vh] items-center justify-center bg-muted text-sm text-muted-foreground">
-                                  Vidéo indisponible
+                                <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+                                  Indisponible
                                 </div>
                               )}
-                              <button
-                                type="button"
-                                className="w-full p-3 text-left hover:bg-muted/40"
-                                onClick={openInReelsViewer}
-                              >
-                                <div className="mb-2 flex items-center gap-2">
-                                  <img
-                                    src={profile.avatar_url || getDefaultAvatar("craftsman")}
-                                    alt=""
-                                    className="h-8 w-8 rounded-full object-cover"
-                                  />
-                                  <span className="text-sm font-medium text-card-foreground">
-                                    {profile.username || "—"}
-                                  </span>
-                                </div>
-                                <p className="font-semibold text-card-foreground">{reel.title || "Reel"}</p>
-                                {reel.description ? (
-                                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                                    {reel.description}
-                                  </p>
-                                ) : null}
-                                <p className="mt-2 text-xs text-muted-foreground">
-                                  {formatTimeAgo(reel.created_at)}
-                                </p>
-                              </button>
-                            </div>
+                              <span className="absolute bottom-1.5 right-1.5 text-white drop-shadow">
+                                <Video className="h-4 w-4" />
+                              </span>
+                            </button>
                           );
                         })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "biens" && (
+                <div className="space-y-4">
+                  {bienPosts.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground">Aucun bien enregistré</div>
+                  ) : (
+                    bienPosts.map(renderFeedPost)
+                  )}
+                </div>
+              )}
+
+              {activeTab === "services" && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {savedListings.length === 0 ? (
+                    <div className="col-span-full py-8 text-center text-muted-foreground">
+                      Aucun service enregistré
+                    </div>
+                  ) : (
+                    savedListings.map((saved) => {
+                      const listing = saved.listings;
+                      const profile = listing?.profiles || {};
+                      return (
+                        <ListingCard
+                          key={listing.id}
+                          id={listing.id}
+                          userId={listing.user_id}
+                          avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
+                          username={profile.username || ""}
+                          isVerified={Boolean(profile.is_verified)}
+                          timeAgo={formatTimeAgo(listing.created_at)}
+                          image={listing.image_url || ""}
+                          location={listing.location}
+                          title={listing.title}
+                          profession={listing.profession}
+                          priceRange={listing.price_range || ""}
+                        />
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -249,4 +291,3 @@ const Saved = () => {
 };
 
 export default Saved;
-

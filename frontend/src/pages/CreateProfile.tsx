@@ -390,7 +390,7 @@ const CreateProfile = () => {
           <div className="pt-4">
             <Button
               type="submit"
-              className="w-full h-11 sm:h-12 text-base font-semibold"
+              className="w-full h-11 sm:h-12 bg-[#174f43] text-base font-semibold text-white hover:bg-[#123d34]"
               disabled={isLoading}
             >
               {isLoading ? "Creating Profile..." : "Create Profile"}

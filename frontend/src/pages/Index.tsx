@@ -6,6 +6,7 @@ import CreatePost from "@/components/CreatePost";
 import SponsoredBanner from "@/components/SponsoredBanner";
 import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
+import type { CreatePostPayload } from "@/components/CreatePost";
 import { followService } from "@/services/followService";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
@@ -134,11 +135,23 @@ const Index = () => {
   };
 
   // Handle post creation
-  const handlePostCreated = async (postData: any) => {
+  const handlePostCreated = async (postData: CreatePostPayload) => {
     if (user) {
       try {
+      if (postData.postType === "service") {
+        await listingService.createListing(user.id, {
+          title: postData.text.trim().slice(0, 80) || "Service",
+          description: postData.text,
+          profession: "",
+          location: postData.city || "",
+          image_url: postData.images?.[0] || "",
+          image_count: postData.images?.length || 0,
+          images: postData.images || [],
+        });
+        toast({ title: "Service publié", description: "Votre service a été publié avec succès." });
+      } else {
       await postService.createPost(user.id, {
-        title: "",
+        title: postData.title || "",
         description: postData.text,
         before_image_url: postData.beforeImage,
         after_image_url: postData.afterImage,
@@ -149,7 +162,10 @@ const Index = () => {
         surface: postData.surface || null,
         beds: postData.beds ?? null,
         baths: postData.baths ?? null,
-        property_details: postData.propertyDetails || {},
+        property_details: {
+          ...(postData.propertyDetails || {}),
+          city: postData.city || (postData.propertyDetails as { city?: string } | undefined)?.city,
+        },
       });
       toast({
         title: "Post publié",
@@ -158,6 +174,7 @@ const Index = () => {
             ? "Ajouté au fil et au portfolio."
             : "Votre post a été publié avec succès.",
       });
+      }
         // Reload posts
         const [postsData, followingData, blockedUserIds, mutedIds] = await Promise.all([
           postService.getPosts(limit, 0),
@@ -465,7 +482,7 @@ const Index = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
           <div className="relative flex min-h-[175px] max-w-full translate-y-4 flex-col justify-center px-4 py-4">
-            <p className="relative -top-1 mt-1 text-xl font-medium">Bonjour !</p>
+            <p className="relative -top-1 mt-1 text-xl font-medium">Bonjour!</p>
             <p className="mt-2 text-[14px] font-normal leading-relaxed text-white/95">
               <span className="block font-light">Découvrez les entreprises locales.</span>
               <span className="block whitespace-nowrap font-medium">Suivez vos préférées et rejoignez la communauté.</span>
@@ -500,6 +517,9 @@ const Index = () => {
         <CreatePost
           hideLauncher
           startOpen={openCreate}
+          onClose={() => {
+            if (openCreate) navigate("/", { replace: true, state: {} });
+          }}
           onPostCreated={async (postData) => {
             await handlePostCreated(postData);
             if (openCreate) navigate("/", { replace: true, state: {} });

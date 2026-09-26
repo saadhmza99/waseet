@@ -120,7 +120,7 @@ const SearchBar = () => {
             </Button>
 
             {/* Search Button */}
-            <Button className="h-11 sm:h-12 px-6 sm:px-8 text-sm sm:text-base font-semibold whitespace-nowrap">
+            <Button className="h-11 sm:h-12 px-6 sm:px-8 text-sm sm:text-base font-semibold whitespace-nowrap bg-[#174f43] text-white hover:bg-[#123d34]">
               <Search className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
               Rechercher
             </Button>

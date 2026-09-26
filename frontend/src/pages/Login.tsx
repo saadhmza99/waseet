@@ -175,7 +175,7 @@ const Login = () => {
 
           <Button
             type="submit"
-            className="w-full h-11 sm:h-12 text-base font-semibold"
+            className="w-full h-11 sm:h-12 bg-[#174f43] text-base font-semibold text-white hover:bg-[#123d34]"
             disabled={isLoading}
           >
             {isLoading ? "Logging in..." : "Log In"}
@@ -187,7 +187,7 @@ const Login = () => {
             Don't have an account?{" "}
             <button
               onClick={() => navigate("/create-profile")}
-              className="text-accent hover:underline font-medium"
+              className="font-medium text-[#174f43] hover:underline"
             >
               Create Profile
             </button>

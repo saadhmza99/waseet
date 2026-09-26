@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useEffect, useId, useState, type MouseEvent } from "react";
 import { MapPin, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,28 +37,43 @@ const ChoiceGrid = ({
   options,
   value,
   onChange,
+  placeholder = "Sélectionnez",
 }: {
   options: readonly { id: string; label: string }[];
   value: string;
   onChange: (id: string) => void;
-}) => (
-  <div className="flex flex-wrap gap-1.5">
-    {options.map((option) => (
-      <button
-        key={option.id}
-        type="button"
-        onClick={() => onChange(option.id)}
-        className={`rounded-full border px-3 py-1 text-xs sm:text-sm transition-colors ${
-          value === option.id
-            ? "border-accent bg-accent text-accent-foreground font-semibold"
-            : "border-border text-card-foreground hover:border-accent/50"
-        }`}
-      >
-        {option.label}
-      </button>
-    ))}
-  </div>
-);
+  placeholder?: string;
+}) => {
+  const listId = useId();
+  const selectedLabel = options.find((option) => option.id === value)?.label ?? "";
+  const [text, setText] = useState(selectedLabel);
+
+  useEffect(() => {
+    setText(selectedLabel);
+  }, [selectedLabel]);
+
+  return (
+    <div>
+      <input
+        list={listId}
+        value={text}
+        placeholder={placeholder}
+        onChange={(event) => {
+          const next = event.target.value;
+          setText(next);
+          const match = options.find((option) => option.label === next);
+          onChange(match ? match.id : "");
+        }}
+        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-accent"
+      />
+      <datalist id={listId}>
+        {options.map((option) => (
+          <option key={option.id} value={option.label} />
+        ))}
+      </datalist>
+    </div>
+  );
+};
 
 const LocationPicker = ({
   lat,
@@ -90,16 +105,16 @@ const LocationPicker = ({
   };
 
   return (
-    <div>
-      <p className="mb-2 text-sm text-muted-foreground">
+    <div className="min-w-0 space-y-2">
+      <p className="text-sm text-muted-foreground">
         Cliquez sur la carte pour placer le bien.
       </p>
       <button
         type="button"
-        className="relative block w-full overflow-hidden rounded-lg border border-border"
+        className="relative block h-48 w-full overflow-hidden rounded-lg border border-border"
         onClick={(e) => unproject(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect())}
       >
-          <img src={src} alt="Carte" className="h-full max-h-[420px] w-full object-cover" />
+        <img src={src} alt="Carte" className="h-full w-full object-cover" />
         <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded bg-black/70 px-2 py-1 text-xs text-white">
           <MapPin className="h-3 w-3" />
           {lat.toFixed(4)}, {lng.toFixed(4)}
@@ -107,8 +122,7 @@ const LocationPicker = ({
       </button>
       <Button
         type="button"
-        variant="outline"
-        className="mt-2"
+        className="bg-[#174f43] text-white hover:bg-[#123d34]"
         onClick={() => {
           if (!navigator.geolocation) return;
           navigator.geolocation.getCurrentPosition(
@@ -240,7 +254,7 @@ const PropertyListingWizard = ({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-card p-4 sm:p-6">
+    <div className="flex flex-col bg-card">
       <div className="shrink-0">
         <h3 className="text-lg font-semibold text-card-foreground">Créer service: Étape {step}</h3>
         <div className="mt-3 flex gap-2">
@@ -257,7 +271,11 @@ const PropertyListingWizard = ({
                 if (n === step + 1) goNext();
               }}
               className={`h-8 w-8 rounded-full text-sm font-bold ${
-                n === step ? "bg-accent text-accent-foreground" : n < step ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground"
+                n === step
+                  ? "bg-[#174f43] text-white"
+                  : n < step
+                    ? "bg-[#174f43]/20 text-[#174f43]"
+                    : "bg-muted text-muted-foreground"
               }`}
             >
               {n}
@@ -267,66 +285,67 @@ const PropertyListingWizard = ({
       </div>
 
       {step === 1 && (
-        <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 gap-6 overflow-hidden">
-          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
-            <div>
-              <Label className="mb-1 block">Catégorie *</Label>
-              <ChoiceGrid options={LISTING_CATEGORIES} value={details.category} onChange={(category) => update({ category })} />
-            </div>
-            <div>
-              <Label className="mb-1 block">Type de bien *</Label>
-              <ChoiceGrid options={PROPERTY_KINDS} value={details.propertyKind} onChange={(propertyKind) => update({ propertyKind })} />
-            </div>
-            <div>
-              <Label className="mb-1 block">État *</Label>
-              <ChoiceGrid options={PROPERTY_CONDITIONS} value={details.condition} onChange={(condition) => update({ condition })} />
-            </div>
-            <div>
-              <Label className="mb-1 block">Standing</Label>
-              <ChoiceGrid options={PROPERTY_STANDINGS} value={details.standing} onChange={(standing) => update({ standing })} />
-            </div>
-            <div>
-              <Label className="mb-1 block">Statut</Label>
-              <ChoiceGrid options={PROPERTY_STATUSES} value={details.status} onChange={(status) => update({ status })} />
-            </div>
-            {details.status === "en_construction" && (
-              <div>
-                <Label className="mb-1 block">Livraison</Label>
-                <Input value={details.delivery} onChange={(e) => update({ delivery: e.target.value })} placeholder="ex: Décembre 2027" />
-              </div>
-            )}
-            <div>
-              <Label className="mb-1 block">Région *</Label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={details.region}
-                onChange={(e) => update({ region: e.target.value })}
-              >
-                <option value="">Sélectionnez</option>
-                {MOROCCO_REGIONS.map((region) => (
-                  <option key={region} value={region}>{region}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label className="mb-1 block">Ville *</Label>
-              <Input value={details.city} onChange={(e) => update({ city: e.target.value })} placeholder="Ville" />
-            </div>
-            <div>
-              <Label className="mb-1 block">Adresse</Label>
-              <Input value={details.address} onChange={(e) => update({ address: e.target.value })} placeholder="Adresse" />
-            </div>
+        <div className="mt-4 space-y-3">
+          <div>
+            <Label className="mb-1 block">Catégorie *</Label>
+            <ChoiceGrid options={LISTING_CATEGORIES} value={details.category} onChange={(category) => update({ category })} />
           </div>
-          <LocationPicker
-            lat={details.lat || 30.4278}
-            lng={details.lng || -9.5981}
-            onChange={(lat, lng) => update({ lat, lng })}
-          />
+          <div>
+            <Label className="mb-1 block">Type de bien *</Label>
+            <ChoiceGrid options={PROPERTY_KINDS} value={details.propertyKind} onChange={(propertyKind) => update({ propertyKind })} />
+          </div>
+          <div>
+            <Label className="mb-1 block">État *</Label>
+            <ChoiceGrid options={PROPERTY_CONDITIONS} value={details.condition} onChange={(condition) => update({ condition })} />
+          </div>
+          <div>
+            <Label className="mb-1 block">Standing</Label>
+            <ChoiceGrid options={PROPERTY_STANDINGS} value={details.standing} onChange={(standing) => update({ standing })} />
+          </div>
+          <div>
+            <Label className="mb-1 block">Statut</Label>
+            <ChoiceGrid options={PROPERTY_STATUSES} value={details.status} onChange={(status) => update({ status })} />
+          </div>
+          {details.status === "en_construction" && (
+            <div>
+              <Label className="mb-1 block">Livraison</Label>
+              <Input value={details.delivery} onChange={(e) => update({ delivery: e.target.value })} placeholder="ex: Décembre 2027" />
+            </div>
+          )}
+          <div>
+            <Label className="mb-1 block">Région *</Label>
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={details.region}
+              onChange={(e) => update({ region: e.target.value })}
+            >
+              <option value="">Sélectionnez</option>
+              {MOROCCO_REGIONS.map((region) => (
+                <option key={region} value={region}>{region}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="mb-1 block">Ville *</Label>
+            <Input value={details.city} onChange={(e) => update({ city: e.target.value })} placeholder="Ville" />
+          </div>
+          <div>
+            <Label className="mb-1 block">Adresse</Label>
+            <Input value={details.address} onChange={(e) => update({ address: e.target.value })} placeholder="Adresse" />
+          </div>
+          <div className="border-t border-border pt-4">
+            <Label className="mb-2 block">Carte</Label>
+            <LocationPicker
+              lat={details.lat || 30.4278}
+              lng={details.lng || -9.5981}
+              onChange={(lat, lng) => update({ lat, lng })}
+            />
+          </div>
         </div>
       )}
 
       {step === 2 && (
-        <div className="mt-4 min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
+        <div className="mt-4 space-y-6">
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <Label className="mb-2 block">Surface construite *</Label>
@@ -441,7 +460,7 @@ const PropertyListingWizard = ({
       )}
 
       {step === 3 && (
-        <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-hidden">
+        <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground">Téléchargez des photos. La première est la photo principale.</p>
           {previews.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -467,7 +486,7 @@ const PropertyListingWizard = ({
       )}
 
       {step === 4 && (
-        <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-hidden">
+        <div className="mt-4 space-y-3">
           <div>
             <Label className="mb-2 block">Titre * (50 caractères max.)</Label>
             <Input maxLength={50} value={details.title} onChange={(e) => update({ title: e.target.value })} />
@@ -519,9 +538,16 @@ const PropertyListingWizard = ({
         <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
           {stepError ? <p className="text-right text-sm text-destructive">{stepError}</p> : null}
           {step < 4 ? (
-            <Button type="button" onClick={goNext}>Vers étape {step + 1}</Button>
+            <Button type="button" className="bg-[#174f43] text-white hover:bg-[#123d34]" onClick={goNext}>
+              Vers étape {step + 1}
+            </Button>
           ) : (
-            <Button type="button" onClick={handleSubmit} disabled={saving}>
+            <Button
+              type="button"
+              className="bg-[#174f43] text-white hover:bg-[#123d34]"
+              onClick={handleSubmit}
+              disabled={saving}
+            >
               {saving ? "Publication..." : submitLabel}
             </Button>
           )}
