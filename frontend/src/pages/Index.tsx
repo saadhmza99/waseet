@@ -485,7 +485,7 @@ const Index = () => {
             <p className="relative -top-1 mt-1 text-xl font-medium">Bonjour!</p>
             <p className="mt-2 text-[14px] font-normal leading-relaxed text-white/95">
               <span className="block font-light">Découvrez les entreprises locales.</span>
-              <span className="block whitespace-nowrap font-medium">Suivez vos préférées et rejoignez la communauté.</span>
+              <span className="block font-medium sm:whitespace-nowrap">Suivez vos préférées et rejoignez la communauté.</span>
             </p>
           </div>
         </section>
