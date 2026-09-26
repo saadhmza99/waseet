@@ -1,19 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams, Navigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import ProfileHeader from "@/components/ProfileHeader";
 import ProfilePageSkeleton, { ProfileMediaGridSkeleton } from "@/components/ProfilePageSkeleton";
-import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
 import ReviewCard from "@/components/ReviewCard";
 import FeedPost from "@/components/FeedPost";
 import ListingCard from "@/components/ListingCard";
-import CreatePost from "@/components/CreatePost";
-import PropertyListingWizard from "@/components/PropertyListingWizard";
-import FullScreenPopup from "@/components/FullScreenPopup";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
-import { profileBuffer, type ProfileBufferBundle } from "@/lib/profileBuffer";
+import { profileBuffer, profileRouteSlug, type ProfileBufferBundle } from "@/lib/profileBuffer";
 import { profileService } from "@/services/profileService";
 import { postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
@@ -56,12 +52,14 @@ import { profileHandle } from "@/lib/profileHandle";
 import AboutRichEditor from "@/components/AboutRichEditor";
 import { aboutHtmlIsEmpty, sanitizeAboutHtml, toAboutHtml } from "@/lib/aboutHtml";
 import PortfolioGrid from "@/components/PortfolioGrid";
-import ProfileInfosCard, { locationsFrom, ProfileDetailsFields, type InfosField } from "@/components/ProfileInfosCard";
+import { locationsFrom, ProfileDetailsFields, type InfosField } from "@/components/ProfileInfosCard";
 import UploadProgressRing from "@/components/UploadProgressRing";
+import { RetryImage } from "@/components/RetryImage";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import BlockMemberModal from "@/components/BlockMemberModal";
 import MuteProfileModal from "@/components/MuteProfileModal";
 import AboutThisMemberSheet from "@/components/AboutThisMemberSheet";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, MessageCircle, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
@@ -98,13 +96,34 @@ const takePage = <T,>(rows: T[] | null | undefined, limit: number) => {
   return { items: list.slice(0, limit), hasMore: list.length > limit };
 };
 
-const forgetBufferedProfile = (
-  profileLike: { id?: string; username?: string } | null | undefined,
-  viewerId?: string | null
-) => {
+const emptyEditForm = {
+  fullName: "",
+  username: "",
+  bio: "",
+  about: "",
+  profession: "",
+  location: "",
+  phone: "",
+  email: "",
+  website: "",
+};
+
+const editFormFromProfile = (profileData: any, emailFallback = "") => ({
+  fullName: profileData.full_name || "",
+  username: profileData.username || "",
+  bio: profileData.bio || "",
+  about: profileData.about_text || "",
+  profession: profileData.profession || "",
+  location: profileData.location || "",
+  phone: profileData.phone || "",
+  email: profileData.email || emailFallback || "",
+  website: profileData.website_url || "",
+});
+
+const forgetBufferedProfile = (profileLike: { id?: string; username?: string } | null | undefined) => {
   if (!profileLike) return;
-  if (profileLike.id) profileBuffer.invalidate(profileLike.id, viewerId);
-  if (profileLike.username) profileBuffer.invalidate(profileLike.username, viewerId);
+  if (profileLike.id) profileBuffer.invalidate(profileLike.id);
+  if (profileLike.username) profileBuffer.invalidate(profileLike.username);
 };
 
 const LoadMoreButton = ({
@@ -252,6 +271,7 @@ const PhotoEditControl = ({
 const Profile = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [bootBundle] = useState(() => profileBuffer.read([profileRouteSlug(id)]));
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { profile: currentProfile } = useProfile();
@@ -265,29 +285,29 @@ const Profile = () => {
   const [postsView, setPostsView] = useState<PostsView>(
     postsViewFromQuery(searchParams.get("tab") || "", searchParams.get("view"))
   );
-  const [profile, setProfile] = useState<any>(null);
-  const [posts, setPosts] = useState<any[]>([]);
-  const [postsHasMore, setPostsHasMore] = useState(false);
+  const [profile, setProfile] = useState<any>(bootBundle?.profile ?? null);
+  const [posts, setPosts] = useState<any[]>(bootBundle?.posts ?? []);
+  const [postsHasMore, setPostsHasMore] = useState(Boolean(bootBundle?.postsHasMore));
   const [loadingMorePosts, setLoadingMorePosts] = useState(false);
-  const [listings, setListings] = useState<any[]>([]);
-  const [listingsHasMore, setListingsHasMore] = useState(false);
+  const [listings, setListings] = useState<any[]>(bootBundle?.listings ?? []);
+  const [listingsHasMore, setListingsHasMore] = useState(Boolean(bootBundle?.listingsHasMore));
   const [loadingMoreListings, setLoadingMoreListings] = useState(false);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [reels, setReels] = useState<any[]>([]);
-  const [reelsHasMore, setReelsHasMore] = useState(false);
+  const [reviews, setReviews] = useState<any[]>(bootBundle?.reviews ?? []);
+  const [reels, setReels] = useState<any[]>(bootBundle?.reels ?? []);
+  const [reelsHasMore, setReelsHasMore] = useState(Boolean(bootBundle?.reelsHasMore));
   const [loadingMoreReels, setLoadingMoreReels] = useState(false);
-  const [propertyItems, setPropertyItems] = useState<any[]>([]);
-  const [propertiesHasMore, setPropertiesHasMore] = useState(false);
+  const [propertyItems, setPropertyItems] = useState<any[]>(bootBundle?.propertyItems ?? []);
+  const [propertiesHasMore, setPropertiesHasMore] = useState(Boolean(bootBundle?.propertiesHasMore));
   const [loadingMoreProperties, setLoadingMoreProperties] = useState(false);
-  const [projectItems, setProjectItems] = useState<any[]>([]);
-  const [projectsHasMore, setProjectsHasMore] = useState(false);
+  const [projectItems, setProjectItems] = useState<any[]>(bootBundle?.projectItems ?? []);
+  const [projectsHasMore, setProjectsHasMore] = useState(Boolean(bootBundle?.projectsHasMore));
   const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
-  const [postsCount, setPostsCount] = useState(0);
-  const [portfolioCount, setPortfolioCount] = useState(0);
-  const [listingsCount, setListingsCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [contentLoading, setContentLoading] = useState(true);
-  const [isBlockedProfile, setIsBlockedProfile] = useState(false);
+  const [postsCount, setPostsCount] = useState(bootBundle?.postsCount ?? 0);
+  const [portfolioCount, setPortfolioCount] = useState(bootBundle?.portfolioCount ?? 0);
+  const [listingsCount, setListingsCount] = useState(bootBundle?.listingsCount ?? 0);
+  const [loading, setLoading] = useState(!bootBundle);
+  const [contentLoading, setContentLoading] = useState(!bootBundle);
+  const [isBlockedProfile, setIsBlockedProfile] = useState(Boolean(bootBundle?.isBlockedProfile));
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -295,24 +315,16 @@ const Profile = () => {
   const [showAboutMember, setShowAboutMember] = useState(false);
   const [showMuteModal, setShowMuteModal] = useState(false);
   const [muteSubmitting, setMuteSubmitting] = useState(false);
-  const [followers, setFollowers] = useState<any[]>([]);
-  const [isFollowing, setIsFollowing] = useState(false);
+  const [followers, setFollowers] = useState<any[]>(bootBundle?.followers ?? []);
+  const [isFollowing, setIsFollowing] = useState(Boolean(bootBundle?.isFollowing));
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showEditInfosModal, setShowEditInfosModal] = useState(false);
   const [infosEditField, setInfosEditField] = useState<InfosField | "all">("all");
-  const [showCreateListingForm, setShowCreateListingForm] = useState(false);
-  const [editForm, setEditForm] = useState({
-    fullName: "",
-    username: "",
-    bio: "",
-    about: "",
-    profession: "",
-    location: "",
-    phone: "",
-    email: "",
-    website: "",
-  });
+  const [preferredWebsiteIndex, setPreferredWebsiteIndex] = useState(0);
+  const [editForm, setEditForm] = useState(() =>
+    bootBundle?.profile ? editFormFromProfile(bootBundle.profile) : emptyEditForm
+  );
   const [editingAbout, setEditingAbout] = useState(false);
   const [reelVideoFile, setReelVideoFile] = useState<File | null>(null);
   const [reelTitle, setReelTitle] = useState("");
@@ -419,21 +431,12 @@ const Profile = () => {
     }, { replace: true });
   }, [activeTab, postsView, showReviews, showAbout]);
 
-  useEffect(() => {
-    const applyBundle = (bundle: ProfileBufferBundle) => {
-      const profileData = bundle.profile;
+  const applyBundle = useCallback(
+    (bundle: ProfileBufferBundle) => {
+      const profileData = bundle?.profile;
+      if (!profileData?.id) return;
       setProfile(profileData);
-      setEditForm({
-        fullName: profileData.full_name || "",
-        username: profileData.username || "",
-        bio: profileData.bio || "",
-        about: profileData.about_text || "",
-        profession: profileData.profession || "",
-        location: profileData.location || "",
-        phone: profileData.phone || "",
-        email: profileData.email || (user?.id === profileData.id ? user.email : "") || "",
-        website: profileData.website_url || "",
-      });
+      setEditForm(editFormFromProfile(profileData, user?.id === profileData.id ? user?.email || "" : ""));
       setEditingAbout(false);
       setPosts(bundle.posts);
       setPostsHasMore(bundle.postsHasMore);
@@ -454,12 +457,35 @@ const Profile = () => {
       setIsFollowing(bundle.isFollowing);
       setLoading(false);
       setContentLoading(false);
-    };
+    },
+    [user?.id, user?.email]
+  );
 
+  const lastProfileSlug = useRef<string>("");
+
+  useLayoutEffect(() => {
+    const slug = profileRouteSlug(id);
+    if (!slug) return;
+    const cached = profileBuffer.read([slug]);
+    if (cached?.profile?.id) {
+      applyBundle(cached);
+      lastProfileSlug.current = slug;
+      return;
+    }
+    if (lastProfileSlug.current !== slug) {
+      lastProfileSlug.current = slug;
+      setLoading(true);
+      setContentLoading(true);
+    }
+  }, [id, applyBundle]);
+
+  useEffect(() => {
     const loadProfileData = async () => {
-      const slug = id ? decodeURIComponent(id).replace(/^@/, "").trim() : "";
-      const cached = profileBuffer.read([slug, user?.id], user?.id);
-      if (cached) {
+      if (authLoading) return;
+
+      const slug = profileRouteSlug(id);
+      const cached = profileBuffer.read([slug, !slug ? user?.id : null]);
+      if (cached?.profile?.id) {
         applyBundle(cached);
         return;
       }
@@ -496,17 +522,7 @@ const Profile = () => {
         }
 
         setProfile(profileData);
-        setEditForm({
-          fullName: profileData.full_name || "",
-          username: profileData.username || "",
-          bio: profileData.bio || "",
-          about: profileData.about_text || "",
-          profession: profileData.profession || "",
-          location: profileData.location || "",
-          phone: profileData.phone || "",
-          email: profileData.email || (user?.id === profileData.id ? user.email : "") || "",
-          website: profileData.website_url || "",
-        });
+        setEditForm(editFormFromProfile(profileData, user?.id === profileData.id ? user?.email || "" : ""));
         setEditingAbout(false);
         setLoading(false);
 
@@ -567,11 +583,7 @@ const Profile = () => {
           isFollowing: following,
         };
         applyBundle(bundle);
-        profileBuffer.write(
-          [slug, profileData.id, profileData.username, user?.id === profileData.id ? user.id : null],
-          user?.id,
-          bundle
-        );
+        profileBuffer.write([slug, profileData.id, profileData.username], bundle);
       } catch (error) {
         console.error("Error loading profile:", error);
         setProfile(null);
@@ -584,7 +596,7 @@ const Profile = () => {
     };
 
     loadProfileData();
-  }, [id, user?.id, currentProfile?.id]);
+  }, [id, user?.id, authLoading, applyBundle]);
 
   const rating = useMemo(() => {
     if (!reviews.length) return 0;
@@ -748,6 +760,16 @@ const Profile = () => {
         return prev;
       });
     }
+    if (field === "website") {
+      setEditForm((prev) => {
+        const rows = prev.website.length ? prev.website.split("\n") : [];
+        if (!rows.length || rows[rows.length - 1].trim()) {
+          return { ...prev, website: [...rows, ""].join("\n") };
+        }
+        return prev;
+      });
+    }
+    setPreferredWebsiteIndex(0);
     setShowEditInfosModal(true);
   };
 
@@ -758,15 +780,17 @@ const Profile = () => {
       postUserId={post.user_id}
       avatar={profileAvatar}
       username={profile.username || "Utilisateur"}
+      isVerified={Boolean(profile.is_verified)}
       location={profile.location || ""}
+      profession={profile.profession || ""}
       timeAgo={formatTimeAgo(post.created_at)}
-      title={post.title || "Post"}
       description={post.description}
       beforeImage={post.before_image_url}
       afterImage={post.after_image_url}
       singleImage={post.single_image_url}
       images={post.images || []}
       likes={post.likes_count || 0}
+      showLikeCount={isOwnProfile}
       comments={post.comments_count || 0}
       shares={post.shares_count || 0}
       isSponsored={post.is_sponsored || false}
@@ -796,7 +820,7 @@ const Profile = () => {
           message: "a commencé à vous suivre.",
         });
       }
-      forgetBufferedProfile(profile, user.id);
+      forgetBufferedProfile(profile);
     } catch (error) {
       console.error("Error toggling follow:", error);
       toast({ title: "Erreur", description: "Impossible de mettre à jour le suivi." });
@@ -868,106 +892,6 @@ const Profile = () => {
     }
   };
 
-  const handlePostCreated = async (postData: any) => {
-    if (!user || !isOwnProfile) return;
-    try {
-      await postService.createPost(user.id, {
-        title: postData.title || postData.text?.split("\n")[0] || (postData.postType === "property" ? "Bien" : "Nouveau post"),
-        description: postData.text,
-        before_image_url: postData.beforeImage,
-        after_image_url: postData.afterImage,
-        single_image_url: postData.singleImage,
-        images: postData.images || [],
-        post_type: postData.postType || "standard",
-        price: postData.price || null,
-        surface: postData.surface || null,
-        beds: postData.beds ?? null,
-        baths: postData.baths ?? null,
-        property_details: postData.propertyDetails || {},
-      });
-      const postsPage = takePage(await postService.getPostsByUser(user.id, PAGE.posts, 0), PAGE.posts);
-      const propertiesPage = takePage(
-        await postService.getPortfolioPostsByUser(user.id, {
-          types: PROPERTY_POST_TYPES,
-          limit: PAGE.properties,
-          offset: 0,
-        }),
-        PAGE.properties
-      );
-      const projectsPage = takePage(
-        await postService.getPortfolioPostsByUser(user.id, {
-          types: PROJECT_POST_TYPES,
-          limit: PAGE.projects,
-          offset: 0,
-        }),
-        PAGE.projects
-      );
-      setPosts(postsPage.items);
-      setPostsHasMore(postsPage.hasMore);
-      setPropertyItems(propertiesPage.items);
-      setPropertiesHasMore(propertiesPage.hasMore);
-      setProjectItems(projectsPage.items);
-      setProjectsHasMore(projectsPage.hasMore);
-      setPostsCount(await postService.countPostsByUser(user.id));
-      const [propertiesTotal, projectsTotal] = await Promise.all([
-        postService.countPostsByUser(user.id, PROPERTY_POST_TYPES),
-        postService.countPostsByUser(user.id, PROJECT_POST_TYPES),
-      ]);
-      setPortfolioCount(propertiesTotal + projectsTotal);
-      forgetBufferedProfile({ id: user.id, username: profile?.username }, user.id);
-      toast({
-        title: "Post publié",
-        description:
-          postData.postType === "property" || postData.postType === "project"
-            ? "Ajouté au fil et au portfolio."
-            : "Votre post a été publié avec succès.",
-      });
-    } catch (error) {
-      console.error("Error creating post:", error);
-      toast({ title: "Erreur", description: "Impossible de publier le post." });
-    }
-  };
-
-  const handleCreateListingFromWizard = async ({
-    details,
-    files,
-  }: {
-    details: import("@/lib/propertyListing").PropertyDetails;
-    files: File[];
-  }) => {
-    if (!user || !isOwnProfile) return;
-    try {
-    const uploaded = await storageService.uploadImages(files, "listings");
-    const location = [details.address, details.city, details.region].filter(Boolean).join(", ");
-    await listingService.createListing(user.id, {
-      title: details.title.trim(),
-      description: details.description.trim(),
-      profession: details.propertyKind || profile.profession || "Immobilier",
-      location,
-      price_range: `${details.priceDh} DH`,
-      image_url: uploaded[0],
-      image_count: uploaded.length,
-      images: uploaded,
-      property_details: details,
-      contact_phone: details.phones[0] || null,
-    });
-    const listingsPage = takePage(
-      await listingService.getListingsByUser(user.id, PAGE.listings, 0),
-      PAGE.listings
-    );
-    setListings(listingsPage.items);
-    setListingsHasMore(listingsPage.hasMore);
-    setListingsCount(await listingService.countListingsByUser(user.id));
-    setShowCreateListingForm(false);
-    forgetBufferedProfile({ id: user.id, username: profile?.username }, user.id);
-    toast({ title: "Service créé", description: "Votre service a été publié." });
-    } catch (error) {
-      console.error("Error creating listing:", error);
-      toast({ title: "Erreur", description: "Impossible de créer le service." });
-      throw error;
-    }
-  };
-
   const handleSaveProfile = async () => {
     if (!user || !isOwnProfile) return;
     setSavingProfile(true);
@@ -1008,7 +932,7 @@ const Profile = () => {
       setCoverImageFile(null);
       setRemoveCover(false);
       setRemoveAvatar(false);
-      forgetBufferedProfile(updated, user.id);
+      forgetBufferedProfile(updated);
       toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -1022,16 +946,22 @@ const Profile = () => {
     if (!user || !isOwnProfile) return;
     setSavingProfile(true);
     try {
+      const websiteRows = locationsFrom(editForm.website);
+      const preferredIndex = Math.min(Math.max(0, preferredWebsiteIndex), Math.max(0, websiteRows.length - 1));
+      const website_url = websiteRows.length
+        ? [websiteRows[preferredIndex], ...websiteRows.filter((_, i) => i !== preferredIndex)].join("\n")
+        : null;
+
       const updated = await profileService.updateProfile(user.id, {
         profession: editForm.profession.trim() || null,
         location: locationsFrom(editForm.location).join("\n") || null,
         phone: editForm.phone.trim() || null,
         email: editForm.email.trim() || null,
-        website_url: editForm.website.trim() || null,
+        website_url,
       });
       setProfile(updated);
       setShowEditInfosModal(false);
-      forgetBufferedProfile(updated, user.id);
+      forgetBufferedProfile(updated);
       toast({ title: "Infos mises à jour", description: "Les informations de cette section ont été enregistrées." });
     } catch (error) {
       console.error("Error updating infos:", error);
@@ -1050,7 +980,7 @@ const Profile = () => {
       });
       setProfile(updated);
       setEditingAbout(false);
-      forgetBufferedProfile(updated, user.id);
+      forgetBufferedProfile(updated);
       toast({ title: "À propos enregistré", description: "Votre section À propos a été mise à jour." });
     } catch (error) {
       console.error("Error updating about:", error);
@@ -1090,7 +1020,7 @@ const Profile = () => {
       setReelTitle("");
       setReelDescription("");
       setReelPublishFormOpen(false);
-      forgetBufferedProfile({ id: user.id, username: profile?.username }, user.id);
+      forgetBufferedProfile({ id: user.id, username: profile?.username });
       toast({ title: "Reel publie", description: "Votre reel a ete ajoute." });
     } catch (error) {
       console.error("Error creating reel:", error);
@@ -1149,6 +1079,7 @@ const Profile = () => {
         profession={profile.profession}
         location={profile.location}
         isOwnProfile={isOwnProfile}
+        isVerified={Boolean(profile.is_verified)}
         authReady={!authLoading}
         isFollowing={isFollowing}
         phone={profile.phone}
@@ -1166,18 +1097,6 @@ const Profile = () => {
       />
 
       <div className="mx-auto max-w-5xl">
-        <div className="px-3 sm:px-4 md:px-6">
-          <ProfileInfosCard
-            profile={profile}
-            isOwnProfile={isOwnProfile}
-            userEmail={user?.email}
-            rating={rating}
-            reviewCount={reviews.length}
-            layout="wide"
-            onEdit={openInfosEditor}
-          />
-        </div>
-
         <div
           ref={tabsContentRef}
           className="scroll-mt-2 px-3 sm:px-4 md:px-6"
@@ -1476,7 +1395,6 @@ const Profile = () => {
 
               {postsView === "grid" ? (
                 <>
-                  {isOwnProfile && !contentLoading && <CreatePost onPostCreated={handlePostCreated} />}
                   {contentLoading ? (
                     <ProfileMediaGridSkeleton />
                   ) : posts.length === 0 ? (
@@ -1509,7 +1427,7 @@ const Profile = () => {
                             role="button"
                             tabIndex={0}
                             data-post-id={id}
-                            aria-label={post.title || "Voir le post"}
+                            aria-label={post.description || "Voir le post"}
                             onClick={() => navigate(`/post/${id}`)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {
@@ -1523,18 +1441,26 @@ const Profile = () => {
                           >
                             <div className="profile-post-thumb-media h-full w-full">
                               {cover ? (
-                                <img src={cover} alt="" className="h-full w-full object-cover" />
+                                <RetryImage
+                                  src={cover}
+                                  alt=""
+                                  compact
+                                  wrapClassName="h-full w-full"
+                                  className="h-full w-full object-cover"
+                                />
                               ) : (
                                 <span className="flex h-full w-full items-center justify-center bg-muted p-2 text-center text-[11px] text-muted-foreground">
-                                  {post.title || "Post"}
+                                  {post.description?.trim() || "Post"}
                                 </span>
                               )}
                             </div>
                             <span className="profile-post-thumb-meta pointer-events-none absolute inset-0 flex items-center justify-center gap-4 text-white drop-shadow">
-                              <span className="inline-flex items-center gap-1 text-sm font-semibold">
-                                <Heart className="h-5 w-5 fill-white" />
-                                {likes}
-                              </span>
+                              {isOwnProfile ? (
+                                <span className="inline-flex items-center gap-1 text-sm font-semibold">
+                                  <Heart className="h-5 w-5 fill-white" />
+                                  {likes}
+                                </span>
+                              ) : null}
                               <span className="inline-flex items-center gap-1 text-sm font-semibold">
                                 <MessageCircle className="h-5 w-5 fill-white" />
                                 {comments}
@@ -1651,13 +1577,12 @@ const Profile = () => {
                             className="relative aspect-[3/4] overflow-hidden bg-black"
                           >
                             {reel.cloudflare_video_id ? (
-                              <CloudflareVideoPlayer
-                                videoId={String(reel.cloudflare_video_id).trim()}
-                                className="h-full w-full pointer-events-none"
-                                autoPlay={false}
-                                loop={true}
-                                muted={true}
-                                controls={false}
+                              <RetryImage
+                                src={streamService.getVideoThumbnailUrl(String(reel.cloudflare_video_id).trim())}
+                                alt={reel.title || "Reel"}
+                                compact
+                                wrapClassName="h-full w-full"
+                                className="h-full w-full object-cover"
                               />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground">
@@ -1696,24 +1621,6 @@ const Profile = () => {
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
-              {isOwnProfile && !contentLoading && (
-                <div className="mb-4">
-                  <Button
-                    onClick={() => setShowCreateListingForm((prev) => !prev)}
-                    className="mb-3"
-                  >
-                    {showCreateListingForm ? "Annuler" : "Créer un nouveau service"}
-                  </Button>
-                  {showCreateListingForm && (
-                    <FullScreenPopup open onClose={() => setShowCreateListingForm(false)}>
-                      <PropertyListingWizard
-                        onCancel={() => setShowCreateListingForm(false)}
-                        onComplete={handleCreateListingFromWizard}
-                      />
-                    </FullScreenPopup>
-                  )}
-                </div>
-              )}
               {contentLoading ? (
                 <ProfileMediaGridSkeleton />
               ) : listings.length === 0 ? (
@@ -1732,6 +1639,7 @@ const Profile = () => {
                       userId={listing.user_id}
                       avatar={profileAvatar}
                       username={profile.username || "Utilisateur"}
+                      isVerified={Boolean(profile.is_verified)}
                       timeAgo={formatTimeAgo(listing.created_at)}
                       image={listing.image_url || ""}
                       imageCount={listing.image_count || 1}
@@ -1786,6 +1694,7 @@ const Profile = () => {
                     <ReviewCard
                       avatar={review.reviewer?.avatar_url || getDefaultAvatar("craftsman")}
                       username={review.reviewer?.username || "Utilisateur"}
+                      isVerified={Boolean(review.reviewer?.is_verified)}
                       timeAgo={formatTimeAgo(review.created_at)}
                       rating={review.rating || 0}
                       text={review.text || ""}
@@ -1824,7 +1733,10 @@ const Profile = () => {
                     alt={follower.profiles?.username || "Follower"}
                     className="w-10 h-10 rounded-full object-cover"
                   />
-                  <p className="font-medium text-card-foreground">@{follower.profiles?.username || "utilisateur"}</p>
+                  <p className="inline-flex items-center gap-1 font-medium text-card-foreground">
+                    @{follower.profiles?.username || "utilisateur"}
+                    <VerifiedBadge verified={follower.profiles?.is_verified} className="h-4 w-4" />
+                  </p>
                 </button>
               ))
             )}
@@ -2019,12 +1931,79 @@ const Profile = () => {
             />
             ) : null}
             {infosEditField === "all" || infosEditField === "website" ? (
-            <Textarea
-              value={editForm.website}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, website: e.target.value }))}
-              rows={3}
-              placeholder="Liens de sites web (un par ligne)"
-            />
+            <div className="space-y-2">
+              {(editForm.website.length ? editForm.website.split("\n") : [""]).map((site, index, rows) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    type="url"
+                    value={site}
+                    onChange={(e) => {
+                      const next = [...rows];
+                      next[index] = e.target.value;
+                      setEditForm((prev) => ({ ...prev, website: next.join("\n") }));
+                    }}
+                    placeholder={`Site web ${index + 1}`}
+                  />
+                  {rows.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={() => {
+                        const next = rows.filter((_, i) => i !== index);
+                        setEditForm((prev) => ({ ...prev, website: next.join("\n") }));
+                        setPreferredWebsiteIndex((prev) => {
+                          if (prev === index) return 0;
+                          if (prev > index) return prev - 1;
+                          return prev;
+                        });
+                      }}
+                      aria-label="Supprimer ce site"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+                onClick={() =>
+                  setEditForm((prev) => {
+                    const rows = prev.website.length ? prev.website.split("\n") : [""];
+                    return { ...prev, website: [...rows, ""].join("\n") };
+                  })
+                }
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter un site web
+              </button>
+              {(editForm.website.length ? editForm.website.split("\n") : []).some((item) => item.trim()) ? (
+                <fieldset className="space-y-2 rounded-md border border-border p-3">
+                  <legend className="px-1 text-sm font-medium text-card-foreground">
+                    Quel site préférez-vous pour le bouton Website ?
+                  </legend>
+                  <p className="text-xs text-muted-foreground">
+                    Le bouton Website sous la photo ouvrira uniquement ce lien.
+                  </p>
+                  {(editForm.website.length ? editForm.website.split("\n") : []).map((site, index) =>
+                    site.trim() ? (
+                      <label key={`${site}-${index}`} className="flex items-start gap-2 text-sm text-card-foreground">
+                        <input
+                          type="radio"
+                          name="preferred-website"
+                          className="mt-1"
+                          checked={preferredWebsiteIndex === index}
+                          onChange={() => setPreferredWebsiteIndex(index)}
+                        />
+                        <span className="min-w-0 break-all">{site.trim()}</span>
+                      </label>
+                    ) : null
+                  )}
+                </fieldset>
+              ) : null}
+            </div>
             ) : null}
             <div className="flex justify-end">
               <Button onClick={handleSaveInfos} disabled={savingProfile}>

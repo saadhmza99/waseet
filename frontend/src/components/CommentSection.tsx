@@ -3,11 +3,13 @@ import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { TaggedText } from "@/lib/mentions";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface Comment {
   id: string | number;
   avatar: string;
   username: string;
+  isVerified?: boolean;
   text: string;
   timeAgo: string;
 }
@@ -79,9 +81,10 @@ const CommentSection = ({ comments, onAddComment }: CommentSectionProps) => {
               <div className="flex items-baseline gap-2 mb-1">
                 <button
                   onClick={() => handleProfileClick(c.username)}
-                  className="font-semibold text-sm sm:text-base text-card-foreground hover:opacity-80 transition-opacity text-left"
+                  className="inline-flex min-w-0 items-center gap-1 text-left text-sm font-semibold text-card-foreground transition-opacity hover:opacity-80 sm:text-base"
                 >
-                  {c.username}
+                  <span className="truncate">{c.username}</span>
+                  <VerifiedBadge verified={c.isVerified} className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                 </button>
                 <span className="text-xs sm:text-sm text-muted-foreground">{c.timeAgo}</span>
               </div>

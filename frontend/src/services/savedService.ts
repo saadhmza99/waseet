@@ -83,7 +83,8 @@ export const savedService = {
               id,
               username,
               avatar_url,
-              location
+              location,
+              is_verified
             )
           )
         `)
@@ -98,7 +99,8 @@ export const savedService = {
             profiles:user_id (
               id,
               username,
-              avatar_url
+              avatar_url,
+              is_verified
             )
           )
         `)
@@ -113,7 +115,8 @@ export const savedService = {
             profiles:user_id (
               id,
               username,
-              avatar_url
+              avatar_url,
+              is_verified
             )
           )
         `)
@@ -174,7 +177,8 @@ export const savedService = {
             id,
             username,
             avatar_url,
-            location
+            location,
+            is_verified
           )
         )
       `)
@@ -196,7 +200,8 @@ export const savedService = {
           profiles:user_id (
             id,
             username,
-            avatar_url
+            avatar_url,
+            is_verified
           )
         )
       `)
@@ -218,7 +223,8 @@ export const savedService = {
           profiles:user_id (
             id,
             username,
-            avatar_url
+            avatar_url,
+            is_verified
           )
         )
       `)

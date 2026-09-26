@@ -26,7 +26,8 @@ export const reelService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .single();
@@ -44,7 +45,8 @@ export const reelService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .order('created_at', { ascending: false })
@@ -63,7 +65,8 @@ export const reelService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('id', reelId)
@@ -82,7 +85,8 @@ export const reelService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('user_id', userId)
@@ -155,7 +159,8 @@ export const reelService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('reel_id', reelId)
@@ -179,7 +184,8 @@ export const reelService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .single();

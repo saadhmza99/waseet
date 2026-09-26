@@ -24,7 +24,8 @@ export const reviewService = {
         reviewer:reviewer_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .single();
@@ -42,7 +43,8 @@ export const reviewService = {
         reviewer:reviewer_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('user_id', userId)
@@ -61,7 +63,8 @@ export const reviewService = {
         reviewer:reviewer_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('id', reviewId)

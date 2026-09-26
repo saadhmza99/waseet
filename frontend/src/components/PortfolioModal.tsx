@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, ThumbsUp, MessageCircle, Share2 } from "lucide-react";
 import CommentSection from "./CommentSection";
+import { RetryImage } from "@/components/RetryImage";
 
 interface PortfolioModalProps {
   image: string;
@@ -56,9 +57,10 @@ const PortfolioModal = ({ image, label, username, avatar, isOpen, onClose }: Por
 
         {/* Image Section */}
         <div className="flex-1 min-h-0 overflow-hidden bg-background flex items-center justify-center">
-          <img
+          <RetryImage
             src={image}
             alt={label}
+            wrapClassName="h-full w-full"
             className="w-full h-full object-contain"
           />
         </div>

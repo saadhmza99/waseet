@@ -32,7 +32,15 @@ const AppLayout = () => {
   const { pathname } = useLocation();
   const { isPasswordRecovery } = useAuth();
   const isProfile = pathname.startsWith("/profile");
+  const isReels = pathname.startsWith("/reels");
   const lockToReset = isPasswordRecovery;
+
+  const hideAppChrome =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/create-profile") ||
+    pathname.startsWith("/change-password") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/admin");
 
   if (lockToReset && pathname !== "/change-password") {
     return <Navigate to="/change-password" replace />;
@@ -40,13 +48,9 @@ const AppLayout = () => {
 
   return (
         <div className="w-full min-h-screen bg-background flex flex-col">
-          {isProfile || lockToReset ? null : (
-            <>
-              <AppHeader />
-              <TabNav />
-            </>
-          )}
-          <div className={`${isProfile || lockToReset ? "pt-0" : "pt-[108px] sm:pt-[124px] lg:pt-0"} flex-1`}>
+          {isProfile || isReels || lockToReset || hideAppChrome ? null : <AppHeader />}
+          {lockToReset || hideAppChrome ? null : <TabNav />}
+          <div className={`${lockToReset || hideAppChrome ? "" : "pb-20"} flex-1`}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/post/:id" element={<PostDetail />} />

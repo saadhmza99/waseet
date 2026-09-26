@@ -5,7 +5,7 @@ import { userSettingsService } from '@/services/userSettingsService';
 export type PostType = 'standard' | 'property' | 'project';
 
 export interface PostData {
-  title: string;
+  title?: string;
   description?: string;
   before_image_url?: string;
   after_image_url?: string;
@@ -29,7 +29,19 @@ export const postService = {
       .from('posts')
       .insert({
         user_id: userId,
-        ...data,
+        title: data.title || "",
+        description: data.description,
+        before_image_url: data.before_image_url,
+        after_image_url: data.after_image_url,
+        single_image_url: data.single_image_url,
+        images: data.images,
+        is_sponsored: data.is_sponsored,
+        post_type: data.post_type,
+        price: data.price,
+        surface: data.surface,
+        beds: data.beds,
+        baths: data.baths,
+        property_details: data.property_details,
       })
       .select()
       .single();
@@ -49,7 +61,9 @@ export const postService = {
           id,
           username,
           avatar_url,
-          location
+          location,
+          profession,
+          is_verified
         )
       `)
       .order('created_at', { ascending: false })
@@ -69,7 +83,9 @@ export const postService = {
           id,
           username,
           avatar_url,
-          location
+          location,
+          profession,
+          is_verified
         )
       `)
       .eq('id', postId)

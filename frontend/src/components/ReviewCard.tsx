@@ -1,15 +1,17 @@
 import { Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface ReviewCardProps {
   avatar: string;
   username: string;
+  isVerified?: boolean;
   timeAgo: string;
   rating: number;
   text: string;
 }
 
-const ReviewCard = ({ avatar, username, timeAgo, rating, text }: ReviewCardProps) => {
+const ReviewCard = ({ avatar, username, isVerified, timeAgo, rating, text }: ReviewCardProps) => {
   const navigate = useNavigate();
 
   const handleProfileClick = () => {
@@ -24,7 +26,10 @@ const ReviewCard = ({ avatar, username, timeAgo, rating, text }: ReviewCardProps
           className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
         >
           <img src={avatar} alt={username} className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full object-cover" />
-          <span className="font-semibold text-sm sm:text-base md:text-lg text-card-foreground">{username}</span>
+          <span className="inline-flex items-center gap-1 font-semibold text-sm sm:text-base md:text-lg text-card-foreground">
+            {username}
+            <VerifiedBadge verified={isVerified} className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+          </span>
         </button>
         <span className="text-xs sm:text-sm text-muted-foreground">{timeAgo}</span>
       </div>

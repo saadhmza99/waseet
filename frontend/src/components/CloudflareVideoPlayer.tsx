@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { streamService } from '@/services/streamService';
+import { MediaRetryOverlay } from '@/components/RetryImage';
+import { cn } from '@/lib/utils';
 
 interface CloudflareVideoPlayerProps {
   videoId: string;
@@ -142,6 +144,8 @@ export const CloudflareVideoPlayer = ({
   controls = false,
 }: CloudflareVideoPlayerProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [failed, setFailed] = useState(false);
   const resolvedId =
     iframeDomId ||
     `cf-stream-${String(videoId || '')
@@ -149,8 +153,9 @@ export const CloudflareVideoPlayer = ({
       .replace(/[^a-zA-Z0-9-_]/g, '')}`;
 
   useEffect(() => {
+    setFailed(false);
     void ensureStreamEmbedSdk().catch(() => {});
-  }, [videoId]);
+  }, [videoId, retryNonce]);
 
   const embedUrl = streamService.getVideoEmbedUrl(videoId);
   const params = new URLSearchParams({
@@ -159,24 +164,37 @@ export const CloudflareVideoPlayer = ({
     muted: muted ? 'true' : 'false',
     controls: controls ? 'true' : 'false',
   });
+  if (retryNonce > 0) params.set('retry', String(retryNonce));
 
   return (
-    <iframe
-      id={resolvedId}
-      ref={iframeRef}
-      title="Reel vidéo"
-      src={`${embedUrl}?${params.toString()}`}
-      className={className}
-      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-      allowFullScreen
-      loading="lazy"
-      style={{
-        width: '100%',
-        height: '100%',
-        border: 'none',
-        maxHeight: '100%',
-      }}
-    />
+    <div className={cn('relative h-full w-full min-h-0', className)}>
+      <iframe
+        id={resolvedId}
+        ref={iframeRef}
+        title="Reel vidéo"
+        src={`${embedUrl}?${params.toString()}`}
+        className="h-full w-full"
+        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        loading="lazy"
+        onError={() => setFailed(true)}
+        style={{
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          maxHeight: '100%',
+        }}
+      />
+      {failed ? (
+        <MediaRetryOverlay
+          dark
+          onRetry={() => {
+            setFailed(false);
+            setRetryNonce((n) => n + 1);
+          }}
+        />
+      ) : null}
+    </div>
   );
 };
 
@@ -205,6 +223,10 @@ export const CloudflareHLSPlayer = ({
 }: CloudflareHLSPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const onLoadStateChangeRef = useRef(onLoadStateChange);
+  onLoadStateChangeRef.current = onLoadStateChange;
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [failed, setFailed] = useState(false);
   const resolvedId =
     videoDomId ||
     `cf-hls-${String(videoId || '')
@@ -214,8 +236,9 @@ export const CloudflareHLSPlayer = ({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    setFailed(false);
     const src = streamService.getVideoPlaybackUrl(videoId);
-    onLoadStateChange?.('loading');
+    onLoadStateChangeRef.current?.('loading');
     hlsRef.current?.destroy();
     hlsRef.current = null;
     video.removeAttribute('src');
@@ -229,22 +252,30 @@ export const CloudflareHLSPlayer = ({
       hlsRef.current = hls;
       hls.loadSource(src);
       hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => onLoadStateChange?.('ready'));
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setFailed(false);
+        onLoadStateChangeRef.current?.('ready');
+      });
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
           console.error('HLS fatal error', data);
-          onLoadStateChange?.('error');
+          setFailed(true);
+          onLoadStateChangeRef.current?.('error');
         }
       });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = src;
     } else {
       video.src = src;
     }
 
-    const onCanPlay = () => onLoadStateChange?.('ready');
-    const onWaiting = () => onLoadStateChange?.('loading');
-    const onError = () => onLoadStateChange?.('error');
+    const onCanPlay = () => {
+      setFailed(false);
+      onLoadStateChangeRef.current?.('ready');
+    };
+    const onWaiting = () => onLoadStateChangeRef.current?.('loading');
+    const onError = () => {
+      setFailed(true);
+      onLoadStateChangeRef.current?.('error');
+    };
     const onTimeUpdate = () => {
       if (!clipEndSeconds || clipEndSeconds <= 0) return;
       if (video.currentTime < clipEndSeconds) return;
@@ -271,7 +302,7 @@ export const CloudflareHLSPlayer = ({
       video.removeAttribute('src');
       video.load();
     };
-  }, [videoId, clipEndSeconds, loop, onLoadStateChange]);
+  }, [videoId, clipEndSeconds, loop, retryNonce]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -281,20 +312,31 @@ export const CloudflareHLSPlayer = ({
   }, [autoPlay]);
 
   return (
-    <video
-      id={resolvedId}
-      ref={videoRef}
-      className={className}
-      loop={loop}
-      muted={muted}
-      controls={controls}
-      playsInline
-      style={{
-        width: '100%',
-        height: '100%',
-        objectFit,
-      }}
-    />
+    <div className={cn('relative h-full w-full min-h-0', className)}>
+      <video
+        id={resolvedId}
+        ref={videoRef}
+        className="h-full w-full"
+        loop={loop}
+        muted={muted}
+        controls={controls}
+        playsInline
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit,
+        }}
+      />
+      {failed ? (
+        <MediaRetryOverlay
+          dark
+          onRetry={() => {
+            setFailed(false);
+            setRetryNonce((n) => n + 1);
+          }}
+        />
+      ) : null}
+    </div>
   );
 };
 

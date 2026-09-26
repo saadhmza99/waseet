@@ -1,10 +1,13 @@
 import { MapPin, User, MoreHorizontal, Banknote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { listingBudgetLabel } from "@/lib/utils";
+import { RetryImage } from "@/components/RetryImage";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface JobCardProps {
   avatar: string;
   username: string;
+  isVerified?: boolean;
   location: string;
   timeAgo: string;
   title: string;
@@ -18,6 +21,7 @@ interface JobCardProps {
 const JobCard = ({
   avatar,
   username,
+  isVerified = false,
   location,
   timeAgo,
   title,
@@ -48,7 +52,10 @@ const JobCard = ({
         >
           <img src={avatar} alt={username} className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover flex-shrink-0" />
           <div className="min-w-0">
-            <p className="font-semibold text-sm sm:text-base md:text-lg text-card-foreground truncate">{username}</p>
+            <p className="flex min-w-0 items-center gap-1 font-semibold text-sm sm:text-base md:text-lg text-card-foreground">
+              <span className="truncate">{username}</span>
+              <VerifiedBadge verified={isVerified} className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+            </p>
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{location}, {timeAgo}</p>
           </div>
         </button>
@@ -60,7 +67,13 @@ const JobCard = ({
       <h3 className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground">{title}</h3>
 
       <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-3 flex gap-3 sm:gap-4 md:gap-6">
-        <img src={image} alt={title} className="w-28 h-24 sm:w-36 sm:h-28 md:w-44 md:h-32 object-cover rounded-lg flex-shrink-0" />
+        <RetryImage
+          src={image}
+          alt={title}
+          compact
+          wrapClassName="w-28 h-24 sm:w-36 sm:h-28 md:w-44 md:h-32 flex-shrink-0 rounded-lg"
+          className="w-full h-full object-cover rounded-lg"
+        />
         <div className="flex flex-col justify-between flex-1 min-w-0">
           <div className="space-y-1 sm:space-y-2">
             <p className="text-sm sm:text-base text-card-foreground font-medium">{profession}</p>

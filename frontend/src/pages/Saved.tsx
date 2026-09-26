@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
-import { CloudflareVideoPlayer } from "@/components/CloudflareVideoPlayer";
-import { useAuth } from "@/contexts/AuthContext";
 import { savedService } from "@/services/savedService";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { streamService } from "@/services/streamService";
+import { RetryImage } from "@/components/RetryImage";
 
 const tabs = ["Posts", "services", "Reels"] as const;
 
@@ -114,9 +115,10 @@ const Saved = () => {
                             postUserId={post.user_id}
                             avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
                             username={profile.username || ""}
+                            isVerified={Boolean(profile.is_verified)}
                             location={profile.location || ""}
+                            profession={profile.profession || ""}
                             timeAgo={formatTimeAgo(post.created_at)}
-                            title={post.title}
                             description={post.description}
                             beforeImage={post.before_image_url}
                             afterImage={post.after_image_url}
@@ -152,6 +154,7 @@ const Saved = () => {
                             userId={listing.user_id}
                             avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
                             username={profile.username || ""}
+                            isVerified={Boolean(profile.is_verified)}
                             timeAgo={formatTimeAgo(listing.created_at)}
                             image={listing.image_url || ""}
                             location={listing.location}
@@ -186,13 +189,11 @@ const Saved = () => {
                             >
                               {reel.cloudflare_video_id ? (
                                 <div className="relative aspect-[9/16] w-full max-h-[70vh] bg-black">
-                                  <CloudflareVideoPlayer
-                                    videoId={String(reel.cloudflare_video_id).trim()}
-                                    className="h-full w-full"
-                                    autoPlay={false}
-                                    loop={true}
-                                    muted={true}
-                                    controls={false}
+                                  <RetryImage
+                                    src={streamService.getVideoThumbnailUrl(String(reel.cloudflare_video_id).trim())}
+                                    alt={reel.title || "Reel"}
+                                    wrapClassName="h-full w-full"
+                                    className="h-full w-full object-cover"
                                   />
                                   <button
                                     type="button"

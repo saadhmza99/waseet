@@ -10,7 +10,8 @@ export const followService = {
         profiles:following_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('follower_id', userId);
@@ -28,7 +29,8 @@ export const followService = {
         profiles:follower_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('following_id', userId);
@@ -62,7 +64,9 @@ export const followService = {
           id,
           username,
           avatar_url,
-          location
+          location,
+          profession,
+          is_verified
         )
       `)
       .in('user_id', followingIds)

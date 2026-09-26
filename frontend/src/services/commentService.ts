@@ -11,7 +11,8 @@ export const commentService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .eq('post_id', postId)
@@ -35,7 +36,8 @@ export const commentService = {
         profiles:user_id (
           id,
           username,
-          avatar_url
+          avatar_url,
+          is_verified
         )
       `)
       .single();

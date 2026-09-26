@@ -1,347 +1,180 @@
 import { useEffect, useState } from "react";
-import { Bell, Wrench, User, LogIn, LogOut, Settings, UserPlus, Home, MapPin, Video, Bookmark } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Bell, Wrench, MapPin, ChevronDown, ChevronLeft, Search, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { detectCityFromIp, getStoredFeedCity, setStoredFeedCity } from "@/lib/feedLocation";
+import { MOROCCO_REGION_CITIES } from "@/lib/moroccoPlaces";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProfile } from "@/hooks/useProfile";
-import { moderationService } from "@/services/moderationService";
-import { getDefaultAvatar } from "@/lib/avatar";
-import { notificationService } from "@/services/notificationService";
-import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
-import { useAppLanguage } from "@/contexts/AppLanguageContext";
-
-const tabs = [
-  { key: "feed", label: "Fil d'actualité", icon: Home, path: "/" },
-  { key: "explore", label: "Explorer", icon: MapPin, path: "/explore" },
-  { key: "reels", label: "Reels", icon: Video, path: "/reels" },
-  { key: "saved", label: "Enregistrés", icon: Bookmark, path: "/saved" },
-];
 
 const AppHeader = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, signOut } = useAuth();
-  const { t } = useAppLanguage();
-  const { profile } = useProfile();
-  const isLoggedIn = Boolean(user);
-  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url || getDefaultAvatar(profile?.profile_type);
-  const accountLabel = profile?.username || user?.email || "Mon compte";
-  const [isModerator, setIsModerator] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { user } = useAuth();
+  const [feedCity, setFeedCity] = useState(() => getStoredFeedCity() || "…");
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationStep, setLocationStep] = useState<"regions" | "cities">("regions");
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const [regionQuery, setRegionQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    if (!user) {
-      setIsModerator(false);
+    const stored = getStoredFeedCity();
+    if (stored) {
+      setFeedCity(stored);
       return;
     }
-    moderationService.isModerator(user.id).then(setIsModerator).catch(() => setIsModerator(false));
-  }, [user?.id]);
+    detectCityFromIp().then((city) => {
+      const next = city || "Maroc";
+      setFeedCity(next);
+      setStoredFeedCity(next);
+    });
+  }, []);
 
-  useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      setUnreadCount(0);
-      return;
-    }
+  const regionList = MOROCCO_REGION_CITIES.filter((item) =>
+    item.region.toLowerCase().includes(regionQuery.trim().toLowerCase())
+  );
+  const cityList =
+    MOROCCO_REGION_CITIES.find((item) => item.region === activeRegion)?.cities.filter((city) =>
+      city.toLowerCase().includes(regionQuery.trim().toLowerCase())
+    ) || [];
 
-    const loadNotifications = async () => {
-      try {
-        const [items, unread] = await Promise.all([
-          notificationService.getNotifications(user.id, 20),
-          notificationService.getUnreadCount(user.id),
-        ]);
-        setNotifications(items);
-        setUnreadCount(unread);
-      } catch (error) {
-        console.error("Error loading notifications:", error);
-      }
-    };
-
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 15000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-
-  const handleMarkAllNotificationsRead = async () => {
-    if (!user || unreadCount === 0) return;
-    try {
-      await notificationService.markAllAsRead(user.id);
-      setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-      setUnreadCount(0);
-    } catch (error) {
-      console.error("Error marking notifications as read:", error);
-    }
-  };
-
-  const formatNotificationTime = (date: string) => {
-    try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
-    } catch {
-      return "récemment";
-    }
-  };
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/login");
-  };
-
-  const handleLogin = () => {
-    navigate("/login");
+  const pickCity = (city: string) => {
+    setFeedCity(city);
+    setStoredFeedCity(city);
+    setLocationOpen(false);
+    setLocationStep("regions");
+    setActiveRegion(null);
+    setRegionQuery("");
   };
 
   return (
-    <header className="bg-nav text-nav-foreground border-b border-nav-foreground/10 fixed lg:sticky top-0 left-0 right-0 z-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 lg:py-5">
-        {/* Mobile Layout: Grid with centered logo */}
-        <div className="grid grid-cols-3 items-center lg:hidden">
-          <div className="flex justify-start">
-            {/* Empty space for centering */}
-          </div>
-          <div className="flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer" onClick={() => navigate("/")}>
-            <Wrench className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
-            <span className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold tracking-tight">Sifarah</span>
-          </div>
-          <div className="flex justify-end items-center gap-2 sm:gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  onClick={handleMarkAllNotificationsRead}
-                  className="relative opacity-80 hover:opacity-100 transition-opacity"
-                >
-                  <Bell className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {notifications.length === 0 ? (
-                  <div className="px-3 py-4 text-sm text-muted-foreground">Aucune notification</div>
-                ) : (
-                  notifications.map((item) => (
-                    <DropdownMenuItem key={item.id} className="py-2">
-                      <div className="flex items-start gap-2 w-full">
-                        <img
-                          src={item.actor?.avatar_url || getDefaultAvatar(item.actor?.profile_type)}
-                          alt={item.actor?.username || "Utilisateur"}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm text-foreground whitespace-normal break-words">
-                            <span className="font-semibold">{item.actor?.username || "Utilisateur"}</span>{" "}
-                            {item.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</p>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {isLoggedIn ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                    <img
-                      src={avatarUrl}
-                      alt="Profile"
-                      className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full border-2 border-nav-foreground/30 object-cover"
-                    />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>{accountLabel}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/profile")}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>{t("profile", "Voir mon profil")}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings")}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>{t("settings", "Paramètres")}</span>
-                  </DropdownMenuItem>
-                  {isModerator && (
-                    <DropdownMenuItem onClick={() => navigate("/admin/moderation")}>
-                      <Settings className="mr-2 h-4 w-4" />
-                    <span>{t("moderation", "Modération")}</span>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>{t("logout", "Déconnexion")}</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                          <button className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full border-2 border-nav-foreground/30 hover:opacity-80 transition-opacity">
-                            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                          </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Compte</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogin}>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    <span>{t("login", "Connexion")}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/create-profile")}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    <span>{t("createProfile", "Créer un profil")}</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+    <header className="relative z-50 bg-white text-black">
+      <div className="mx-auto max-w-2xl px-3 pb-3 pt-3">
+        <div className="flex h-12 items-center justify-between gap-3 px-1">
+          <button type="button" onClick={() => navigate("/")} className="flex min-w-0 items-center gap-1.5">
+            <Wrench className="h-7 w-7 shrink-0 text-orange-500" strokeWidth={2.7} />
+            <span className="truncate text-2xl font-bold tracking-tight text-neutral-950">Sifarah</span>
+          </button>
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setLocationOpen(true);
+                setLocationStep("regions");
+                setActiveRegion(null);
+                setRegionQuery("");
+              }}
+              className="flex max-w-[35vw] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:bg-neutral-50 sm:max-w-xs"
+            >
+              <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+                <MapPin className="h-5 w-5 fill-current text-black" strokeWidth={2} />
+                <span className="absolute top-[5.5px] h-[5px] w-[5px] rounded-full bg-white" />
+              </span>
+              <span className="truncate text-[15px] font-medium text-neutral-950">{feedCity}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-neutral-800" />
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-black transition hover:text-neutral-600"
+              aria-label="Notifications"
+            >
+              <Bell className="h-6 w-6" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(user ? "/profile" : "/login")}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-black transition hover:text-neutral-600"
+              aria-label="Profil"
+            >
+              <User className="h-6 w-6" strokeWidth={2} />
+            </button>
           </div>
         </div>
-
-        {/* Desktop Layout: Flex with navigation tabs */}
-        <div className="hidden lg:flex items-center justify-between">
-          <div className="flex items-center gap-4 lg:gap-8">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-              <Wrench className="w-6 h-6 sm:w-7 sm:h-7" />
-              <span className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Sifarah</span>
-            </div>
-            {/* Desktop Navigation - next to logo */}
-            <nav className="flex items-center gap-2">
-              {tabs.map((tab) => {
-                const isActive = location.pathname === tab.path;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => navigate(tab.path)}
-                    className={`flex items-center gap-2 px-6 py-3 text-base font-medium transition-colors rounded-lg ${
-                      isActive
-                        ? "text-nav-foreground bg-nav-foreground/10"
-                        : "text-nav-foreground/70 hover:text-nav-foreground hover:bg-nav-foreground/5"
-                    }`}
-                  >
-                    <tab.icon className="w-5 h-5" />
-                    <span>{t(tab.key, tab.label)}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-      
-          <div className="flex items-center gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  onClick={handleMarkAllNotificationsRead}
-                  className="relative opacity-80 hover:opacity-100 transition-opacity"
-                >
-                  <Bell className="w-5 h-5 sm:w-6 sm:h-6" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-[10px] font-bold text-white flex items-center justify-center">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {notifications.length === 0 ? (
-                  <div className="px-3 py-4 text-sm text-muted-foreground">Aucune notification</div>
-                ) : (
-                  notifications.map((item) => (
-                    <DropdownMenuItem key={item.id} className="py-2">
-                      <div className="flex items-start gap-2 w-full">
-                        <img
-                          src={item.actor?.avatar_url || getDefaultAvatar(item.actor?.profile_type)}
-                          alt={item.actor?.username || "Utilisateur"}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm text-foreground whitespace-normal break-words">
-                            <span className="font-semibold">{item.actor?.username || "Utilisateur"}</span>{" "}
-                            {item.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{formatNotificationTime(item.created_at)}</p>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {isLoggedIn ? (
-        <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                            <img
-                              src={avatarUrl}
-                              alt="Profile"
-                              className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full border-2 border-nav-foreground/30 object-cover"
-                            />
-                          </button>
-                        </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>{accountLabel}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate("/profile")}>
-              <User className="mr-2 h-4 w-4" />
-              <span>{t("profile", "View my profile")}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/settings")}>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>{t("settings", "Settings")}</span>
-            </DropdownMenuItem>
-            {isModerator && (
-              <DropdownMenuItem onClick={() => navigate("/admin/moderation")}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>{t("moderation", "Moderation")}</span>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>{t("logout", "Log Out")}</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-                          <button className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full border-2 border-nav-foreground/30 hover:opacity-80 transition-opacity">
-                            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                          </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogin}>
-              <LogIn className="mr-2 h-4 w-4" />
-              <span>{t("login", "Log In")}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/create-profile")}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              <span>{t("createProfile", "Create Profile")}</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-          </div>
-        </div>
+        <form
+          className="relative mt-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const query = searchQuery.trim();
+            if (query) navigate(`/explore?q=${encodeURIComponent(query)}`);
+          }}
+        >
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Rechercher entreprises, catégories…"
+            className="h-10 w-full rounded-full border border-neutral-300 bg-white pl-9 pr-3 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-orange-400"
+          />
+        </form>
       </div>
+
+      {locationOpen ? (
+        <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setLocationOpen(false)}>
+          <div
+            className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+              {locationStep === "cities" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationStep("regions");
+                    setActiveRegion(null);
+                    setRegionQuery("");
+                  }}
+                  aria-label="Retour"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              ) : null}
+              <h2 className="flex-1 text-base font-semibold">
+                {locationStep === "regions" ? "Choisir une région" : activeRegion}
+              </h2>
+              <button type="button" onClick={() => setLocationOpen(false)} className="text-sm text-muted-foreground">
+                Fermer
+              </button>
+            </div>
+            <div className="border-b border-border p-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={regionQuery}
+                  onChange={(e) => setRegionQuery(e.target.value)}
+                  placeholder={locationStep === "regions" ? "Rechercher une région" : "Rechercher une ville"}
+                  className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {locationStep === "regions"
+                ? regionList.map((item) => (
+                    <button
+                      key={item.region}
+                      type="button"
+                      onClick={() => {
+                        setActiveRegion(item.region);
+                        setLocationStep("cities");
+                        setRegionQuery("");
+                      }}
+                      className="flex w-full items-center justify-between border-b border-border px-4 py-3 text-left text-sm font-medium hover:bg-secondary"
+                    >
+                      {item.region}
+                      <ChevronDown className="-rotate-90 h-4 w-4 text-muted-foreground" />
+                    </button>
+                  ))
+                : cityList.map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => pickCity(city)}
+                      className="flex w-full border-b border-border px-4 py-3 text-left text-sm font-medium hover:bg-secondary"
+                    >
+                      {city}
+                    </button>
+                  ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 };

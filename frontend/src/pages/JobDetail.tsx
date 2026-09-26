@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import { listingBudgetLabel } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
+import { RetryImage } from "@/components/RetryImage";
 
 const JobDetail = () => {
   const location = useLocation();
@@ -52,9 +53,10 @@ const JobDetail = () => {
     <div className="pb-20 bg-background min-h-screen">
       {/* Hero Image with Overlay Buttons */}
       <div className="relative w-full h-[50vh] sm:h-[60vh] overflow-hidden">
-        <img 
-          src={job.image || ""} 
-          alt={job.title} 
+        <RetryImage
+          src={job.image || ""}
+          alt={job.title}
+          wrapClassName="h-full w-full"
           className="w-full h-full object-cover"
         />
         

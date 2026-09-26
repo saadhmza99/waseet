@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Ban, Bookmark, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, MessageCircle, MoreHorizontal, Pencil, Settings2, Share2, Sparkles, ThumbsUp, Trash2, UserCheck, Users, X, XCircle } from "lucide-react";
+import { Ban, Bookmark, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreHorizontal, Pencil, Settings2, Sparkles, Trash2, UserCheck, Users, X, XCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import CommentSection from "./CommentSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,9 +25,13 @@ import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { profileHandle } from "@/lib/profileHandle";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
+import { RetryImage } from "@/components/RetryImage";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import BlockMemberModal from "@/components/BlockMemberModal";
 import { TaggedText } from "@/lib/mentions";
+import VerifiedBadge from "@/components/VerifiedBadge";
+import { IosShareIcon, RoundCommentIcon } from "@/components/PostActionIcons";
+import { cityFromProfileLocation } from "@/lib/feedLocation";
 import { postAbsoluteUrl, postPath } from "@/lib/postUrl";
 
 interface FeedPostProps {
@@ -35,9 +39,11 @@ interface FeedPostProps {
   postUserId?: string;
   avatar: string;
   username: string;
+  isVerified?: boolean;
   location: string;
+  profession?: string;
   timeAgo: string;
-  title: string;
+  title?: string;
   description?: string;
   beforeImage?: string;
   afterImage?: string;
@@ -46,6 +52,7 @@ interface FeedPostProps {
   likes: number;
   comments: number;
   shares: number;
+  showLikeCount?: boolean;
   isSponsored?: boolean;
   postType?: "standard" | "property" | "project";
   price?: string | null;
@@ -59,7 +66,9 @@ const FeedPost = ({
   postUserId,
   avatar,
   username,
+  isVerified = false,
   location,
+  profession,
   timeAgo,
   title,
   description,
@@ -70,6 +79,7 @@ const FeedPost = ({
   likes,
   comments,
   shares,
+  showLikeCount = false,
   isSponsored = false,
   postType = "standard",
   price,
@@ -87,12 +97,10 @@ const FeedPost = ({
   const [shareCount, setShareCount] = useState(shares);
   const [isSaved, setIsSaved] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  const [showAllImages, setShowAllImages] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [commentOverride, setCommentOverride] = useState<"default" | PostCommentPermission>("default");
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
-  const [displayTitle, setDisplayTitle] = useState(title);
   const [displayDescription, setDisplayDescription] = useState(description || "");
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -105,9 +113,8 @@ const FeedPost = ({
   const isStandalonePost = Boolean(postId && pathname === postHref);
 
   useEffect(() => {
-    setDisplayTitle(title);
     setDisplayDescription(description || "");
-  }, [title, description]);
+  }, [description]);
 
   // Check if post is liked/saved on mount
   useEffect(() => {
@@ -150,8 +157,7 @@ const FeedPost = ({
   }
   
   const hasMultipleImages = allImages.length > 1;
-  const hasMoreThanTwoImages = allImages.length > 2;
-  const displayedImages = hasMoreThanTwoImages && !showAllImages ? allImages.slice(0, 2) : allImages;
+  const businessLine = [profession?.trim(), cityFromProfileLocation(location)].filter(Boolean).join(" · ");
 
   const handleProfileClick = () => {
     const slug = (username || "").replace(/^@/, "").trim();
@@ -229,7 +235,7 @@ const FeedPost = ({
         const shareUrl = postAbsoluteUrl(postId);
         if (navigator.share) {
           void navigator.share({
-            title,
+            title: "Sifarah",
             text: description,
             url: shareUrl,
           });
@@ -344,17 +350,13 @@ const FeedPost = ({
 
   const handleEditPost = () => {
     if (!postId || !user || !isOwnPost) return;
-    const nextTitle = window.prompt("Modifier le titre du post", displayTitle);
-    if (nextTitle === null) return;
     const nextDescription = window.prompt("Modifier la description", displayDescription);
     if (nextDescription === null) return;
     postService
       .updatePost(postId, user.id, {
-        title: nextTitle.trim() || "Post",
         description: nextDescription,
       })
       .then(() => {
-        setDisplayTitle(nextTitle.trim() || "Post");
         setDisplayDescription(nextDescription);
       })
       .catch((error) => {
@@ -489,26 +491,19 @@ const FeedPost = ({
   }
 
   return (
-    <article className="overflow-hidden min-w-0 border-b border-border bg-card">
+    <article className="mx-2 mb-3 min-w-0 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
       {/* User Info */}
-      <div className="flex items-center justify-between px-2 sm:px-4 md:px-6 lg:px-8 pt-3 pb-2">
+      <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <button onClick={handleProfileClick} className="hover:opacity-80 transition-opacity">
-            <img src={avatar || getDefaultAvatar("craftsman")} alt={username} className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover flex-shrink-0" />
+            <img src={avatar || getDefaultAvatar("craftsman")} alt={username} className="h-11 w-11 flex-shrink-0 rounded-full object-cover" />
           </button>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <button onClick={handleProfileClick} className="font-semibold text-sm sm:text-base md:text-lg text-card-foreground truncate text-left hover:opacity-80 transition-opacity">
+            <div className="flex items-center gap-1">
+              <button onClick={handleProfileClick} className="truncate text-left text-[15px] font-semibold text-neutral-950 transition-opacity hover:opacity-80">
                 {username}
               </button>
-              {user && !isOwnPost && !isFollowingAuthor && (
-                <button
-                  onClick={handleFollowAuthor}
-                  className="px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  Suivre
-                </button>
-              )}
+              <VerifiedBadge verified={isVerified} className="h-[17px] w-[17px]" />
               {isSponsored && (
                 <div className="flex items-center gap-1 bg-accent/10 text-accent px-1.5 py-0.5 rounded">
                   <Sparkles className="w-3 h-3" />
@@ -516,10 +511,22 @@ const FeedPost = ({
                 </div>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">{location} · actif {timeAgo}</p>
+            {businessLine ? (
+              <p className="truncate text-xs text-neutral-500">{businessLine}</p>
+            ) : null}
           </div>
         </div>
-        <DropdownMenu>
+        <div className="ml-2 flex shrink-0 items-center gap-2">
+          {user && !isOwnPost && !isFollowingAuthor ? (
+            <button
+              type="button"
+              onClick={handleFollowAuthor}
+              className="rounded-full border border-neutral-200 bg-transparent px-3.5 py-1.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50"
+            >
+              Suivre
+            </button>
+          ) : null}
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="text-muted-foreground hover:opacity-70 transition-opacity ml-2">
               <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -581,20 +588,9 @@ const FeedPost = ({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
-      <h3
-        className={`px-2 sm:px-4 md:px-6 lg:px-8 pb-2 font-bold text-base sm:text-lg md:text-xl text-card-foreground break-words overflow-hidden ${
-          postId && !isStandalonePost ? "cursor-pointer hover:opacity-80" : ""
-        }`}
-        onClick={(event) => {
-          if (!postId || isStandalonePost) return;
-          if ((event.target as HTMLElement).closest("a")) return;
-          navigate(postHref);
-        }}
-      >
-        <TaggedText text={displayTitle} />
-      </h3>
       {postType && postType !== "standard" ? (
         <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2">
           <span className="inline-block rounded bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-accent">
@@ -612,9 +608,16 @@ const FeedPost = ({
       ) : null}
 
       {displayDescription && (
-        <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-3 min-w-0">
+        <div
+            className={`min-w-0 px-4 pb-2 ${postId && !isStandalonePost ? "cursor-pointer" : ""}`}
+          onClick={(event) => {
+            if (!postId || isStandalonePost) return;
+            if ((event.target as HTMLElement).closest("a,button")) return;
+            navigate(postHref);
+          }}
+        >
           <p
-            className={`text-sm sm:text-base text-card-foreground leading-relaxed whitespace-pre-wrap break-words overflow-hidden ${
+            className={`text-[15px] leading-6 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden ${
               captionExpanded ? "" : "line-clamp-4"
             }`}
           >
@@ -633,88 +636,47 @@ const FeedPost = ({
       )}
 
       {allImages.length > 0 && (
-        <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-3">
-          <div
-            className={`flex gap-1 sm:gap-2 ${
-              hasMultipleImages && allImages.length === 2
-                ? "flex-row"
-                : hasMultipleImages && allImages.length > 2 && !showAllImages
-                ? "flex-row"
-                : hasMultipleImages && showAllImages
-                ? "flex-row overflow-x-auto cursor-grab active:cursor-grabbing"
-                : "flex-col"
-            }`}
-            style={hasMultipleImages && showAllImages ? { scrollSnapType: "x mandatory" } : {}}
-          >
-            {displayedImages.map((image, index) => (
-              <div
-                key={index}
-                className={`relative ${
-                  hasMultipleImages && allImages.length === 2
-                    ? "w-1/2"
-                    : hasMultipleImages && allImages.length > 2 && !showAllImages
-                    ? "w-1/2"
-                    : hasMultipleImages && showAllImages
-                    ? "flex-shrink-0 w-full sm:w-[80%] md:w-[70%] lg:w-[60%]"
-                    : "w-full"
-                }`}
-                style={hasMultipleImages && showAllImages ? { scrollSnapAlign: "start" } : {}}
-              >
-                <img
-                  src={image}
-                  alt={`${title} - Image ${index + 1}`}
-                  className={`w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${
-                    hasMultipleImages && allImages.length === 2
-                      ? "h-64 sm:h-80 md:h-96 lg:h-[500px]"
-                      : hasMultipleImages && allImages.length > 2 && !showAllImages
-                      ? "h-64 sm:h-80 md:h-96 lg:h-[500px]"
-                      : hasMultipleImages && showAllImages
-                      ? "h-56 sm:h-64 md:h-72 lg:h-80"
-                      : "h-64 sm:h-80 md:h-96 lg:h-[500px]"
-                  }`}
-                  onClick={() => {
-                    if (hasMoreThanTwoImages && !showAllImages) {
-                      setShowAllImages(true);
-                    } else {
-                      setSelectedImageIndex(index);
-                    }
-                  }}
-                />
-                {beforeImage && afterImage && index < 2 && (
-                  <span
-                    className={`absolute top-2 left-2 text-xs sm:text-sm font-bold px-2 py-0.5 rounded ${
-                      index === 0
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-accent text-accent-foreground"
-                    }`}
-                  >
-                    {index === 0 ? "AVANT" : "APRÈS"}
-                  </span>
-                )}
-                {hasMultipleImages && showAllImages && (
-                  <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                    {index + 1}/{allImages.length}
-                  </div>
-                )}
-              </div>
-            ))}
-            {hasMoreThanTwoImages && !showAllImages && (
-              <div className="relative w-1/2">
-                <div className="relative h-64 sm:h-80 md:h-96 lg:h-[500px] bg-background/50 rounded-lg flex items-center justify-center cursor-pointer hover:bg-background/70 transition-colors border-2 border-dashed border-border"
-                  onClick={() => setShowAllImages(true)}
-                >
-                  <div className="text-center">
-                    <p className="text-sm sm:text-base font-semibold text-card-foreground mb-1">
-                      +{allImages.length - 2}
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      Montrer plus
-                    </p>
-                  </div>
-                </div>
-          </div>
-            )}
-          </div>
+        <div
+          className={`relative mx-3 overflow-hidden rounded-lg ${
+            allImages.length === 1
+              ? ""
+              : allImages.length === 2
+                ? "grid grid-cols-2 gap-1"
+                : "grid h-56 grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:h-80"
+          }`}
+        >
+          {allImages.slice(0, allImages.length >= 3 ? 3 : 2).map((image, index) => (
+            <RetryImage
+              key={`${image}-${index}`}
+              src={image}
+              alt={`Photo ${index + 1}`}
+              wrapClassName={
+                allImages.length >= 3 && index === 0
+                  ? "row-span-2 h-full"
+                  : allImages.length === 2
+                    ? "h-52 sm:h-72"
+                    : "h-full"
+              }
+              className={
+                allImages.length === 1
+                  ? "max-h-[68vh] w-full cursor-pointer object-cover sm:max-h-[620px]"
+                  : "h-full w-full cursor-pointer object-cover"
+              }
+              onClick={() => setSelectedImageIndex(index)}
+            />
+          ))}
+          {hasMultipleImages ? (
+            <span className="absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[11px] font-semibold text-white">
+              1/{allImages.length}
+            </span>
+          ) : null}
+          {beforeImage && afterImage ? (
+            <span
+              className="absolute left-2 top-2 rounded bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground"
+            >
+              AVANT
+            </span>
+          ) : null}
         </div>
       )}
 
@@ -759,9 +721,10 @@ const FeedPost = ({
             className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
+            <RetryImage
               src={allImages[selectedImageIndex]}
               alt={`${title} - Image ${selectedImageIndex + 1}`}
+              wrapClassName="max-w-full max-h-full"
               className="max-w-full max-h-full object-contain rounded-lg"
             />
             {hasMultipleImages && (
@@ -774,38 +737,39 @@ const FeedPost = ({
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-4 sm:gap-6 md:gap-8 px-2 sm:px-4 md:px-6 lg:px-8 py-2.5 sm:py-3 border-t border-border">
+      <div className="flex items-center px-4 py-2.5">
         <button
           onClick={handleLike}
-          className={`flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-medium ${liked ? "text-accent" : "text-like"}`}
+          className={`flex items-center gap-1.5 text-sm font-medium transition-transform active:scale-90 ${
+            liked ? "text-rose-600" : "text-neutral-700"
+          }`}
         >
-          <ThumbsUp className={`w-4 h-4 sm:w-5 sm:h-5 ${liked ? "fill-accent" : ""}`} />
-          {likeCount}
+          <Heart className={`h-7 w-7 ${liked ? "fill-rose-600 text-rose-600" : ""}`} strokeWidth={1.8} />
+          {showLikeCount ? likeCount : null}
         </button>
         <button
           onClick={() => setShowComments(true)}
-          className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground text-sm sm:text-base"
+          className="ml-4 flex items-center gap-1.5 text-sm font-medium text-neutral-700 transition-transform active:scale-90"
         >
-          <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="hidden sm:inline">{commentCount} Commentaires</span>
-          <span className="sm:hidden">{commentCount}</span>
-        </button>
-        <button 
-          onClick={handleShare}
-          className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground text-sm sm:text-base"
-        >
-          <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="hidden sm:inline">{shareCount} Partages</span>
-          <span className="sm:hidden">{shareCount}</span>
+          <RoundCommentIcon className="h-7 w-7" />
         </button>
         <button
-          onClick={handleSave}
-          className={`flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-medium transition-colors ${
-            isSaved ? "text-accent" : "text-muted-foreground"
-          }`}
+          type="button"
+          onClick={handleShare}
+          className="ml-4 text-neutral-700 transition-transform active:scale-90"
+          aria-label="Partager"
         >
-          <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 ${isSaved ? "fill-accent" : ""}`} />
-          <span className="hidden sm:inline">Enregistrer</span>
+          <IosShareIcon className="h-7 w-7" />
+        </button>
+        <span className="ml-auto mr-3 text-xs text-muted-foreground sm:text-sm">{timeAgo}</span>
+        <button
+          onClick={handleSave}
+          className={`flex items-center text-sm font-medium transition-colors active:scale-90 ${
+            isSaved ? "text-accent" : "text-neutral-900"
+          }`}
+          aria-label="Enregistrer"
+        >
+          <Bookmark className={`h-7 w-7 ${isSaved ? "fill-accent" : ""}`} strokeWidth={1.8} />
         </button>
       </div>
 
@@ -843,27 +807,30 @@ const FeedPost = ({
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
                   />
                   <div>
-                    <p className="font-semibold text-sm sm:text-base text-card-foreground">
-                      {username}
-                    </p>
+                    <div className="flex items-center gap-1">
+                      <p className="font-semibold text-sm sm:text-base text-card-foreground">
+                        {username}
+                      </p>
+                      <VerifiedBadge verified={isVerified} className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                    </div>
+                    {businessLine ? (
                     <p className="text-xs sm:text-sm text-muted-foreground">
-                      {location} · actif {timeAgo}
+                      {businessLine}
                     </p>
+                    ) : null}
                   </div>
                 </div>
-                <h3 className="font-bold text-base sm:text-lg text-card-foreground mb-2 break-words">
-                  {title}
-                </h3>
-                {description && (
-                  <p className="text-sm sm:text-base text-card-foreground leading-relaxed whitespace-pre-wrap break-words overflow-hidden line-clamp-6 mb-3">
-                    {description}
+                {displayDescription && (
+                  <p className="mb-3 text-[15px] leading-7 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden line-clamp-6">
+                    {displayDescription}
                   </p>
                 )}
                 {allImages.length > 0 && (
                   <div className="mb-3">
-                    <img
+                    <RetryImage
                       src={allImages[0]}
-                      alt={title}
+                      alt=""
+                      wrapClassName="rounded-lg"
                       className="w-full max-h-96 object-cover rounded-lg"
                     />
                   </div>
@@ -876,6 +843,7 @@ const FeedPost = ({
                   id: c.id,
                   avatar: c.profiles?.avatar_url || getDefaultAvatar("craftsman"),
                   username: c.profiles?.username || "",
+                  isVerified: Boolean(c.profiles?.is_verified),
                   text: c.content,
                   timeAgo: formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: fr }),
                 }))}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Smile, MapPin, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,8 @@ export type CreatePostPayload = {
 
 interface CreatePostProps {
   onPostCreated?: (post: CreatePostPayload) => void;
+  hideLauncher?: boolean;
+  startOpen?: boolean;
 }
 
 const postTypes: { id: PostType; label: string; hint: string }[] = [
@@ -35,10 +37,14 @@ const postTypes: { id: PostType; label: string; hint: string }[] = [
   { id: "project", label: "Projet", hint: "Ajouté au portfolio (photo + légende)" },
 ];
 
-const CreatePost = ({ onPostCreated }: CreatePostProps) => {
+const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false }: CreatePostProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(startOpen);
+
+  useEffect(() => {
+    if (startOpen) setIsOpen(true);
+  }, [startOpen]);
   const [postType, setPostType] = useState<PostType>("standard");
   const [postText, setPostText] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -176,6 +182,7 @@ const CreatePost = ({ onPostCreated }: CreatePostProps) => {
   };
 
   if (!isOpen) {
+    if (hideLauncher) return null;
     return (
       <div className="flex justify-center bg-card py-3">
         <button

@@ -112,7 +112,7 @@ CREATE TRIGGER track_profile_field_updates_trigger
 CREATE TABLE IF NOT EXISTS public.posts (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  title TEXT NOT NULL,
+  title TEXT DEFAULT '',
   description TEXT,
   before_image_url TEXT,
   after_image_url TEXT,
@@ -1542,4 +1542,7 @@ DROP POLICY IF EXISTS "Sellers can view their property inquiries" ON public.prop
 CREATE POLICY "Sellers can view their property inquiries"
   ON public.property_inquiries FOR SELECT
   USING (auth.uid() = seller_id);
+
+ALTER TABLE public.posts ALTER COLUMN title DROP NOT NULL;
+ALTER TABLE public.posts ALTER COLUMN title SET DEFAULT '';
 

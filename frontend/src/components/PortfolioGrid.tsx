@@ -7,6 +7,7 @@ import { toast } from "@/components/ui/use-toast";
 import { inquiryService } from "@/services/inquiryService";
 import FullScreenPopup from "@/components/FullScreenPopup";
 import FeatureAmenityGrid from "@/components/FeatureAmenityGrid";
+import { RetryImage } from "@/components/RetryImage";
 import {
   ALL_FEATURES,
   formatPriceDh,
@@ -122,7 +123,12 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
             <article key={item.id} className="overflow-hidden rounded-lg border border-border bg-card text-left hover:shadow-lg transition-shadow">
               <button type="button" onClick={() => setSelected(item)} className="block w-full text-left">
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                  <img src={item.image || coverFallback} alt={item.title} className="h-full w-full object-cover" />
+                  <RetryImage
+                    src={item.image || coverFallback}
+                    alt={item.title}
+                    wrapClassName="h-full w-full"
+                    className="h-full w-full object-cover"
+                  />
                   <span className="absolute left-2 top-2 rounded bg-black/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                     {item.postType === "property" ? labelOf(PROPERTY_KINDS, details.propertyKind) || "Bien" : "Projet"}
                   </span>
@@ -193,9 +199,10 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
             selected.postType === "property" ? (
               <div className="grid h-full min-h-0 grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(280px,360px)] overflow-hidden">
                 <div className="min-h-0 bg-muted">
-                  <img
+                  <RetryImage
                     src={selected.image || coverFallback}
                     alt={selected.title}
+                    wrapClassName="h-full w-full"
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -280,7 +287,12 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
               </div>
             ) : (
               <div className="grid h-full overflow-hidden grid-cols-2">
-                <img src={selected.image || coverFallback} alt={selected.title} className="h-full w-full object-cover" />
+                <RetryImage
+                  src={selected.image || coverFallback}
+                  alt={selected.title}
+                  wrapClassName="h-full w-full"
+                  className="h-full w-full object-cover"
+                />
                 <div className="flex flex-col justify-center p-6 pr-12">
                   <h2 className="text-xl font-semibold">{selected.title}</h2>
                   <p className="mt-4 line-clamp-8 text-sm">{selected.description || "Pas de description."}</p>

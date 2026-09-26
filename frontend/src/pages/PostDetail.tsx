@@ -90,9 +90,10 @@ const PostDetail = () => {
             postUserId={post.user_id}
             avatar={post.profiles?.avatar_url || getDefaultAvatar("craftsman")}
             username={post.profiles?.username || "Utilisateur"}
+            isVerified={Boolean(post.profiles?.is_verified)}
             location={post.profiles?.location || ""}
+            profession={post.profiles?.profession || ""}
             timeAgo={formatTimeAgo(post.created_at)}
-            title={post.title || "Post"}
             description={post.description}
             beforeImage={post.before_image_url}
             afterImage={post.after_image_url}

@@ -6,12 +6,15 @@ import { savedService } from "@/services/savedService";
 import { notificationService } from "@/services/notificationService";
 import { toast } from "@/components/ui/use-toast";
 import { listingBudgetLabel } from "@/lib/utils";
+import { RetryImage } from "@/components/RetryImage";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface ListingCardProps {
   id?: string;
   userId?: string;
   avatar: string;
   username: string;
+  isVerified?: boolean;
   timeAgo: string;
   image: string;
   imageCount?: number;
@@ -34,6 +37,7 @@ const ListingCard = ({
   userId,
   avatar,
   username,
+  isVerified = false,
   timeAgo,
   image,
   imageCount,
@@ -110,6 +114,7 @@ const ListingCard = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <p className={`font-semibold text-card-foreground truncate ${isLarge ? 'text-xs sm:text-sm md:text-base' : 'text-xs sm:text-sm'}`}>{username}</p>
+              <VerifiedBadge verified={isVerified} className={isLarge ? "h-4 w-4" : "h-3.5 w-3.5"} />
               {isSponsored && (
                 <div className={`flex items-center gap-1 bg-accent/10 text-accent rounded ${isLarge ? 'px-1.5 sm:px-2 py-0.5 sm:py-1' : 'px-1.5 py-0.5'}`}>
                   <Sparkles className={`${isLarge ? 'w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4' : 'w-3 h-3'}`} />
@@ -127,9 +132,10 @@ const ListingCard = ({
 
       {/* Main Image */}
       <div className={`relative w-full overflow-hidden bg-background ${isSponsored ? 'aspect-[4/3]' : 'aspect-[4/3]'}`}>
-        <img
+        <RetryImage
           src={image}
           alt={title}
+          wrapClassName="h-full w-full"
           className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
           onClick={handleViewJob}
           onMouseDown={(e) => e.preventDefault()}

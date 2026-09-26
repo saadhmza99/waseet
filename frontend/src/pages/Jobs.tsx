@@ -53,6 +53,7 @@ const Jobs = () => {
               key={job.id}
               avatar={job.profiles?.avatar_url || getDefaultAvatar("craftsman")}
               username={job.profiles?.username || "Utilisateur"}
+              isVerified={Boolean(job.profiles?.is_verified)}
               location={job.location || ""}
               timeAgo="récemment"
               title={job.title || "service"}

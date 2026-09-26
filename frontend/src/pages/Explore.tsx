@@ -15,6 +15,7 @@ interface ListingData {
   userId: string;
   avatar: string;
   username: string;
+  isVerified: boolean;
   timeAgo: string;
   image: string;
   imageCount?: number;
@@ -60,6 +61,7 @@ const Explore = () => {
           userId: listing.user_id,
           avatar: listing.profiles?.avatar_url || getDefaultAvatar("craftsman"),
           username: listing.profiles?.username || "Utilisateur",
+          isVerified: Boolean(listing.profiles?.is_verified),
           timeAgo: "récemment",
           image: listing.image_url || "",
           imageCount: listing.image_count || 1,
@@ -173,6 +175,7 @@ const Explore = () => {
                   userId={listing.userId}
                   avatar={listing.avatar}
                   username={listing.username}
+                  isVerified={listing.isVerified}
                   timeAgo={listing.timeAgo}
                   image={listing.image}
                   imageCount={listing.imageCount}
@@ -202,6 +205,7 @@ const Explore = () => {
                     userId={listing.userId}
                     avatar={listing.avatar}
                     username={listing.username}
+                    isVerified={listing.isVerified}
                     timeAgo={listing.timeAgo}
                     image={listing.image}
                     imageCount={listing.imageCount}

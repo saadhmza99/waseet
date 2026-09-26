@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactElement } from "react";
+import { Building2, LayoutGrid } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
 import SponsoredBanner from "@/components/SponsoredBanner";
@@ -8,14 +10,52 @@ import { followService } from "@/services/followService";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
 import { useAuth } from "@/contexts/AuthContext";
-import { ReactElement } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
 
+const RenovationIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.65"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden
+  >
+    <path d="M3 10.5 12 3l9 7.5-1.7 2L12 6.4l-7.3 6.1z" />
+    <path d="M6.1 11.5V21h11.8v-7.2" />
+    <path d="M15.4 5.8V3.2h2.7v4.9" />
+    <path d="M7.3 14.6c1.1-.1 1.6-.5 1.9-1.3.4-1.1 1.4-1.8 2.5-1.8h2.5l.8.8-2.9 1.1-2.2 2.3-1 1z" />
+    <path d="m11.9 14.1 1.5-1.5 7.2 7.2a1.05 1.05 0 0 1-1.5 1.5z" />
+  </svg>
+);
+
+const HandGearIcon = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    aria-hidden
+  >
+    <path
+      transform="translate(7 -1) scale(.64)"
+      d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.08-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.3 7.3 0 0 0-1.69-.98L14.5 2.42A.49.49 0 0 0 14 2h-4a.49.49 0 0 0-.49.42L9.13 5.07c-.61.25-1.17.59-1.69.98l-2.49-1a.49.49 0 0 0-.61.22l-2 3.46a.49.49 0 0 0 .12.64l2.11 1.65c-.04.32-.08.66-.08.98s.03.66.08.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.12.22.38.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.08.49 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5"
+    />
+    <rect x="1.25" y="12.1" width="3.6" height="9.2" rx=".65" />
+    <path d="M5.5 13.5h2.8c.8 0 1.5.2 2.2.6l2.1 1.2h3.2c1.1 0 2 .8 2.1 1.9h-6.2a.7.7 0 1 0 0 1.4h6.5l3.5-1.7c.8-.4 1.7-.1 2.1.7.4.8.1 1.7-.7 2.1l-7.5 3.7a2.8 2.8 0 0 1-2.5 0l-7.6-3.8z" />
+  </svg>
+);
+
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
+  const [feedCategory, setFeedCategory] = useState<"all" | "immobilier" | "construction">("all");
   const [allPosts, setAllPosts] = useState<any[]>([]);
   const [followingPosts, setFollowingPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
@@ -98,7 +138,7 @@ const Index = () => {
     if (user) {
       try {
       await postService.createPost(user.id, {
-        title: postData.title || postData.text?.split("\n")[0] || (postData.postType === "property" ? "Bien" : "Nouveau post"),
+        title: "",
         description: postData.text,
         before_image_url: postData.beforeImage,
         after_image_url: postData.afterImage,
@@ -226,20 +266,27 @@ const Index = () => {
   const buildFeed = (): ReactElement[] => {
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
+    const posts = allPosts.filter((post) => {
+      if (feedCategory === "all") return true;
+      const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
+      if (feedCategory === "immobilier") return post.post_type === "property";
+      if (feedCategory === "construction") return /construct|bâtiment|batiment|chantier/.test(hay);
+      return true;
+    });
     let bannerIndex = 0;
     let generalPostIndex = 0;
     let feedItemCount = 0;
     let consecutiveNoFollowingPost = 0;
-    const maxIterations = Math.max(allPosts.length * 2, 100); // Safety limit
+    const maxIterations = Math.max(posts.length * 2, 100); // Safety limit
     let iterations = 0;
 
-    while (iterations < maxIterations && (generalPostIndex < allPosts.length || followingPosts.length > 0)) {
+    while (iterations < maxIterations && (generalPostIndex < posts.length || followingPosts.length > 0)) {
       iterations++;
       
       // Add 3 general posts
       let addedGeneralPosts = 0;
-      for (let i = 0; i < 3 && generalPostIndex < allPosts.length; i++) {
-        const post = allPosts[generalPostIndex];
+      for (let i = 0; i < 3 && generalPostIndex < posts.length; i++) {
+        const post = posts[generalPostIndex];
         const profile = post.profiles || {};
         
         feed.push(
@@ -249,9 +296,10 @@ const Index = () => {
             postUserId={post.user_id}
             avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
             username={profile.username || ""}
+            isVerified={Boolean(profile.is_verified)}
             location={profile.location || ""}
+            profession={profile.profession || ""}
             timeAgo={formatTimeAgo(post.created_at)}
-            title={post.title}
             description={post.description}
             beforeImage={post.before_image_url}
             afterImage={post.after_image_url}
@@ -312,7 +360,7 @@ const Index = () => {
       }
 
       // Add 1 post from following (if available) after every 3 general posts
-      if (addedGeneralPosts === 3 || (generalPostIndex >= allPosts.length && addedGeneralPosts > 0)) {
+        if (addedGeneralPosts === 3 || (generalPostIndex >= posts.length && addedGeneralPosts > 0)) {
         const followingPost = getNextFollowingPost();
         if (followingPost) {
           const profile = followingPost.profiles || {};
@@ -324,9 +372,10 @@ const Index = () => {
               postUserId={followingPost.user_id}
               avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
               username={profile.username || ""}
+              isVerified={Boolean(profile.is_verified)}
               location={profile.location || ""}
+              profession={profile.profession || ""}
               timeAgo={formatTimeAgo(followingPost.created_at)}
-              title={followingPost.title}
               description={followingPost.description}
               beforeImage={followingPost.before_image_url}
               afterImage={followingPost.after_image_url}
@@ -351,7 +400,7 @@ const Index = () => {
       }
 
       // Stop if we've processed all general posts and can't get more following posts
-      if (generalPostIndex >= allPosts.length) {
+      if (generalPostIndex >= posts.length) {
         if (consecutiveNoFollowingPost >= 3 || followingPosts.length === 0) {
           break;
         }
@@ -362,10 +411,68 @@ const Index = () => {
   };
 
   return (
-    <div className="pb-20">
-      {/* Normal Feed */}
-      <div className="mx-auto w-full max-w-xl px-3 sm:px-4 md:max-w-2xl">
-        {/* Initial Sponsored Banners */}
+    <div
+      className="min-h-screen bg-neutral-100 pb-4"
+      style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
+    >
+      <div className="mx-auto w-full max-w-2xl">
+        <div className="mb-2 grid grid-cols-4 border-b border-neutral-200 bg-white px-2 pb-4 pt-3">
+          {[
+            { id: "all" as const, label: "Tout", Icon: LayoutGrid, tone: "bg-[#174f43]" },
+            { id: "immobilier" as const, label: "Immobilier", Icon: Building2, tone: "bg-[#eee9ec]" },
+            { id: "construction" as const, label: "Construction", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
+            { id: "services" as const, label: "Services", Icon: HandGearIcon, tone: "bg-[#eee9ec]" },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                if (item.id === "services") {
+                  navigate("/explore");
+                  return;
+                }
+                if (item.id === "all") {
+                  setFeedCategory("all");
+                  return;
+                }
+                setFeedCategory((prev) => (prev === item.id ? "all" : item.id));
+              }}
+              className="group flex min-w-0 flex-col items-center gap-2"
+            >
+              <span
+                className={`inline-flex h-[52px] w-[52px] items-center justify-center rounded-full transition ${
+                  item.id === "all"
+                    ? `${item.tone} text-white ${feedCategory === "all" ? "scale-105 shadow-md" : "group-hover:shadow-sm"}`
+                    : feedCategory === item.id
+                    ? `${item.tone} scale-105 text-orange-600 shadow-md`
+                    : `${item.tone} text-neutral-800 group-hover:shadow-sm`
+                }`}
+              >
+                <item.Icon className="h-6 w-6" />
+              </span>
+              <span className="w-full text-center text-[13px] font-semibold leading-normal text-neutral-800">
+                {item.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <section className="relative mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white">
+          <img
+            src="/agadir-welcome.png"
+            alt="Vue panoramique d’Agadir"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
+          <div className="relative flex min-h-[175px] max-w-full translate-y-4 flex-col justify-center px-4 py-4">
+            <p className="relative -top-1 mt-1 text-xl font-medium">Bonjour !</p>
+            <p className="mt-2 text-[14px] font-normal leading-relaxed text-white/95">
+              <span className="block font-light">Découvrez les entreprises locales.</span>
+              <span className="block whitespace-nowrap font-medium">Suivez vos préférées et rejoignez la communauté.</span>
+            </p>
+          </div>
+        </section>
+
         {sponsoredListings.length >= 2 && (
           <div className="my-4 sm:my-6 space-y-3 sm:space-y-4">
             {sponsoredListings.slice(0, 2).map((listing) => {
@@ -390,7 +497,14 @@ const Index = () => {
         )}
 
         {/* Create Post */}
-        <CreatePost onPostCreated={handlePostCreated} />
+        <CreatePost
+          hideLauncher
+          startOpen={openCreate}
+          onPostCreated={async (postData) => {
+            await handlePostCreated(postData);
+            if (openCreate) navigate("/", { replace: true, state: {} });
+          }}
+        />
         
         {/* Feed with posts and sponsored banners */}
         {loading ? (

@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Briefcase, ChevronLeft, ChevronRight, Eye, Globe, Mail, MapPin, Pencil, Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Briefcase, ChevronLeft, ChevronRight, Eye, Globe, Mail, MapPin, Phone } from "lucide-react";
 import FullScreenPopup from "@/components/FullScreenPopup";
 
-const websiteLinksFrom = (value?: string | null) =>
+export const websiteLinksFrom = (value?: string | null) =>
   (value || "")
     .split(/[\n,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+export const preferredWebsiteFrom = (value?: string | null) => websiteLinksFrom(value)[0] || "";
 
 const hrefForWebsite = (url: string) => (/^https?:\/\//i.test(url) ? url : `https://${url}`);
 
@@ -205,16 +206,6 @@ const LocationMapPreview = ({ queries }: { queries: string[] }) => {
   );
 };
 
-type ProfileInfosCardProps = {
-  profile: any;
-  isOwnProfile: boolean;
-  userEmail?: string | null;
-  rating: number;
-  reviewCount: number;
-  layout?: "sidebar" | "wide";
-  onEdit: (field?: InfosField) => void;
-};
-
 export const ProfileDetailsFields = ({
   profile,
   isOwnProfile,
@@ -354,19 +345,32 @@ export const ProfileDetailsFields = ({
             )}
           </li>
           {websites.length > 0 ? (
-            websites.map((link) => (
-              <li key={link} className="flex items-start gap-2">
-                <Globe className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <a
-                  href={hrefForWebsite(link)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="break-all text-accent hover:underline"
-                >
-                  {link}
-                </a>
-              </li>
-            ))
+            <>
+              {websites.map((link) => (
+                <li key={link} className="flex items-start gap-2">
+                  <Globe className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <a
+                    href={hrefForWebsite(link)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-accent hover:underline"
+                  >
+                    {link}
+                  </a>
+                </li>
+              ))}
+              {isOwnProfile ? (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onEdit("website")}
+                    className="pl-6 text-left text-xs text-accent hover:underline"
+                  >
+                    Ajouter un site web
+                  </button>
+                </li>
+              ) : null}
+            </>
           ) : (
             <li className="flex items-start gap-2">
               <Globe className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -384,23 +388,3 @@ export const ProfileDetailsFields = ({
     </div>
   );
 };
-
-const ProfileInfosCard = ({
-  isOwnProfile,
-  onEdit,
-}: ProfileInfosCardProps) => {
-  if (!isOwnProfile) return null;
-
-  return (
-    <div className="min-w-0 overflow-hidden border-b border-border bg-card p-4 sm:rounded-lg sm:border">
-      <div className="flex justify-end">
-        <Button type="button" variant="ghost" size="sm" onClick={() => onEdit()}>
-          <Pencil className="mr-1 h-3.5 w-3.5" />
-          Modifier
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-export default ProfileInfosCard;

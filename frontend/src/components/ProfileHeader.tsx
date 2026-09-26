@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, Ban, Briefcase, ChevronRight, Edit, Flag, Globe, Info, MessageCircle, MessageSquare, MoreVertical, Phone, Share2, Star, UserPlus, UserCheck, VolumeX } from "lucide-react";
+import { ArrowLeft, Ban, Briefcase, ChevronRight, Edit, Flag, Globe, Info, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, Star, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InviteToJobModal from "./InviteToJobModal";
 import {
@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
 import { profileHandle } from "@/lib/profileHandle";
+import { preferredWebsiteFrom } from "@/components/ProfileInfosCard";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface ProfileHeaderProps {
   profileId?: string;
@@ -23,6 +25,7 @@ interface ProfileHeaderProps {
   phone?: string | null;
   websiteUrl?: string | null;
   isOwnProfile?: boolean;
+  isVerified?: boolean;
   authReady?: boolean;
   isFollowing?: boolean;
   onToggleFollow?: () => void;
@@ -71,22 +74,33 @@ const normalizeWebsiteHref = (url: string) => {
 const circleFace =
   "inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-foreground shadow-sm transition-colors hover:bg-muted sm:h-11 sm:w-11";
 
+const circleFaceFeatured =
+  "inline-flex h-10 w-10 items-center justify-center rounded-full border border-emerald-800 bg-emerald-800 text-white shadow-md transition-colors hover:bg-emerald-900 sm:h-11 sm:w-11";
+
 const CircleAction = ({
   label,
   children,
   onClick,
+  featured = false,
 }: {
   label: string;
   children: ReactNode;
   onClick?: () => void;
+  featured?: boolean;
 }) => (
   <button
     type="button"
     onClick={onClick}
-    className="inline-flex min-w-0 flex-1 flex-col items-center gap-1 text-card-foreground sm:flex-none sm:w-14"
+    className={`inline-flex min-w-0 flex-1 flex-col items-center gap-1 text-card-foreground sm:flex-none sm:w-20`}
   >
-    <span className={circleFace}>{children}</span>
-    <span className="w-full truncate text-center text-[11px] font-medium leading-none sm:text-xs">{label}</span>
+    <span className={featured ? circleFaceFeatured : circleFace}>{children}</span>
+    <span
+      className={`w-full truncate text-center text-sm leading-snug sm:text-base ${
+        featured ? "font-bold text-emerald-800" : "font-medium"
+      }`}
+    >
+      {label}
+    </span>
   </button>
 );
 
@@ -102,6 +116,7 @@ const ProfileHeader = ({
   phone,
   websiteUrl,
   isOwnProfile = false,
+  isVerified = false,
   authReady = true,
   isFollowing = false,
   onToggleFollow,
@@ -118,7 +133,8 @@ const ProfileHeader = ({
   const navigate = useNavigate();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
-  const hasWebsite = Boolean(websiteUrl?.trim());
+  const preferredWebsite = preferredWebsiteFrom(websiteUrl);
+  const hasWebsite = Boolean(preferredWebsite);
   const name = (fullName || "").trim() || username;
   const handle = profileHandle(username);
   const agency = (profession || "").trim();
@@ -141,8 +157,8 @@ const ProfileHeader = ({
   };
 
   const openWebsite = () => {
-    if (!websiteUrl?.trim()) return;
-    window.open(normalizeWebsiteHref(websiteUrl), "_blank", "noopener,noreferrer");
+    if (!preferredWebsite) return;
+    window.open(normalizeWebsiteHref(preferredWebsite), "_blank", "noopener,noreferrer");
   };
 
   const openSms = () => {
@@ -252,28 +268,34 @@ const ProfileHeader = ({
         </div>
 
         <div className="mt-1 flex min-w-0 items-center gap-2">
-          <h1 className="min-w-0 flex-1 break-words text-2xl font-bold leading-snug text-card-foreground sm:text-3xl">
-            {name}
+          <h1 className="flex min-w-0 flex-1 items-center gap-1 text-2xl font-bold leading-snug text-card-foreground sm:text-3xl">
+            <span className="min-w-0 truncate whitespace-nowrap">{name}</span>
+            <VerifiedBadge verified={isVerified} className="h-5 w-5 sm:h-6 sm:w-6" />
           </h1>
           {isOwnProfile ? (
             <div className="flex shrink-0 items-center gap-0.5">
-              <button
-                type="button"
-                onClick={onEditProfile}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80"
-              >
-                <Edit className="h-4 w-4" />
-                Modifier
-              </button>
               {shareButton}
-              <button
-                type="button"
-                onClick={() => navigate("/settings")}
-                className="-mr-1 inline-flex h-9 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
-                aria-label="Paramètres"
-              >
-                <MoreVertical className="h-5 w-5" />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="-mr-1 inline-flex h-9 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    aria-label="Plus d'options"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={onEditProfile}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Modifier le profil
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Paramètres
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ) : (
             <div className="flex shrink-0 items-center gap-0.5">
@@ -284,11 +306,11 @@ const ProfileHeader = ({
                   className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-1.5 text-[13px] font-semibold ${
                     isFollowing
                       ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                      : "bg-emerald-800 text-white hover:bg-emerald-900"
+                      : "bg-emerald-950 text-white hover:bg-black"
                   }`}
                 >
                   {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
-                  {isFollowing ? "Suivi" : "Follow"}
+                  {isFollowing ? "Suivi" : "Suivre"}
                 </button>
               ) : null}
               {shareButton}
@@ -347,18 +369,18 @@ const ProfileHeader = ({
 
         <div className="mt-4 flex w-full min-w-0 items-start gap-1.5 pb-4 sm:gap-3">
           {!isOwnProfile && authReady ? (
-            <CircleAction label="Recruter" onClick={() => setShowInviteModal(true)}>
+            <CircleAction featured label="Recruter" onClick={() => setShowInviteModal(true)}>
               <Briefcase className="h-5 w-5" />
             </CircleAction>
           ) : null}
           {!isOwnProfile ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="inline-flex min-w-0 flex-1 flex-col items-center gap-1 text-card-foreground sm:flex-none sm:w-14">
+                <button type="button" className="inline-flex min-w-0 flex-1 flex-col items-center gap-1 text-card-foreground sm:flex-none sm:w-20">
                   <span className={circleFace}>
                     <Phone className="h-5 w-5" />
                   </span>
-                  <span className="w-full truncate text-center text-[11px] font-medium leading-none sm:text-xs">Contact</span>
+                  <span className="w-full truncate text-center text-sm font-medium leading-snug sm:text-base">Contact</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center">

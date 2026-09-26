@@ -14,7 +14,7 @@ import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
 import { userSettingsService } from "@/services/userSettingsService";
 import { muteService, type MutedAccount } from "@/services/muteService";
-import { profileHandle } from "@/lib/profileHandle";
+import { preferredWebsiteFrom, websiteLinksFrom } from "@/components/ProfileInfosCard";
 import { useAppLanguage } from "@/contexts/AppLanguageContext";
 
 const Settings = () => {
@@ -84,7 +84,7 @@ const Settings = () => {
     setUsername(profile.username || "");
     setFullName(profile.full_name || "");
     setBio(profile.bio || "");
-    setWebsiteUrl(profile.website_url || "");
+    setWebsiteUrl(preferredWebsiteFrom(profile.website_url));
   }, [profile]);
 
   useEffect(() => {
@@ -141,7 +141,13 @@ const Settings = () => {
         avatarUrl = await storageService.uploadImage(avatarFile, "avatars");
       }
 
-      const nextWebsiteUrl = normalizeWebsiteUrl(websiteUrl);
+      const nextPreferred = normalizeWebsiteUrl(websiteUrl);
+      const extraSites = websiteLinksFrom(profile.website_url).slice(1).filter(
+        (url) => url !== nextPreferred
+      );
+      const nextWebsiteUrl = nextPreferred
+        ? [nextPreferred, ...extraSites].join("\n")
+        : extraSites.join("\n") || null;
 
       await profileService.updateProfile(user.id, {
         username: username.trim() || profile.username,
@@ -298,7 +304,7 @@ const Settings = () => {
 
             <div>
               <Label htmlFor="website" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
-                Website
+                Site web préféré (bouton Website)
               </Label>
               <Input
                 id="website"

@@ -1,17 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  MessageCircle,
-  Share2,
   Heart,
   Bookmark,
-  MoreVertical,
   Pause,
   Play,
+  ChevronLeft,
+  Loader2,
+  MoreVertical,
   Download,
   Flag,
   Trash2,
-  ChevronLeft,
-  Loader2,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,23 +23,14 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
-import {
-  REEL_MAX_DURATION_SECONDS,
-  REEL_MAX_PER_USER_PER_MONTH,
-  REEL_UPLOAD_MAX_BYTES,
-  getBrowserVideoDurationSeconds,
-  streamService,
-} from "@/services/streamService";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { REEL_MAX_DURATION_SECONDS } from "@/services/streamService";
 import { Button } from "@/components/ui/button";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
+import VerifiedBadge from "@/components/VerifiedBadge";
+import { IosShareIcon, RoundCommentIcon } from "@/components/PostActionIcons";
+import { followService } from "@/services/followService";
+import { moderationService } from "@/services/moderationService";
 import {
   Dialog,
   DialogContent,
@@ -55,9 +44,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { moderationService } from "@/services/moderationService";
-import UploadProgressRing from "@/components/UploadProgressRing";
-
 const Reels = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -69,16 +55,12 @@ const Reels = () => {
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [likedReels, setLikedReels] = useState<Set<string>>(new Set());
   const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
+  const [feedTab, setFeedTab] = useState<"following" | "for-you">("for-you");
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [publishFormOpen, setPublishFormOpen] = useState(false);
   const [commentsReelId, setCommentsReelId] = useState<string | null>(null);
   const [commentRows, setCommentRows] = useState<
-    { id: string; avatar: string; username: string; text: string; timeAgo: string }[]
+    { id: string; avatar: string; username: string; isVerified?: boolean; text: string; timeAgo: string }[]
   >([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [reportReelId, setReportReelId] = useState<string | null>(null);
@@ -90,7 +72,6 @@ const Reels = () => {
   const playbackUiHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [videoLoadStateByReel, setVideoLoadStateByReel] = useState<Record<string, "loading" | "ready" | "error">>({});
-  const [retryNonceByReel, setRetryNonceByReel] = useState<Record<string, number>>({});
 
   const feedQueryKey = `${feedFrom || "all"}:${feedProfileId || "none"}:${user?.id || "anon"}`;
 
@@ -180,6 +161,17 @@ const Reels = () => {
   }, [user, feedQueryKey, navigate]);
 
   useEffect(() => {
+    if (!user) {
+      setFollowingIds(new Set());
+      return;
+    }
+    followService
+      .getFollowing(user.id)
+      .then((rows) => setFollowingIds(new Set((rows || []).map((row: any) => String(row.following_id)))))
+      .catch(() => setFollowingIds(new Set()));
+  }, [user]);
+
+  useEffect(() => {
     const n = reels.filter((r) => Boolean(String(r.cloudflare_video_id || "").trim())).length;
     setCurrentReelIndex((i) => {
       if (n === 0) return 0;
@@ -196,6 +188,7 @@ const Reels = () => {
           id: String(c.id),
           avatar: c.profiles?.avatar_url || "",
           username: c.profiles?.username || "Utilisateur",
+          isVerified: Boolean(c.profiles?.is_verified),
           text: c.content || "",
           timeAgo: formatDistanceToNow(new Date(c.created_at), {
             addSuffix: true,
@@ -355,12 +348,10 @@ const Reels = () => {
   const handleDownloadReel = (cloudflareVideoId: string) => {
     const id = String(cloudflareVideoId || "").trim();
     if (!id) return;
-    const url = `https://videodelivery.net/${id}/downloads/default.mp4`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(`https://videodelivery.net/${id}/downloads/default.mp4`, "_blank", "noopener,noreferrer");
     toast({
       title: "Téléchargement",
-      description:
-        "Si rien ne s’ouvre, les téléchargements peuvent être désactivés pour cette vidéo sur Cloudflare.",
+      description: "Si rien ne s’ouvre, les téléchargements peuvent être désactivés pour cette vidéo.",
     });
   };
 
@@ -445,7 +436,15 @@ const Reels = () => {
     }
   };
 
-  const playableReels = reels.filter((reel) => Boolean(String(reel.cloudflare_video_id || "").trim()));
+  const visibleReels =
+    !isSubFeed && feedTab === "following"
+      ? reels.filter((reel) => followingIds.has(String(reel.user_id)))
+      : reels;
+  const playableReels = visibleReels.filter((reel) => Boolean(String(reel.cloudflare_video_id || "").trim()));
+  useEffect(() => {
+    setCurrentReelIndex(0);
+  }, [feedTab]);
+
   const subFeedTitle =
     feedFrom === "saved"
       ? "Reels enregistrés"
@@ -498,106 +497,6 @@ const Reels = () => {
     });
   }, [currentReelIndex, reels]);
 
-  const handleUploadReel = async () => {
-    if (!user || !videoFile) return;
-    setUploading(true);
-    setUploadProgress(0);
-    try {
-      const uploaded = await streamService.uploadVideo(
-        videoFile,
-        { title, description },
-        { onUploadProgress: setUploadProgress }
-      );
-      const videoId = uploaded?.video?.id;
-      if (!videoId) throw new Error("Réponse upload invalide (pas d’identifiant vidéo).");
-      await reelService.createReel(user.id, {
-        cloudflare_video_id: videoId,
-        title,
-        description,
-        duration_seconds: uploaded?.video?.durationSeconds ?? null,
-      });
-      const reelsData = await reelService.getReels(50, 0);
-      setReels(reelsData || []);
-      setVideoFile(null);
-      setTitle("");
-      setDescription("");
-      setPublishFormOpen(false);
-      toast({ title: "Reel ajoute", description: "Votre reel est maintenant publie." });
-    } catch (error) {
-      console.error("Error uploading reel:", error);
-      const msg = error instanceof Error ? error.message : "Impossible d'ajouter ce reel.";
-      toast({ title: "Erreur", description: msg });
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
-  };
-
-  const reelPublishCollapsible = user ? (
-    <Collapsible open={publishFormOpen} onOpenChange={setPublishFormOpen}>
-      <CollapsibleTrigger asChild>
-        <Button type="button" variant="secondary" size="sm" className="shadow-md">
-          Publier un reel
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2 w-[min(100vw-2rem,360px)] rounded-lg border border-border bg-card p-3 text-card-foreground shadow-lg space-y-2">
-        <p className="text-xs text-muted-foreground leading-snug">
-          Actuellement, chaque utilisateur ne peut publier que {REEL_MAX_PER_USER_PER_MONTH} reels d’au plus{" "}
-          {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
-        </p>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre" />
-        <Textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description"
-          rows={2}
-        />
-        <Input
-          type="file"
-          accept="video/*"
-          onChange={async (e) => {
-            const f = e.target.files?.[0] || null;
-            if (f && f.size > REEL_UPLOAD_MAX_BYTES) {
-              const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
-              toast({
-                title: "Fichier trop grand",
-                description: `Maximum ${maxMb} Mo pour un reel.`,
-              });
-              e.target.value = "";
-              setVideoFile(null);
-              return;
-            }
-            if (f) {
-              try {
-                const seconds = await getBrowserVideoDurationSeconds(f);
-                if (seconds > REEL_MAX_DURATION_SECONDS + 0.25) {
-                  toast({
-                    title: "Vidéo longue détectée",
-                    description: `Cette vidéo dure ${Math.round(
-                      seconds
-                    )}s. Nous n’utiliserons que les 30 premières secondes.`,
-                  });
-                }
-              } catch {
-                // duration read is best-effort
-              }
-            }
-            setVideoFile(f);
-          }}
-        />
-        {uploading ? (
-          <UploadProgressRing
-            value={uploadProgress}
-            label="Envoi vers Cloudflare"
-          />
-        ) : null}
-        <Button onClick={handleUploadReel} disabled={!videoFile || uploading} className="w-full">
-          {uploading ? (uploadProgress > 0 ? `Envoi ${uploadProgress}%` : "Préparation…") : "Envoyer le reel"}
-        </Button>
-      </CollapsibleContent>
-    </Collapsible>
-  ) : null;
-
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
@@ -618,6 +517,38 @@ const Reels = () => {
       ref={containerRef}
     >
       <div className="relative h-full w-full">
+        {!isSubFeed ? (
+          <div className="absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 text-[15px] font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                if (!user) {
+                  navigate("/login");
+                  return;
+                }
+                setFeedTab("following");
+              }}
+              className={`rounded-full border-2 px-4 py-1.5 transition ${
+                feedTab === "following"
+                  ? "border-white bg-white text-black"
+                  : "border-white bg-transparent text-white"
+              }`}
+            >
+              Suivis
+            </button>
+            <button
+              type="button"
+              onClick={() => setFeedTab("for-you")}
+              className={`rounded-full border-2 px-4 py-1.5 transition ${
+                feedTab === "for-you"
+                  ? "border-white bg-white text-black"
+                  : "border-white bg-transparent text-white"
+              }`}
+            >
+              Pour toi
+            </button>
+          </div>
+        ) : null}
         {isSubFeed ? (
           <div className="absolute left-4 top-4 z-30">
             <Button
@@ -637,10 +568,6 @@ const Reels = () => {
             {subFeedTitle}
           </div>
         ) : null}
-        {user && !isSubFeed ? (
-          <div className="absolute right-4 top-4 z-30 flex flex-col items-end">{reelPublishCollapsible}</div>
-        ) : null}
-
         {!hasPlayable ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-4 py-8 text-center">
             <p className="text-muted-foreground">Aucun reel disponible</p>
@@ -655,7 +582,6 @@ const Reels = () => {
             const reelProfile = reel.profiles || {};
             const reelLiked = likedReels.has(reel.id);
             const reelSaved = savedReels.has(reel.id);
-            const reelLikes = reel.likes_count || 0;
             return (
           <div
             key={reel.id}
@@ -671,7 +597,7 @@ const Reels = () => {
               {reel.cloudflare_video_id ? (
                 <div className="absolute inset-0 min-h-0">
                   <CloudflareHLSPlayer
-                    key={`reel-${reel.id}-${retryNonceByReel[reel.id] || 0}`}
+                    key={`reel-${reel.id}`}
                     videoDomId={`cf-reel-video-${reel.id}`}
                     videoId={String(reel.cloudflare_video_id).trim()}
                     className="h-full w-full min-h-0"
@@ -682,28 +608,15 @@ const Reels = () => {
                     objectFit="cover"
                     clipEndSeconds={REEL_MAX_DURATION_SECONDS}
                     onLoadStateChange={(state) =>
-                      setVideoLoadStateByReel((prev) => ({ ...prev, [reel.id]: state }))
+                      setVideoLoadStateByReel((prev) =>
+                        prev[reel.id] === state ? prev : { ...prev, [reel.id]: state }
+                      )
                     }
                   />
-                  {videoLoadStateByReel[reel.id] !== "ready" ? (
+                  {videoLoadStateByReel[reel.id] !== "ready" &&
+                  videoLoadStateByReel[reel.id] !== "error" ? (
                     <div className="pointer-events-none absolute inset-0 z-[14] flex items-center justify-center bg-black/25">
-                      {videoLoadStateByReel[reel.id] === "error" ? (
-                        <button
-                          type="button"
-                          className="pointer-events-auto rounded-full bg-black/70 px-4 py-2 text-sm text-white hover:bg-black/80"
-                          onClick={() => {
-                            setVideoLoadStateByReel((prev) => ({ ...prev, [reel.id]: "loading" }));
-                            setRetryNonceByReel((prev) => ({
-                              ...prev,
-                              [reel.id]: (prev[reel.id] || 0) + 1,
-                            }));
-                          }}
-                        >
-                          Réessayer le chargement
-                        </button>
-                      ) : (
-                        <Loader2 className="h-7 w-7 animate-spin text-white" />
-                      )}
+                      <Loader2 className="h-7 w-7 animate-spin text-white" />
                     </div>
                   ) : null}
                 </div>
@@ -751,10 +664,47 @@ const Reels = () => {
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white object-cover cursor-pointer"
                       onClick={() => navigate(`/profile/${reelProfile.username || ""}`)}
                     />
-                    <div>
-                      <p className="text-white font-semibold text-sm sm:text-base">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <p className="truncate text-sm font-semibold text-white sm:text-base">
                         {reelProfile.username || ""}
                       </p>
+                      <VerifiedBadge verified={reelProfile.is_verified} className="h-[18px] w-[18px] sm:h-5 sm:w-5" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
+                            aria-label="Plus d'options"
+                          >
+                            <MoreVertical className="h-5 w-5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                          {!(user && reel.user_id === user.id) ? (
+                            <DropdownMenuItem onClick={() => setReportReelId(reel.id)}>
+                              <Flag className="mr-2 h-4 w-4" />
+                              Signaler
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuItem onClick={() => handleDownloadReel(String(reel.cloudflare_video_id))}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Télécharger
+                          </DropdownMenuItem>
+                          {user && reel.user_id === user.id ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                disabled={deletingReelId === reel.id}
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => void handleDeleteReel(reel.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {deletingReelId === reel.id ? "Suppression..." : "Supprimer"}
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                   <p className="text-white text-sm sm:text-base max-w-md">
@@ -768,19 +718,17 @@ const Reels = () => {
                     <button
                       type="button"
                       onClick={() => handleLike(reel.id)}
-                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
+                      className="flex items-center justify-center p-1 text-white transition-transform active:scale-90"
                     >
                       <Heart
-                        className={`w-6 h-6 sm:w-7 sm:h-7 transition-all ${
+                        className={`h-7 w-7 transition-all sm:h-8 sm:w-8 ${
                           reelLiked
                             ? "text-red-500 fill-red-500 scale-110"
                             : "text-white"
                         }`}
+                        strokeWidth={1.8}
                       />
                     </button>
-                    <span className="text-white text-xs sm:text-sm font-semibold">
-                      {reelLikes >= 1000 ? `${(reelLikes / 1000).toFixed(1)}k` : reelLikes}
-                    </span>
                   </div>
 
                   {/* Comment */}
@@ -788,13 +736,10 @@ const Reels = () => {
                     <button
                       type="button"
                       onClick={() => openComments(reel.id)}
-                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
+                      className="flex items-center justify-center p-1 text-white transition-transform active:scale-90"
                     >
-                      <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                      <RoundCommentIcon className="h-7 w-7 sm:h-8 sm:w-8" />
                     </button>
-                    <span className="text-white text-xs sm:text-sm font-semibold">
-                      {(reel.comments_count || 0) >= 1000 ? `${((reel.comments_count || 0) / 1000).toFixed(1)}k` : (reel.comments_count || 0)}
-                    </span>
                   </div>
 
                   {/* Share */}
@@ -802,13 +747,10 @@ const Reels = () => {
                     <button
                       type="button"
                       onClick={() => handleShare(reel.id)}
-                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
+                      className="flex items-center justify-center p-1 text-white transition-transform active:scale-90"
                     >
-                      <Share2 className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                      <IosShareIcon className="h-7 w-7 sm:h-8 sm:w-8" />
                     </button>
-                    <span className="text-white text-xs sm:text-sm font-semibold">
-                      {(reel.shares_count || 0) >= 1000 ? `${((reel.shares_count || 0) / 1000).toFixed(1)}k` : (reel.shares_count || 0)}
-                    </span>
                   </div>
 
                   {/* Save */}
@@ -816,56 +758,16 @@ const Reels = () => {
                     <button
                       type="button"
                       onClick={() => handleSave(reel.id)}
-                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
+                      className="flex items-center justify-center p-1 text-white transition-transform active:scale-90"
                     >
                       <Bookmark
-                        className={`w-6 h-6 sm:w-7 sm:h-7 ${
+                        className={`h-7 w-7 sm:h-8 sm:w-8 ${
                           reelSaved ? "text-primary fill-primary" : "text-white"
                         }`}
+                        strokeWidth={1.8}
                       />
                     </button>
                   </div>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white shadow backdrop-blur-sm hover:bg-black/50 sm:h-12 sm:w-12"
-                        aria-label="Plus d'options"
-                      >
-                        <MoreVertical className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      {!(user && reel.user_id === user.id) ? (
-                        <DropdownMenuItem
-                          onClick={() => setReportReelId(reel.id)}
-                        >
-                          <Flag className="mr-2 h-4 w-4" />
-                          Signaler
-                        </DropdownMenuItem>
-                      ) : null}
-                      <DropdownMenuItem
-                        onClick={() => handleDownloadReel(String(reel.cloudflare_video_id))}
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Télécharger
-                      </DropdownMenuItem>
-                      {user && reel.user_id === user.id ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            disabled={deletingReelId === reel.id}
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => void handleDeleteReel(reel.id)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {deletingReelId === reel.id ? "Suppression..." : "Supprimer"}
-                          </DropdownMenuItem>
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
             </div>
