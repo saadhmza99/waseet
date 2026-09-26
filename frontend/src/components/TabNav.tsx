@@ -1,4 +1,4 @@
-import { Bookmark, Plus, Search, User } from "lucide-react";
+import { Bookmark, Clapperboard, Plus, Search } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
