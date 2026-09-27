@@ -554,7 +554,7 @@ const FeedPost = ({
   }
 
   return (
-    <article className="mx-2 mb-3 min-w-0 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+    <article className="mb-2 min-w-0 overflow-hidden border-b border-neutral-100 bg-white">
       {/* User Info */}
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -715,12 +715,12 @@ const FeedPost = ({
 
       {allImages.length > 0 && (
         <div
-          className={`relative mx-3 overflow-hidden rounded-lg ${
+          className={`relative overflow-hidden ${
             allImages.length === 1
               ? ""
               : allImages.length === 2
                 ? "grid grid-cols-2 gap-1"
-                : "grid h-[30vh] grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:aspect-[3/2] sm:h-auto"
+                : "grid h-[45vh] grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:aspect-[4/3] sm:h-auto"
           }`}
         >
           {allImages.slice(0, allImages.length >= 3 ? 3 : 2).map((image, index) => (
@@ -732,12 +732,12 @@ const FeedPost = ({
                 allImages.length >= 3 && index === 0
                   ? "row-span-2 h-full"
                   : allImages.length === 2
-                    ? "h-[30vh] sm:aspect-[3/4] sm:h-auto"
+                    ? "h-[45vh] sm:aspect-[2/3] sm:h-auto"
                     : "h-full"
               }
               className={
                 allImages.length === 1
-                  ? "max-h-[30vh] w-full cursor-pointer object-cover sm:aspect-[3/2] sm:max-h-none"
+                  ? "max-h-[45vh] w-full cursor-pointer object-cover sm:aspect-[4/3] sm:max-h-none"
                   : "h-full w-full cursor-pointer object-cover"
               }
               onClick={() => setSelectedImageIndex(index)}

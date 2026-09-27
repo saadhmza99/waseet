@@ -17,7 +17,7 @@ export function Toaster() {
         return (
           <Toast key={id} {...props}>
             <div className="min-w-0 flex-1">
-              {title && <ToastTitle className="leading-none">{title}</ToastTitle>}
+              {title && <ToastTitle className="text-[14px] leading-snug">{title}</ToastTitle>}
               {description && (
                 <ToastDescription className="mt-0.5">{description}</ToastDescription>
               )}

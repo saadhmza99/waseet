@@ -509,7 +509,7 @@ const Index = () => {
 
   return (
     <div
-      className="min-h-screen bg-neutral-100 pb-4"
+      className="min-h-screen bg-white pb-4"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
       <div className="mx-auto w-full max-w-2xl">
