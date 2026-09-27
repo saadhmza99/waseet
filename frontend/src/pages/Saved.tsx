@@ -12,6 +12,7 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { RetryImage } from "@/components/RetryImage";
+import InfiniteScrollSentinel, { PAGE_SIZE } from "@/components/InfiniteScrollSentinel";
 
 const tabs = [
   { id: "posts", label: "Posts" },
@@ -90,6 +91,31 @@ const Saved = () => {
     [savedPosts]
   );
 
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [revealing, setRevealing] = useState(false);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, postsView]);
+
+  const activeTotal =
+    activeTab === "posts"
+      ? postsView === "reels"
+        ? savedReels.length
+        : regularPosts.length
+      : activeTab === "biens"
+        ? bienPosts.length
+        : savedListings.length;
+
+  const revealMore = () => {
+    if (revealing) return;
+    setRevealing(true);
+    window.setTimeout(() => {
+      setVisibleCount((count) => count + PAGE_SIZE);
+      setRevealing(false);
+    }, 400);
+  };
+
   const tabCounts: Record<SavedTab, number> = {
     posts: regularPosts.length,
     biens: bienPosts.length,
@@ -123,6 +149,29 @@ const Saved = () => {
         surface={post.surface}
         beds={post.beds}
         baths={post.baths}
+      />
+    );
+  };
+
+  const renderServiceCard = (saved: any, compact: boolean) => {
+    const listing = saved.listings;
+    const profile = listing?.profiles || {};
+    return (
+      <ListingCard
+        key={listing.id}
+        id={listing.id}
+        userId={listing.user_id}
+        avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
+        username={profile.username || ""}
+        isVerified={Boolean(profile.is_verified)}
+        timeAgo={formatTimeAgo(listing.created_at)}
+        image={listing.image_url || ""}
+        location={listing.location}
+        title={listing.title}
+        profession={listing.profession}
+        priceRange={listing.price_range || ""}
+        compact={compact}
+        initialSaved
       />
     );
   };
@@ -192,7 +241,7 @@ const Saved = () => {
                   {regularPosts.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">Aucun post enregistré</div>
                   ) : (
-                    regularPosts.map(renderFeedPost)
+                    regularPosts.slice(0, visibleCount).map(renderFeedPost)
                   )}
                 </div>
               )}
@@ -204,6 +253,7 @@ const Saved = () => {
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
                       {savedReels
+                        .slice(0, visibleCount)
                         .filter((saved) => saved.reels?.id)
                         .map((saved) => {
                           const reel = saved.reels;
@@ -247,41 +297,30 @@ const Saved = () => {
                   {bienPosts.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">Aucun bien enregistré</div>
                   ) : (
-                    bienPosts.map(renderFeedPost)
+                    bienPosts.slice(0, visibleCount).map(renderFeedPost)
                   )}
                 </div>
               )}
 
               {activeTab === "services" && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {savedListings.length === 0 ? (
-                    <div className="col-span-full py-8 text-center text-muted-foreground">
-                      Aucun service enregistré
+                savedListings.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">Aucun service enregistré</div>
+                ) : (
+                  <>
+                    <div className="mx-auto flex w-[92%] max-w-[22rem] flex-col gap-2 sm:hidden">
+                      {savedListings.slice(0, visibleCount).map((saved) => renderServiceCard(saved, true))}
                     </div>
-                  ) : (
-                    savedListings.map((saved) => {
-                      const listing = saved.listings;
-                      const profile = listing?.profiles || {};
-                      return (
-                        <ListingCard
-                          key={listing.id}
-                          id={listing.id}
-                          userId={listing.user_id}
-                          avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
-                          username={profile.username || ""}
-                          isVerified={Boolean(profile.is_verified)}
-                          timeAgo={formatTimeAgo(listing.created_at)}
-                          image={listing.image_url || ""}
-                          location={listing.location}
-                          title={listing.title}
-                          profession={listing.profession}
-                          priceRange={listing.price_range || ""}
-                        />
-                      );
-                    })
-                  )}
-                </div>
+                    <div className="hidden grid-cols-2 justify-items-center gap-4 sm:grid">
+                      {savedListings.slice(0, visibleCount).map((saved) => renderServiceCard(saved, false))}
+                    </div>
+                  </>
+                )
               )}
+              <InfiniteScrollSentinel
+                hasMore={visibleCount < activeTotal}
+                loading={revealing}
+                onLoadMore={revealMore}
+              />
             </>
           )}
         </div>

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Filter, Map, List, Wrench, Hammer, Zap, Paintbrush, Home as HomeIcon, Sparkles } from "lucide-react";
 import ListingCard from "@/components/ListingCard";
 import JobFilterModal from "@/components/JobFilterModal";
 import CategorySection from "@/components/CategorySection";
 import SearchBar from "@/components/SearchBar";
+import InfiniteScrollSentinel, { PAGE_SIZE } from "@/components/InfiniteScrollSentinel";
 import { listingService } from "@/services/listingService";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
@@ -32,6 +33,18 @@ const Explore = () => {
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [listings, setListings] = useState<ListingData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const fetchedRef = useRef(0);
+  const hiddenOwnersRef = useRef<Set<string>>(new Set());
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 639px)").matches);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)");
+    const onChange = () => setIsMobile(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
 
   const handleViewMore = (category: string) => {
     console.log(`View more ${category}`);
@@ -46,17 +59,10 @@ const Explore = () => {
     });
   };
 
-  useEffect(() => {
-    const loadListings = async () => {
-      try {
-        setLoading(true);
-        const [data, blockedIds, mutedIds] = await Promise.all([
-          listingService.getListings(100, 0),
-          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
-          user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
-        ]);
-        const blockedSet = new Set(blockedIds || []);
-        const mapped = (data || []).map((listing) => ({
+  const toListingData = (data: any[]): ListingData[] =>
+    data
+      .filter((listing) => !hiddenOwnersRef.current.has(listing.user_id))
+      .map((listing) => ({
           id: listing.id,
           userId: listing.user_id,
           avatar: listing.profiles?.avatar_url || getDefaultAvatar("craftsman"),
@@ -71,12 +77,24 @@ const Explore = () => {
           priceRange: listing.price_range || "Prix sur demande",
           isSponsored: Boolean(listing.is_sponsored),
         }));
-        setListings(
-          mapped.filter((listing) => !blockedSet.has(listing.userId) && !mutedIds.services.has(listing.userId))
-        );
+
+  useEffect(() => {
+    const loadListings = async () => {
+      try {
+        setLoading(true);
+        const [data, blockedIds, mutedIds] = await Promise.all([
+          listingService.getListings(PAGE_SIZE, 0),
+          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
+          user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
+        ]);
+        hiddenOwnersRef.current = new Set([...(blockedIds || []), ...mutedIds.services]);
+        fetchedRef.current = (data || []).length;
+        setHasMore((data || []).length === PAGE_SIZE);
+        setListings(toListingData(data || []));
       } catch (error) {
         console.error("Error loading listings:", error);
         setListings([]);
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
@@ -84,6 +102,26 @@ const Explore = () => {
 
     loadListings();
   }, [user]);
+
+  const loadMoreListings = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = (await listingService.getListings(PAGE_SIZE, fetchedRef.current)) || [];
+      fetchedRef.current += data.length;
+      setHasMore(data.length === PAGE_SIZE);
+      const next = toListingData(data);
+      setListings((prev) => {
+        const seen = new Set(prev.map((listing) => listing.id));
+        return [...prev, ...next.filter((listing) => !seen.has(listing.id))];
+      });
+    } catch (error) {
+      console.error("Error loading more listings:", error);
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const allSponsoredListings = useMemo(
     () => listings.filter((listing) => listing.isSponsored),
@@ -167,6 +205,7 @@ const Explore = () => {
               icon={<Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />}
               maxRows={2}
               isSponsored={true}
+              stacked={isMobile}
             >
               {allSponsoredListings.map((listing, index) => (
                 <ListingCard
@@ -185,6 +224,7 @@ const Explore = () => {
                   priceRange={listing.priceRange}
                   isSponsored={listing.isSponsored}
                   isLarge={true}
+                  compact={isMobile}
                 />
               ))}
             </CategorySection>
@@ -194,9 +234,10 @@ const Explore = () => {
             Object.entries(groupedListings).map(([profession, professionListings]) => (
               <CategorySection
                 key={profession}
-                title={`Nouvelles services de ${profession}`}
+                title={`nouveaux services de ${profession}`}
                 icon={categoryIcon(profession)}
                 onViewMore={() => handleViewMore(profession)}
+                stacked={isMobile}
               >
                 {sortListings(professionListings).map((listing, index) => (
                   <ListingCard
@@ -214,14 +255,18 @@ const Explore = () => {
                     profession={listing.profession}
                     priceRange={listing.priceRange}
                     isSponsored={listing.isSponsored}
+                    compact={isMobile}
                   />
                 ))}
               </CategorySection>
             ))}
 
-          {!loading && listings.length === 0 && (
+          {!loading && listings.length === 0 && !hasMore && (
             <div className="text-center py-8 text-muted-foreground">Aucun service disponible pour le moment.</div>
           )}
+          {!loading ? (
+            <InfiniteScrollSentinel hasMore={hasMore} loading={loadingMore} onLoadMore={loadMoreListings} />
+          ) : null}
         </div>
       ) : (
         <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-8 text-center text-muted-foreground">

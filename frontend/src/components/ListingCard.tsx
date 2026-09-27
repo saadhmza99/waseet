@@ -25,6 +25,8 @@ interface ListingCardProps {
   isSponsored?: boolean;
   isLarge?: boolean; // For sponsored section only
   fillWidth?: boolean;
+  compact?: boolean;
+  initialSaved?: boolean;
   details?: {
     beds?: number;
     baths?: number;
@@ -48,11 +50,13 @@ const ListingCard = ({
   isSponsored = false,
   isLarge = false,
   fillWidth = false,
+  compact = false,
+  initialSaved = false,
   details,
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved] = useState(initialSaved);
 
   const handleSaveListing = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -98,12 +102,82 @@ const ListingCard = ({
     navigate(`/profile/${username}`);
   };
 
+  if (compact) {
+    return (
+      <article
+        role="button"
+        tabIndex={0}
+        onClick={() => handleViewJob()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleViewJob();
+        }}
+        className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-2 transition-transform duration-150 hover:scale-[0.98] active:scale-[0.97]"
+      >
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleProfileClick();
+            }}
+            className="mb-1 flex max-w-full items-center gap-2"
+          >
+            <img src={avatar} alt={username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+            <span className="truncate text-[15px] font-semibold text-card-foreground">{username}</span>
+            <VerifiedBadge verified={isVerified} className="h-4 w-4" />
+          </button>
+          <h3 className="line-clamp-1 text-sm font-semibold text-card-foreground">{title}</h3>
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={handleViewJob}
+              className="shrink-0 rounded-md bg-[#174f43] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#123d34]"
+            >
+              Contacter
+            </button>
+            <div className="flex min-w-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={handleSaveListing}
+                aria-label="Enregistrer"
+                className={`shrink-0 rounded-md p-1.5 transition-colors ${isSaved ? "text-accent" : "text-muted-foreground hover:text-accent"}`}
+              >
+                <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+              </button>
+              <span className="flex min-w-0 items-center gap-1 text-xs font-medium text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{location}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <RetryImage
+          src={image}
+          alt={title}
+          wrapClassName="h-24 w-24 shrink-0 overflow-hidden rounded-md bg-muted"
+          className="h-full w-full object-cover"
+        />
+      </article>
+    );
+  }
+
   return (
-    <article className={`bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow flex-shrink-0 w-full ${isLarge ? "max-w-[320px] sm:max-w-[420px]" : fillWidth ? "max-w-none" : "max-w-[320px]"}`}>
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => handleViewJob()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") handleViewJob();
+      }}
+      className={`cursor-pointer bg-card border border-border rounded-lg overflow-hidden transition-transform duration-150 hover:scale-[0.98] active:scale-[0.97] flex-shrink-0 w-full ${isLarge ? "max-w-[320px] sm:max-w-[420px]" : fillWidth ? "max-w-none" : "max-w-[320px]"}`}
+    >
       {/* User Info Header */}
       <div className={`flex items-center justify-between ${isLarge ? 'px-3 sm:px-4 md:px-5 pt-3 sm:pt-4 pb-2 sm:pb-3' : 'px-3 sm:px-4 pt-3 pb-2'}`}>
         <button
-          onClick={handleProfileClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleProfileClick();
+          }}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-1 min-w-0"
         >
           <img
@@ -125,7 +199,7 @@ const ListingCard = ({
             <p className={`text-muted-foreground truncate ${isLarge ? 'text-[10px] sm:text-xs md:text-sm' : 'text-[10px] sm:text-xs'}`}>actif {timeAgo}</p>
           </div>
         </button>
-        <button className="text-muted-foreground hover:opacity-70 transition-opacity">
+        <button onClick={(e) => e.stopPropagation()} className="text-muted-foreground hover:opacity-70 transition-opacity">
           <MoreHorizontal className={`${isLarge ? 'w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6' : 'w-4 h-4 sm:w-5 sm:h-5'}`} />
         </button>
       </div>
@@ -136,10 +210,7 @@ const ListingCard = ({
           src={image}
           alt={title}
           wrapClassName="h-full w-full"
-          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-          onClick={handleViewJob}
-          onMouseDown={(e) => e.preventDefault()}
-          tabIndex={-1}
+          className="w-full h-full object-cover"
         />
         {imageCount && imageCount > 1 && (
           <div className={`absolute bottom-2 left-2 bg-foreground/70 text-background font-semibold px-2 py-1 rounded ${isLarge ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'}`}>
@@ -205,7 +276,7 @@ const ListingCard = ({
             <button
               onClick={handleViewJob}
               onMouseDown={(e) => e.preventDefault()}
-              className={`bg-primary text-primary-foreground font-semibold rounded-md hover:bg-primary/90 transition-colors ${isLarge ? 'text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-2.5' : 'text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2'}`}
+              className={`bg-[#174f43] text-white font-semibold rounded-md hover:bg-[#123d34] transition-colors ${isLarge ? 'text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-2.5' : 'text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2'}`}
             >
               Contacter
             </button>

@@ -8,9 +8,10 @@ interface CategorySectionProps {
   onViewMore?: () => void;
   maxRows?: number; // 1 for normal, 2 for sponsored
   isSponsored?: boolean;
+  stacked?: boolean;
 }
 
-const CategorySection = ({ title, icon, children, onViewMore, maxRows = 1, isSponsored = false }: CategorySectionProps) => {
+const CategorySection = ({ title, icon, children, onViewMore, maxRows = 1, isSponsored = false, stacked = false }: CategorySectionProps) => {
   return (
     <div className="mb-8 sm:mb-12">
       {/* Section Header */}
@@ -34,7 +35,9 @@ const CategorySection = ({ title, icon, children, onViewMore, maxRows = 1, isSpo
       </div>
 
       {/* Section Content */}
-      {maxRows === 2 ? (
+      {stacked ? (
+        <div className="mx-auto flex w-[92%] max-w-[22rem] flex-col gap-2">{children}</div>
+      ) : maxRows === 2 ? (
         // Sponsored: Max 2 rows, scroll horizontal if more - Bigger cards on desktop, normal on mobile
         <div className="overflow-x-auto -mx-2 sm:-mx-4 md:-mx-6 lg:-mx-8 px-2 sm:px-4 md:px-6 lg:px-8 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
           <div className="grid grid-rows-2 grid-flow-col gap-4 sm:gap-6 w-max [grid-auto-columns:minmax(280px,320px)] sm:[grid-auto-columns:minmax(360px,420px)]">

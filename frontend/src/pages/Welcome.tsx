@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Wrench } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { prefetchFeedFirstPage } from "@/lib/feedPrefetch";
 
 export const WELCOME_SEEN_KEY = "sifarah.seenWelcome";
 
@@ -21,6 +23,10 @@ export const markWelcomeSeen = () => {
 
 const Welcome = ({ onDone }: { onDone?: () => void }) => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    prefetchFeedFirstPage();
+  }, []);
 
   const goFeed = () => {
     markWelcomeSeen();

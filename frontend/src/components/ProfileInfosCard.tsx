@@ -10,6 +10,9 @@ export const websiteLinksFrom = (value?: string | null) =>
 
 export const preferredWebsiteFrom = (value?: string | null) => websiteLinksFrom(value)[0] || "";
 
+const INFO_LINK_CLASS =
+  "inline-block origin-left text-accent transition duration-150 hover:scale-[0.97] hover:text-[#174f43] hover:underline active:scale-95";
+
 const hrefForWebsite = (url: string) => (/^https?:\/\//i.test(url) ? url : `https://${url}`);
 
 export const locationsFrom = (value?: string | null) =>
@@ -319,7 +322,7 @@ export const ProfileDetailsFields = ({
           <li className="flex items-start gap-2">
             <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             {email ? (
-              <a href={`mailto:${email}`} className="break-all text-accent hover:underline">
+              <a href={`mailto:${email}`} className={`break-all ${INFO_LINK_CLASS}`}>
                 {email}
               </a>
             ) : isOwnProfile ? (
@@ -333,7 +336,7 @@ export const ProfileDetailsFields = ({
           <li className="flex items-start gap-2">
             <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             {profile.phone ? (
-              <a href={`tel:${profile.phone}`} className="text-accent hover:underline">
+              <a href={`tel:${profile.phone}`} className={INFO_LINK_CLASS}>
                 {profile.phone}
               </a>
             ) : isOwnProfile ? (
@@ -353,7 +356,7 @@ export const ProfileDetailsFields = ({
                     href={hrefForWebsite(link)}
                     target="_blank"
                     rel="noreferrer"
-                    className="break-all text-accent hover:underline"
+                    className={`break-all ${INFO_LINK_CLASS}`}
                   >
                     {link}
                   </a>

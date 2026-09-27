@@ -97,6 +97,49 @@ const FeedPost = ({
   const [isSaved, setIsSaved] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [captionExpanded, setCaptionExpanded] = useState(false);
+  const [viewerCaptionExpanded, setViewerCaptionExpanded] = useState(false);
+  const [viewerCaptionClamped, setViewerCaptionClamped] = useState(false);
+  const viewerCaptionRef = useRef<HTMLParagraphElement>(null);
+  const viewerImageRef = useRef<HTMLDivElement>(null);
+  const pinchStartRef = useRef<{ distance: number; midX: number; midY: number } | null>(null);
+  const [pinch, setPinch] = useState<{ scale: number; x: number; y: number } | null>(null);
+  const [pinchOrigin, setPinchOrigin] = useState({ x: 0, y: 0 });
+  const overlayFade = pinch ? "pointer-events-none opacity-0" : "opacity-100";
+
+  const touchGeometry = (touches: React.TouchList) => {
+    const [a, b] = [touches[0], touches[1]];
+    return {
+      distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+      midX: (a.clientX + b.clientX) / 2,
+      midY: (a.clientY + b.clientY) / 2,
+    };
+  };
+
+  const handleViewerTouchStart = (event: React.TouchEvent) => {
+    if (event.touches.length !== 2) return;
+    const start = touchGeometry(event.touches);
+    const rect = viewerImageRef.current?.getBoundingClientRect();
+    pinchStartRef.current = start;
+    if (rect) setPinchOrigin({ x: start.midX - rect.left, y: start.midY - rect.top });
+    setPinch({ scale: 1, x: 0, y: 0 });
+  };
+
+  const handleViewerTouchMove = (event: React.TouchEvent) => {
+    const start = pinchStartRef.current;
+    if (!start || event.touches.length !== 2) return;
+    const now = touchGeometry(event.touches);
+    setPinch({
+      scale: Math.min(4, Math.max(1, now.distance / start.distance)),
+      x: now.midX - start.midX,
+      y: now.midY - start.midY,
+    });
+  };
+
+  const handleViewerTouchEnd = (event: React.TouchEvent) => {
+    if (!pinchStartRef.current || event.touches.length >= 2) return;
+    pinchStartRef.current = null;
+    setPinch(null);
+  };
   const [isHidden, setIsHidden] = useState(false);
   const [commentOverride, setCommentOverride] = useState<"default" | PostCommentPermission>("default");
   const [showCommentOptions, setShowCommentOptions] = useState(false);
@@ -115,6 +158,26 @@ const FeedPost = ({
   useEffect(() => {
     setDisplayDescription(description || "");
   }, [description]);
+
+  const viewerOpen = selectedImageIndex !== null;
+
+  useEffect(() => {
+    if (!viewerOpen) {
+      setViewerCaptionExpanded(false);
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [viewerOpen]);
+
+  useEffect(() => {
+    const el = viewerCaptionRef.current;
+    if (!viewerOpen || !el || viewerCaptionExpanded) return;
+    setViewerCaptionClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [viewerOpen, viewerCaptionExpanded, displayDescription]);
 
   // Check if post is liked/saved on mount
   useEffect(() => {
@@ -530,7 +593,7 @@ const FeedPost = ({
           <DropdownMenuTrigger asChild>
             <button className="text-muted-foreground hover:opacity-70 transition-opacity ml-2">
               <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
+        </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" collisionPadding={12} className="w-[min(calc(100vw-1.5rem),16rem)] max-h-[min(70vh,28rem)] overflow-y-auto">
             {isOwnPost ? (
@@ -617,7 +680,7 @@ const FeedPost = ({
               {surface ? <span>{surface}{/\d/.test(surface) && !/m/i.test(surface) ? " m²" : ""}</span> : null}
               {beds != null ? <span>{beds} ch.</span> : null}
               {baths != null ? <span>{baths} sdb</span> : null}
-            </div>
+          </div>
           ) : null}
         </div>
       ) : null}
@@ -657,7 +720,7 @@ const FeedPost = ({
               ? ""
               : allImages.length === 2
                 ? "grid grid-cols-2 gap-1"
-                : "grid h-56 grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:h-80"
+                : "grid h-[30vh] grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:aspect-[3/2] sm:h-auto"
           }`}
         >
           {allImages.slice(0, allImages.length >= 3 ? 3 : 2).map((image, index) => (
@@ -669,12 +732,12 @@ const FeedPost = ({
                 allImages.length >= 3 && index === 0
                   ? "row-span-2 h-full"
                   : allImages.length === 2
-                    ? "h-52 sm:h-72"
+                    ? "h-[30vh] sm:aspect-[3/4] sm:h-auto"
                     : "h-full"
               }
               className={
                 allImages.length === 1
-                  ? "max-h-[68vh] w-full cursor-pointer object-cover sm:max-h-[620px]"
+                  ? "max-h-[30vh] w-full cursor-pointer object-cover sm:aspect-[3/2] sm:max-h-none"
                   : "h-full w-full cursor-pointer object-cover"
               }
               onClick={() => setSelectedImageIndex(index)}
@@ -697,56 +760,139 @@ const FeedPost = ({
 
       {/* Image Modal */}
       {selectedImageIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setSelectedImageIndex(null)}
-        >
-          <button
-            onClick={() => setSelectedImageIndex(null)}
-            className="absolute top-4 right-4 text-white hover:opacity-70 transition-opacity z-10"
-          >
-            <X className="w-6 h-6 sm:w-8 sm:h-8" />
-          </button>
-
-          {hasMultipleImages && selectedImageIndex > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedImageIndex(selectedImageIndex - 1);
-              }}
-              className="absolute left-4 text-white hover:opacity-70 transition-opacity z-10 bg-black/50 rounded-full p-2"
-            >
-              <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
-            </button>
-          )}
-
-          {hasMultipleImages && selectedImageIndex < allImages.length - 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedImageIndex(selectedImageIndex + 1);
-              }}
-              className="absolute right-4 text-white hover:opacity-70 transition-opacity z-10 bg-black/50 rounded-full p-2"
-            >
-              <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
-            </button>
-          )}
-
+        <div className="fixed inset-0 z-50 bg-black text-white">
           <div
-            className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
+            className="relative mx-auto flex h-full w-full max-w-2xl touch-pan-y items-center justify-center"
+            onTouchStart={handleViewerTouchStart}
+            onTouchMove={handleViewerTouchMove}
+            onTouchEnd={handleViewerTouchEnd}
+            onTouchCancel={handleViewerTouchEnd}
           >
-            <RetryImage
-              src={allImages[selectedImageIndex]}
-              alt={`${title} - Image ${selectedImageIndex + 1}`}
-              wrapClassName="max-w-full max-h-full"
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-            {hasMultipleImages && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded">
-                {selectedImageIndex + 1} / {allImages.length}
+            <div
+              ref={viewerImageRef}
+              className="w-full"
+              style={{
+                transform: pinch ? `translate(${pinch.x}px, ${pinch.y}px) scale(${pinch.scale})` : "none",
+                transformOrigin: `${pinchOrigin.x}px ${pinchOrigin.y}px`,
+                transition: pinch ? "none" : "transform 200ms ease-out",
+              }}
+            >
+              <RetryImage
+                src={allImages[selectedImageIndex]}
+                alt={`${title} - Image ${selectedImageIndex + 1}`}
+                wrapClassName="w-full"
+                className="h-auto max-h-[80vh] w-full object-contain"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedImageIndex(null)}
+              className={`absolute left-4 top-[max(1rem,env(safe-area-inset-top))] z-30 rounded-full bg-black/40 p-2 text-white transition hover:bg-black/60 ${overlayFade}`}
+              aria-label="Fermer"
+            >
+              <X className="h-6 w-6" />
+            </button>
+
+            {hasMultipleImages ? (
+              <span className={`absolute left-1/2 top-[max(1.25rem,env(safe-area-inset-top))] z-30 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold transition-opacity ${overlayFade}`}>
+                {selectedImageIndex + 1}/{allImages.length}
+              </span>
+            ) : null}
+
+            {hasMultipleImages && selectedImageIndex > 0 ? (
+              <button
+                type="button"
+                onClick={() => setSelectedImageIndex(selectedImageIndex - 1)}
+                className={`absolute left-3 top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition hover:bg-black/70 ${overlayFade}`}
+                aria-label="Image précédente"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            ) : null}
+            {hasMultipleImages && selectedImageIndex < allImages.length - 1 ? (
+              <button
+                type="button"
+                onClick={() => setSelectedImageIndex(selectedImageIndex + 1)}
+                className={`absolute right-3 top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition hover:bg-black/70 ${overlayFade}`}
+                aria-label="Image suivante"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            ) : null}
+
+            <div className={`absolute bottom-0 left-0 z-20 max-w-[calc(100%-5rem)] bg-gradient-to-t from-black/60 to-transparent p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-opacity ${overlayFade}`}>
+              <div className="mb-2 flex items-center gap-3">
+                <button type="button" onClick={handleProfileClick} className="shrink-0">
+                  <img
+                    src={avatar || getDefaultAvatar("craftsman")}
+                    alt={username}
+                    className="h-11 w-11 rounded-full border-2 border-white object-cover"
+                  />
+                </button>
+                <div className="flex min-w-0 items-center gap-1">
+                  <button type="button" onClick={handleProfileClick} className="truncate text-[15px] font-semibold">
+                    {username}
+                  </button>
+                  <VerifiedBadge verified={isVerified} className="h-[17px] w-[17px]" />
+                </div>
               </div>
-            )}
+              {displayDescription ? (
+                <>
+                  <p
+                    ref={viewerCaptionRef}
+                    className={`whitespace-pre-wrap break-words text-sm leading-5 ${viewerCaptionExpanded ? "max-h-[40vh] overflow-y-auto" : "line-clamp-2"}`}
+                  >
+                    <TaggedText text={displayDescription} />
+                  </p>
+                  {viewerCaptionClamped || viewerCaptionExpanded ? (
+                    <button
+                      type="button"
+                      onClick={() => setViewerCaptionExpanded((v) => !v)}
+                      className="mt-1 text-sm font-semibold text-white/80 hover:text-white"
+                    >
+                      {viewerCaptionExpanded ? "Voir moins" : "Voir plus"}
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+
+            <div className={`absolute bottom-0 right-0 z-20 flex flex-col items-center gap-5 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-opacity ${overlayFade}`}>
+              <button
+                type="button"
+                onClick={handleLike}
+                className="flex flex-col items-center gap-1 text-xs font-semibold transition-transform active:scale-90"
+                aria-label="J'aime"
+              >
+                <Heart className={`h-8 w-8 ${liked ? "fill-accent text-accent" : "text-white"}`} strokeWidth={1.8} />
+                {showLikeCount ? likeCount : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowComments(true)}
+                className="transition-transform active:scale-90"
+                aria-label="Commentaires"
+              >
+                <RoundCommentIcon className="h-8 w-8" />
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="transition-transform active:scale-90"
+                aria-label="Partager"
+              >
+                <IosShareIcon className="h-8 w-8" />
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="transition-transform active:scale-90"
+                aria-label="Enregistrer"
+              >
+                <Bookmark className={`h-8 w-8 ${isSaved ? "fill-accent text-accent" : "text-white"}`} strokeWidth={1.8} />
+              </button>
+            </div>
           </div>
         </div>
       )}

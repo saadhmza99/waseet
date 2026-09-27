@@ -15,6 +15,7 @@ import { toast } from "@/components/ui/use-toast";
 import { userSettingsService } from "@/services/userSettingsService";
 import { muteService, type MutedAccount } from "@/services/muteService";
 import { preferredWebsiteFrom, websiteLinksFrom } from "@/components/ProfileInfosCard";
+import ImageCropper from "@/components/ImageCropper";
 import { useAppLanguage } from "@/contexts/AppLanguageContext";
 
 const Settings = () => {
@@ -29,6 +30,7 @@ const Settings = () => {
   const [bio, setBio] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [language, setLanguage] = useState("English");
   const [region, setRegion] = useState("UAE");
@@ -258,7 +260,10 @@ const Settings = () => {
                     accept="image/*"
                     capture="environment"
                     className="hidden"
-                    onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      setCropFile(e.target.files?.[0] || null);
+                      e.target.value = "";
+                    }}
                   />
                   <span className="inline-flex h-9 items-center rounded-md bg-secondary px-3 text-sm font-medium">
                     Take photo
@@ -269,7 +274,10 @@ const Settings = () => {
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      setCropFile(e.target.files?.[0] || null);
+                      e.target.value = "";
+                    }}
                   />
                   <span className="inline-flex h-9 items-center rounded-md bg-secondary px-3 text-sm font-medium">
                     Upload photo
@@ -277,6 +285,19 @@ const Settings = () => {
                 </label>
               </div>
             </div>
+            {cropFile ? (
+              <ImageCropper
+                file={cropFile}
+                aspect={1}
+                round
+                outputWidth={512}
+                onCancel={() => setCropFile(null)}
+                onConfirm={(cropped) => {
+                  setAvatarFile(cropped);
+                  setCropFile(null);
+                }}
+              />
+            ) : null}
 
             <div>
               <Label htmlFor="username" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">

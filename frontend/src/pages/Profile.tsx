@@ -56,6 +56,7 @@ import { locationsFrom, ProfileDetailsFields, type InfosField } from "@/componen
 import UploadProgressRing from "@/components/UploadProgressRing";
 import { RetryImage } from "@/components/RetryImage";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
+import ImageCropper from "@/components/ImageCropper";
 import BlockMemberModal from "@/components/BlockMemberModal";
 import MuteProfileModal from "@/components/MuteProfileModal";
 import AboutThisMemberSheet from "@/components/AboutThisMemberSheet";
@@ -183,6 +184,7 @@ const PhotoEditControl = ({
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const isCover = layout === "cover";
+  const [pending, setPending] = useState<{ file: File; source: "camera" | "library" } | null>(null);
 
   const menu = (
     <DropdownMenu>
@@ -231,7 +233,7 @@ const PhotoEditControl = ({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) onTake(file);
+          if (file) setPending({ file, source: "camera" });
           e.target.value = "";
         }}
       />
@@ -242,11 +244,24 @@ const PhotoEditControl = ({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) onLibrary(file);
+          if (file) setPending({ file, source: "library" });
           e.target.value = "";
         }}
       />
-      {isCover ? (
+      {pending ? (
+        <ImageCropper
+          file={pending.file}
+          aspect={isCover ? 3 : 1}
+          round={!isCover}
+          outputWidth={isCover ? 1500 : 512}
+          onCancel={() => setPending(null)}
+          onConfirm={(cropped) => {
+            if (pending.source === "camera") onTake(cropped);
+            else onLibrary(cropped);
+            setPending(null);
+          }}
+        />
+      ) : isCover ? (
         <div className="relative h-32 w-full overflow-hidden rounded-md bg-muted">
           {previewSrc ? (
             <img src={previewSrc} alt="" className="h-full w-full object-cover grayscale" />
@@ -1248,8 +1263,8 @@ const Profile = () => {
                     className={`about-content w-full min-w-0 max-w-full overflow-hidden text-base leading-relaxed text-card-foreground ${
                       isOwnProfile ? "cursor-pointer" : ""
                     }`}
-                    onClick={() => {
-                      if (!isOwnProfile) return;
+                    onClick={(event) => {
+                      if (!isOwnProfile || (event.target as HTMLElement).closest("a")) return;
                       setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
                       setEditingAbout(true);
                     }}
@@ -1756,7 +1771,7 @@ const Profile = () => {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit profile</DialogTitle>
           </DialogHeader>

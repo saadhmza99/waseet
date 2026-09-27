@@ -1546,3 +1546,28 @@ CREATE POLICY "Sellers can view their property inquiries"
 ALTER TABLE public.posts ALTER COLUMN title DROP NOT NULL;
 ALTER TABLE public.posts ALTER COLUMN title SET DEFAULT '';
 
+-- Feed "Bonjour!" banner: images rotate every 15 minutes in sort_order.
+-- image_url can be a path under frontend/public (e.g. /feed-banners/x.jpg) or a full URL.
+CREATE TABLE IF NOT EXISTS public.feed_banner_images (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  image_url TEXT NOT NULL UNIQUE,
+  alt TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+ALTER TABLE public.feed_banner_images ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view active feed banner images" ON public.feed_banner_images;
+CREATE POLICY "Anyone can view active feed banner images"
+  ON public.feed_banner_images FOR SELECT
+  USING (is_active);
+
+INSERT INTO public.feed_banner_images (image_url, alt, sort_order) VALUES
+  ('/feed-banners/agadir-plage.png', 'Plage d’Agadir au coucher du soleil', 1),
+  ('/feed-banners/palais-piscine.webp', 'Palais marocain avec piscine', 2),
+  ('/feed-banners/villa-jardin.webp', 'Villa marocaine dans un jardin', 3),
+  ('/feed-banners/riad-patio.jpg', 'Patio de riad avec piscine', 4)
+ON CONFLICT (image_url) DO NOTHING;
+

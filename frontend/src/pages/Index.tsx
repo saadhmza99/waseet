@@ -15,6 +15,9 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
+import InfiniteScrollSentinel, { PAGE_SIZE } from "@/components/InfiniteScrollSentinel";
+import { takeFeedFirstPage } from "@/lib/feedPrefetch";
+import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
 
 const RenovationIcon = ({ className }: { className?: string }) => (
   <svg
@@ -51,6 +54,13 @@ const HandGearIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
+  { id: "agadir-plage", image_url: "/feed-banners/agadir-plage.png", alt: "Plage d’Agadir au coucher du soleil" },
+  { id: "palais-piscine", image_url: "/feed-banners/palais-piscine.webp", alt: "Palais marocain avec piscine" },
+  { id: "villa-jardin", image_url: "/feed-banners/villa-jardin.webp", alt: "Villa marocaine dans un jardin" },
+  { id: "riad-patio", image_url: "/feed-banners/riad-patio.jpg", alt: "Patio de riad avec piscine" },
+];
+
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
@@ -61,9 +71,13 @@ const Index = () => {
   const [followingPosts, setFollowingPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [offset, setOffset] = useState(0);
-  const limit = 50;
-  
+  const [bannerImages, setBannerImages] = useState<FeedBannerImage[]>(DEFAULT_BANNER_IMAGES);
+  const [bannerNow, setBannerNow] = useState(() => Date.now());
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const postsFetchedRef = useRef(0);
+  const hiddenAuthorsRef = useRef<Set<string>>(new Set());
+
   // Track which posts from following users we've already shown
   const shownFollowingPostsRef = useRef<Set<string>>(new Set());
   // Track current index for each followed user
@@ -71,43 +85,103 @@ const Index = () => {
   // Track which users we've already shown posts from in current cycle
   const currentCycleUsersRef = useRef<Set<string>>(new Set());
 
+  useEffect(() => {
+    feedBannerService
+      .getActiveImages()
+      .then((images) => {
+        if (images.length) setBannerImages(images);
+      })
+      .catch((error) => console.error("Error loading feed banner images:", error));
+  }, []);
+
+  useEffect(() => {
+    const untilNextSlot = FEED_BANNER_ROTATION_MS - (Date.now() % FEED_BANNER_ROTATION_MS);
+    const timer = window.setTimeout(() => setBannerNow(Date.now()), untilNextSlot + 50);
+    return () => window.clearTimeout(timer);
+  }, [bannerNow]);
+
+  const bannerImage = feedBannerService.pickForNow(bannerImages, bannerNow);
+
   // Load posts and sponsored listings
   useEffect(() => {
     if (authLoading) return;
+    let cancelled = false;
     const loadData = async () => {
       try {
         setLoading(true);
-        const [postsData, listingsData, followingData, blockedUserIds, mutedIds] = await Promise.all([
-          postService.getPosts(limit, offset),
-          listingService.getListings(10, 0, true), // Get sponsored listings
-          user ? followService.getPostsFromFollowing(user.id, 100) : Promise.resolve([]),
+        const [postsData, blockedUserIds, mutedIds] = await Promise.all([
+          takeFeedFirstPage().then((page) => page ?? postService.getPosts(PAGE_SIZE, 0)),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
         ]);
+        if (cancelled) return;
 
         const blockedSet = new Set(blockedUserIds || []);
-        const filteredPosts = (postsData || []).filter(
-          (post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)
+        hiddenAuthorsRef.current = new Set([...blockedSet, ...mutedIds.posts]);
+        postsFetchedRef.current = (postsData || []).length;
+        setHasMorePosts((postsData || []).length === PAGE_SIZE);
+        setAllPosts(
+          (postsData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id))
         );
-        const filteredFollowingPosts = (followingData || []).filter(
-          (post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)
-        );
-        const filteredListings = (listingsData || []).filter(
-          (listing) => !blockedSet.has(listing.user_id) && !mutedIds.services.has(listing.user_id)
-        );
+        setLoading(false);
 
-        setAllPosts(filteredPosts);
-        setSponsoredListings(filteredListings);
-        setFollowingPosts(filteredFollowingPosts);
+        listingService
+          .getListings(10, 0, true)
+          .then((listingsData) => {
+            if (cancelled) return;
+            setSponsoredListings(
+              (listingsData || []).filter(
+                (listing) => !blockedSet.has(listing.user_id) && !mutedIds.services.has(listing.user_id)
+              )
+            );
+          })
+          .catch((error) => console.error("Error loading sponsored listings:", error));
+
+        if (user) {
+          followService
+            .getPostsFromFollowing(user.id, 100)
+            .then((followingData) => {
+              if (cancelled) return;
+              setFollowingPosts(
+                (followingData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id))
+              );
+            })
+            .catch((error) => console.error("Error loading following posts:", error));
+        } else {
+          setFollowingPosts([]);
+        }
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadData();
-  }, [offset, user, authLoading]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
+
+  const loadMorePosts = async () => {
+    if (loadingMore || !hasMorePosts) return;
+    setLoadingMore(true);
+    try {
+      const data = (await postService.getPosts(PAGE_SIZE, postsFetchedRef.current)) || [];
+      postsFetchedRef.current += data.length;
+      setHasMorePosts(data.length === PAGE_SIZE);
+      const visible = data.filter((post) => !hiddenAuthorsRef.current.has(post.user_id));
+      setAllPosts((prev) => {
+        const seen = new Set(prev.map((post) => post.id));
+        return [...prev, ...visible.filter((post) => !seen.has(post.id))];
+      });
+    } catch (error) {
+      console.error("Error loading more posts:", error);
+      setHasMorePosts(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Format time ago
   const formatTimeAgo = (date: string) => {
@@ -177,12 +251,15 @@ const Index = () => {
       }
         // Reload posts
         const [postsData, followingData, blockedUserIds, mutedIds] = await Promise.all([
-          postService.getPosts(limit, 0),
+          postService.getPosts(PAGE_SIZE, 0),
           user ? followService.getPostsFromFollowing(user.id, 100) : Promise.resolve([]),
           moderationService.getBlockedUserIds(user.id),
           muteService.getMutedIds(user.id),
         ]);
         const blockedSet = new Set(blockedUserIds || []);
+        hiddenAuthorsRef.current = new Set([...blockedSet, ...mutedIds.posts]);
+        postsFetchedRef.current = (postsData || []).length;
+        setHasMorePosts((postsData || []).length === PAGE_SIZE);
         setAllPosts((postsData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)));
         setFollowingPosts((followingData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)));
         // Reset tracking when new posts are loaded
@@ -281,6 +358,9 @@ const Index = () => {
 
   // Build feed with mixed posts: every 3 posts, insert one from following
   const buildFeed = (): ReactElement[] => {
+    shownFollowingPostsRef.current.clear();
+    userPostIndicesRef.current.clear();
+    currentCycleUsersRef.current.clear();
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
     const posts = allPosts.filter((post) => {
@@ -476,9 +556,10 @@ const Index = () => {
 
         <section className="relative mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white">
           <img
-            src="/agadir-welcome.png"
-            alt="Vue panoramique d’Agadir"
-            className="absolute inset-0 h-full w-full object-cover"
+            key={bannerImage?.image_url || "fallback"}
+            src={bannerImage?.image_url || "/agadir-welcome.png"}
+            alt={bannerImage?.alt || "Vue panoramique d’Agadir"}
+            className="absolute inset-0 h-full w-full animate-in fade-in object-cover duration-700"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
           <div className="relative flex min-h-[175px] max-w-full translate-y-4 flex-col justify-center px-4 py-4">
@@ -534,6 +615,9 @@ const Index = () => {
         ) : (
           buildFeed()
         )}
+        {!loading ? (
+          <InfiniteScrollSentinel hasMore={hasMorePosts} loading={loadingMore} onLoadMore={loadMorePosts} />
+        ) : null}
       </div>
     </div>
   );

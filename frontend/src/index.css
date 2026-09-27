@@ -250,6 +250,21 @@
   text-underline-offset: 2px;
 }
 
+.about-content a {
+  display: inline-block;
+  transform-origin: left center;
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+.about-content a:hover {
+  color: #174f43;
+  transform: scale(0.97);
+}
+
+.about-content a:active {
+  transform: scale(0.95);
+}
+
 .profile-post-thumb {
   background: transparent;
   cursor: pointer;
