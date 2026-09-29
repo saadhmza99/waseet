@@ -29,6 +29,18 @@ export const FEED_PAGE_SIZE = 2;
 
 export type FeedPage = { posts: any[]; hasMore: boolean };
 
+const attachPortfolioLinks = async (posts: any[]) => {
+  const ids = posts.map((post) => post.id).filter(Boolean);
+  if (!ids.length) return posts;
+  const { data, error } = await supabase.from("posts").select("id, property_id, project_id").in("id", ids);
+  if (error || !data) return posts;
+  const links = new Map(data.map((row) => [row.id, row]));
+  return posts.map((post) => {
+    const link = links.get(post.id);
+    return link ? { ...post, property_id: link.property_id, project_id: link.project_id } : post;
+  });
+};
+
 const mapFeedRow = (row: any) => ({
   id: row.id,
   user_id: row.user_id,
@@ -48,6 +60,8 @@ const mapFeedRow = (row: any) => ({
   beds: row.beds,
   baths: row.baths,
   city: row.city,
+  property_id: row.property_id || null,
+  project_id: row.project_id || null,
   profiles: {
     id: row.user_id,
     username: row.username || "",
@@ -114,11 +128,13 @@ export const postService = {
     const rows = data || [];
     if (rows.length === 0 && offset === 0) {
       const fallback = await fallbackFeedPage(limit);
-      if (fallback) return fallback;
+      if (fallback) {
+        return { ...fallback, posts: await attachPortfolioLinks(fallback.posts) };
+      }
     }
     return {
       hasMore: Boolean(rows[0]?.has_more),
-      posts: rows.map(mapFeedRow),
+      posts: await attachPortfolioLinks(rows.map(mapFeedRow)),
     };
   },
 

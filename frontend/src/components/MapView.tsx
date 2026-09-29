@@ -1,27 +1,25 @@
-import { MapPin } from "lucide-react";
+const ANFA_PLACE = { lat: 33.59806, lng: -7.66694 };
 
-interface MapViewProps {
-  userLocation?: { lat: number; lng: number } | null;
-}
+const MapView = () => {
+  const { lat, lng } = ANFA_PLACE;
+  const pad = 0.012;
+  const bbox = `${lng - pad},${lat - pad},${lng + pad},${lat + pad}`;
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat}%2C${lng}`;
 
-const MapView = ({ userLocation }: MapViewProps) => {
   return (
-    <div className="h-[calc(100vh-200px)] w-full bg-muted/40 rounded-lg border border-border flex items-center justify-center">
-      <div className="text-center px-4">
-        <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-        <p className="text-card-foreground font-medium mb-1">Vue carte indisponible</p>
-        <p className="text-sm text-muted-foreground">
-          Cette section affichera les services géolocalisées réelles une fois les coordonnées stockées.
-        </p>
-        {userLocation && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Position actuelle détectée: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
-          </p>
-        )}
-      </div>
+    <div className="overflow-hidden rounded-xl border border-neutral-300 bg-white">
+      <iframe
+        title="Anfa Place Mall, Casablanca"
+        src={src}
+        className="h-[420px] w-full border-0"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+      <p className="border-t border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-800">
+        Anfa Place Mall, Casablanca
+      </p>
     </div>
   );
 };
 
 export default MapView;
-

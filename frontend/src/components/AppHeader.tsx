@@ -1,19 +1,25 @@
 import { useEffect, useState } from "react";
 import { Bell, Wrench, MapPin, ChevronDown, ChevronLeft, Search } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { detectCityFromIp, getStoredFeedCity, setStoredFeedCity } from "@/lib/feedLocation";
 import { MOROCCO_REGION_CITIES } from "@/lib/moroccoPlaces";
 
 const AppHeader = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const hideSearch = pathname.startsWith("/explore") || pathname.startsWith("/saved");
+  const [searchParams] = useSearchParams();
+  const hideSearch = pathname === "/" || pathname.startsWith("/saved") || pathname.startsWith("/explore");
   const [feedCity, setFeedCity] = useState(() => getStoredFeedCity() || "…");
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationStep, setLocationStep] = useState<"regions" | "cities">("regions");
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   const [regionQuery, setRegionQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!pathname.startsWith("/explore")) return;
+    setSearchQuery(searchParams.get("q") || "");
+  }, [pathname, searchParams]);
 
   useEffect(() => {
     const stored = getStoredFeedCity();
@@ -86,7 +92,7 @@ const AppHeader = () => {
             onSubmit={(event) => {
               event.preventDefault();
               const query = searchQuery.trim();
-              if (query) navigate(`/explore?q=${encodeURIComponent(query)}`);
+              navigate(query ? `/explore?q=${encodeURIComponent(query)}` : "/explore");
             }}
           >
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />

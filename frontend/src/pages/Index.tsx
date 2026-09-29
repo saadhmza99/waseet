@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
 import SponsoredBanner from "@/components/SponsoredBanner";
+import ListingCard from "@/components/ListingCard";
 import { FEED_PAGE_SIZE, postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import type { CreatePostPayload } from "@/components/CreatePost";
@@ -64,6 +65,19 @@ const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
 ];
 
 type ImmobilierFilter = "all" | "sale" | "rent" | "agencies";
+type FeedKind = "all" | "biens-projets" | "annonces";
+
+const FEED_KINDS: { id: FeedKind; label: string }[] = [
+  { id: "all", label: "Actualité" },
+  { id: "biens-projets", label: "Biens projets" },
+  { id: "annonces", label: "Annonces" },
+];
+
+const isBienPost = (post: { post_type?: string | null }) =>
+  ["property", "bien", "propriete", "propriété"].includes(post.post_type || "");
+const isProjetPost = (post: { post_type?: string | null }) => post.post_type === "project";
+const isPortfolioBienProjet = (post: { post_type?: string | null; property_id?: string | null; project_id?: string | null }) =>
+  (isBienPost(post) || isProjetPost(post)) && Boolean(post.property_id || post.project_id);
 
 const IMMOBILIER_FILTERS: { id: ImmobilierFilter; label: string }[] = [
   { id: "all", label: "Tout" },
@@ -79,8 +93,23 @@ const Index = () => {
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
   const [feedCategory, setFeedCategory] = useState<"all" | "immobilier" | "construction" | "autres">("all");
   const [immobilierFilter, setImmobilierFilter] = useState<ImmobilierFilter>("all");
+  const [feedKind, setFeedKind] = useState<FeedKind>("all");
+  const [kindSlide, setKindSlide] = useState<"left" | "right">("right");
+  const kindDrag = useRef<number | null>(null);
+  const kindIndex = Math.max(0, FEED_KINDS.findIndex((item) => item.id === feedKind));
+
+  const moveFeedKind = (nextIndex: number) => {
+    const count = FEED_KINDS.length;
+    const wrapped = (nextIndex + count) % count;
+    if (wrapped === kindIndex) return;
+    const forward = (wrapped - kindIndex + count) % count;
+    const backward = (kindIndex - wrapped + count) % count;
+    setKindSlide(forward <= backward ? "right" : "left");
+    setFeedKind(FEED_KINDS[wrapped].id);
+  };
   const [allPosts, setAllPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
+  const [feedListings, setFeedListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [bannerImages, setBannerImages] = useState<FeedBannerImage[]>(DEFAULT_BANNER_IMAGES);
   const [bannerNow, setBannerNow] = useState(() => Date.now());
@@ -161,18 +190,18 @@ const Index = () => {
         if (page.hasMore) void loadMorePosts();
 
         Promise.all([
-          listingService.getListings(10, 0, true),
+          listingService.getListings(40, 0),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
         ])
           .then(([listingsData, blockedUserIds, mutedIds]) => {
             if (cancelled) return;
             const blockedSet = new Set(blockedUserIds || []);
-            setSponsoredListings(
-              (listingsData || []).filter(
-                (listing) => !blockedSet.has(listing.user_id) && !mutedIds.services.has(listing.user_id)
-              )
+            const visible = (listingsData || []).filter(
+              (listing) => !blockedSet.has(listing.user_id) && !mutedIds.services.has(listing.user_id)
             );
+            setFeedListings(visible);
+            setSponsoredListings(visible.filter((listing) => listing.is_sponsored));
           })
           .catch((error) => console.error("Error loading sponsored listings:", error));
       } catch (error) {
@@ -187,6 +216,12 @@ const Index = () => {
       cancelled = true;
     };
   }, [user, authLoading]);
+
+  useEffect(() => {
+    if (feedKind !== "biens-projets" || loading || !hasMorePosts) return;
+    const matches = allPosts.some((post) => isPortfolioBienProjet(post));
+    if (!matches) void loadMorePosts();
+  }, [feedKind, allPosts, hasMorePosts, loading]);
 
   // Format time ago
   const formatTimeAgo = (date: string) => {
@@ -372,7 +407,68 @@ const Index = () => {
         return !construction && !immobilier;
       }
       return true;
+    }).filter((post) => {
+      if (feedKind === "biens-projets") return isPortfolioBienProjet(post);
+      return true;
     });
+    if (feedKind === "annonces") {
+      const annonces = feedListings.filter((listing) => {
+        if (feedCategory === "all" || feedCategory === "immobilier") return true;
+        const hay = `${listing.title || ""} ${listing.profession || ""} ${listing.description || ""} ${listing.location || ""}`.toLowerCase();
+        if (feedCategory === "construction") return /construct|bâtiment|batiment|chantier/.test(hay);
+        if (feedCategory === "autres") {
+          const construction = /construct|bâtiment|batiment|chantier/.test(hay);
+          const immobilier = /immobilier|appartement|villa|location|à louer|a louer|à vendre|a vendre/.test(hay);
+          return !construction && !immobilier;
+        }
+        return true;
+      });
+      if (!annonces.length) {
+        return [
+          <div key="kind-empty" className="py-8 text-center text-muted-foreground">
+            Aucune annonce pour le moment
+          </div>,
+        ];
+      }
+      return annonces.map((listing) => {
+        const profile = listing.profiles || {};
+        return (
+          <div key={listing.id} className="mb-3 px-3">
+            <ListingCard
+              id={listing.id}
+              userId={listing.user_id}
+              avatar={profile.avatar_url || getDefaultAvatar("individual")}
+              username={profile.username || ""}
+              fullName={profile.full_name || ""}
+              isVerified={Boolean(profile.is_verified)}
+              timeAgo={formatTimeAgo(listing.created_at)}
+              image={listing.image_url || ""}
+              imageCount={listing.image_count || 1}
+              location={listing.location || ""}
+              title={listing.title || "Annonce"}
+              profession={listing.profession || ""}
+              priceRange={listing.price_range || "Prix sur demande"}
+              isSponsored={Boolean(listing.is_sponsored)}
+              fillWidth
+            />
+          </div>
+        );
+      });
+    }
+    if (!posts.length) {
+      if (hasMorePosts || loadingMore) {
+        return [
+          <div key="kind-loading" className="py-8 text-center text-muted-foreground">
+            Chargement...
+          </div>,
+        ];
+      }
+      return [
+        <div key="kind-empty" className="py-8 text-center text-muted-foreground">
+          Aucun post pour ce filtre
+        </div>,
+      ];
+    }
     let bannerIndex = 0;
 
     posts.forEach((post, index) => {
@@ -460,7 +556,7 @@ const Index = () => {
         <div className="mb-2 overflow-x-auto overscroll-x-contain border-b border-neutral-200 bg-white [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-max items-start gap-x-6 px-4 pb-4 pt-3">
           {[
-            { id: "all" as const, label: "Tout", Icon: LayoutGrid, tone: "bg-[#174f43]" },
+            { id: "all" as const, label: "Accueil", Icon: LayoutGrid, tone: "bg-[#174f43]" },
             { id: "immobilier" as const, label: "Immobilier", Icon: Building2, tone: "bg-[#eee9ec]" },
             { id: "construction" as const, label: "Construction", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
             { id: "services" as const, label: "Services", Icon: HandGearIcon, tone: "bg-[#eee9ec]" },
@@ -543,7 +639,68 @@ const Index = () => {
         </section>
         )}
 
-        {sponsoredListings.length >= 2 && feedCategory !== "immobilier" && (
+        <div
+          className="mb-4 flex touch-pan-y select-none flex-col items-center"
+          onPointerDown={(event) => {
+            kindDrag.current = event.clientX;
+          }}
+          onPointerUp={(event) => {
+            if (kindDrag.current == null) return;
+            const delta = event.clientX - kindDrag.current;
+            kindDrag.current = null;
+            if (delta <= -36) {
+              moveFeedKind(kindIndex + 1);
+              return;
+            }
+            if (delta >= 36) {
+              moveFeedKind(kindIndex - 1);
+              return;
+            }
+            if ((event.target as HTMLElement).closest("button")) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            moveFeedKind(x < rect.width * 0.32 ? kindIndex - 1 : kindIndex + 1);
+          }}
+        >
+          <div className="flex h-8 items-center gap-6 text-[#174f43]">
+            <span className="text-xl font-light leading-none text-neutral-400" aria-hidden>
+              ‹
+            </span>
+            <span
+              key={feedKind}
+              className={`inline-block min-w-[8.5rem] text-center text-[17px] font-medium ${
+                kindSlide === "right"
+                  ? "animate-in fade-in slide-in-from-right-4 duration-300"
+                  : "animate-in fade-in slide-in-from-left-4 duration-300"
+              }`}
+            >
+              {FEED_KINDS[kindIndex].label}
+            </span>
+            <span className="text-xl font-light leading-none text-neutral-400" aria-hidden>
+              ›
+            </span>
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5" role="radiogroup" aria-label="Filtre du fil">
+            {FEED_KINDS.map((item, index) => {
+              const active = item.id === feedKind;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={item.label}
+                  onClick={() => moveFeedKind(index)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    active ? "w-5 bg-[#174f43]" : "w-1.5 bg-neutral-300"
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {sponsoredListings.length >= 2 && feedCategory !== "immobilier" && feedKind !== "annonces" && (
           <div className="my-4 sm:my-6 space-y-3 sm:space-y-4">
             {sponsoredListings.slice(0, 2).map((listing) => {
               const profile = listing.profiles || {};
@@ -582,12 +739,12 @@ const Index = () => {
         {/* Feed with posts and sponsored banners */}
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-        ) : allPosts.length === 0 ? (
+        ) : feedKind !== "annonces" && allPosts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">Aucun post pour le moment</div>
         ) : (
           buildFeed()
         )}
-        {!loading ? (
+        {!loading && feedKind !== "annonces" ? (
           <InfiniteScrollSentinel hasMore={hasMorePosts} loading={loadingMore} onLoadMore={loadMorePosts} />
         ) : null}
       </div>
