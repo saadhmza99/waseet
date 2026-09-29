@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Search, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { allMoroccoCities } from "@/lib/moroccoPlaces";
 
 interface LocationModalProps {
   isOpen: boolean;
@@ -9,23 +10,7 @@ interface LocationModalProps {
   onSelect: (location: string) => void;
 }
 
-const cities = [
-  "Marrakech",
-  "Tanger",
-  "Casablanca",
-  "Fès",
-  "Safi",
-  "Agadir",
-  "Temara",
-  "Mohammedia",
-  "Salé",
-  "Rabat",
-  "Meknès",
-  "Oujda",
-  "Kenitra",
-  "Tétouan",
-  "El Jadida",
-];
+const cities = allMoroccoCities();
 
 const LocationModal = ({ isOpen, onClose, onSelect }: LocationModalProps) => {
   const [searchQuery, setSearchQuery] = useState("");

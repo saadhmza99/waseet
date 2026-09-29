@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Ban, Bookmark, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreHorizontal, Pencil, Settings2, Sparkles, Trash2, UserCheck, Users, X, XCircle } from "lucide-react";
+import { Ban, Bookmark, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreVertical, Pencil, Settings2, Sparkles, Trash2, UserCheck, UserPlus, Users, X, XCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import CommentSection from "./CommentSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
+import { savedToast } from "@/lib/savedToast";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { profileHandle } from "@/lib/profileHandle";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
@@ -29,17 +30,26 @@ import ReportAbuseModal from "@/components/ReportAbuseModal";
 import BlockMemberModal from "@/components/BlockMemberModal";
 import { TaggedText } from "@/lib/mentions";
 import VerifiedBadge from "@/components/VerifiedBadge";
-import { IosShareIcon, RoundCommentIcon } from "@/components/PostActionIcons";
+import { IosShareIcon, RoundCommentIcon, WhatsAppIcon } from "@/components/PostActionIcons";
 import { cityFromProfileLocation } from "@/lib/feedLocation";
 import { postAbsoluteUrl, postPath } from "@/lib/postUrl";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
+import { markFollowedNow, useFollowFeedback } from "@/lib/followFeedback";
+import PrivatePostThread from "@/components/PrivatePostThread";
+import { toWhatsAppNumber } from "@/lib/propertyListing";
+
+// Likes and comments are hidden for now; flip to bring the buttons back.
+const SHOW_LIKES_AND_COMMENTS = false;
 
 interface FeedPostProps {
   postId?: string;
   postUserId?: string;
   avatar: string;
   username: string;
+  fullName?: string;
   isVerified?: boolean;
   location: string;
+  city?: string;
   profession?: string;
   timeAgo: string;
   title?: string;
@@ -58,6 +68,7 @@ interface FeedPostProps {
   surface?: string | null;
   beds?: number | null;
   baths?: number | null;
+  phone?: string | null;
 }
 
 const FeedPost = ({
@@ -65,8 +76,10 @@ const FeedPost = ({
   postUserId,
   avatar,
   username,
+  fullName,
   isVerified = false,
   location,
+  city,
   profession,
   timeAgo,
   title,
@@ -85,16 +98,20 @@ const FeedPost = ({
   surface,
   beds,
   baths,
+  phone,
 }: FeedPostProps) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const { user, visitorUser } = useAuth();
+  const { requestVisitor } = useVisitorGate();
   const [showComments, setShowComments] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(likes);
   const [commentCount, setCommentCount] = useState(comments);
   const [shareCount, setShareCount] = useState(shares);
   const [isSaved, setIsSaved] = useState(false);
+  const saveVersionRef = useRef(0);
+  const [replyOpen, setReplyOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [viewerCaptionExpanded, setViewerCaptionExpanded] = useState(false);
@@ -144,6 +161,8 @@ const FeedPost = ({
   const [commentOverride, setCommentOverride] = useState<"default" | PostCommentPermission>("default");
   const [showCommentOptions, setShowCommentOptions] = useState(false);
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
+  const [followKnown, setFollowKnown] = useState(false);
+  const { followedNow, followedAuthorNow } = useFollowFeedback(postUserId, postId);
   const [displayDescription, setDisplayDescription] = useState(description || "");
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -152,8 +171,17 @@ const FeedPost = ({
   const commentsModalRef = useRef<HTMLDivElement>(null);
   const postPreviewRef = useRef<HTMLDivElement>(null);
   const isOwnPost = Boolean(user && postUserId && user.id === postUserId);
+  const viewerId = user?.id ?? visitorUser?.id ?? null;
+  const openReply = async () => {
+    if (!viewerId) {
+      const actor = await requestVisitor();
+      if (!actor) return;
+    }
+    setReplyOpen(true);
+  };
   const postHref = postId ? postPath(postId) : "";
   const isStandalonePost = Boolean(postId && pathname === postHref);
+  const displayName = (fullName || "").trim() || username;
 
   useEffect(() => {
     setDisplayDescription(description || "");
@@ -181,11 +209,18 @@ const FeedPost = ({
 
   // Check if post is liked/saved on mount
   useEffect(() => {
-    if (postId && user) {
-      savedService.isPostSaved(user.id, postId).then(setIsSaved);
-      postService.isPostLiked(postId, user.id).then(setLiked);
+    if (!postId) return;
+    const saverId = user?.id ?? visitorUser?.id;
+    const version = saveVersionRef.current;
+    if (saverId) {
+      savedService.isPostSaved(saverId, postId).then((saved) => {
+        if (saveVersionRef.current === version) setIsSaved(saved);
+      });
+    } else {
+      setIsSaved(false);
     }
-  }, [postId, user]);
+    if (user) postService.isPostLiked(postId, user.id).then(setLiked);
+  }, [postId, user, visitorUser]);
 
   useEffect(() => {
     setLikeCount(likes);
@@ -201,13 +236,31 @@ const FeedPost = ({
       .catch(console.error);
   }, [postId, isOwnPost]);
 
+  const followerId = user?.id ?? visitorUser?.id;
+
   useEffect(() => {
-    if (!user || !postUserId || isOwnPost) return;
+    if (!followerId || !postUserId || isOwnPost) {
+      setIsFollowingAuthor(false);
+      setFollowKnown(true);
+      return;
+    }
+    let cancelled = false;
+    setFollowKnown(false);
     followService
-      .isFollowing(user.id, postUserId)
-      .then(setIsFollowingAuthor)
-      .catch(() => setIsFollowingAuthor(false));
-  }, [user?.id, postUserId, isOwnPost]);
+      .isFollowing(followerId, postUserId)
+      .then((following) => {
+        if (!cancelled) setIsFollowingAuthor(following);
+      })
+      .catch(() => {
+        if (!cancelled) setIsFollowingAuthor(false);
+      })
+      .finally(() => {
+        if (!cancelled) setFollowKnown(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [followerId, postUserId, isOwnPost]);
   
   // Combine all image sources into one array
   const allImages: string[] = [];
@@ -220,7 +273,8 @@ const FeedPost = ({
   }
   
   const hasMultipleImages = allImages.length > 1;
-  const businessLine = [profession?.trim(), cityFromProfileLocation(location)].filter(Boolean).join(" · ");
+  const postCity = (city || "").trim() || cityFromProfileLocation(location);
+  const businessLine = [profession?.trim(), postCity].filter(Boolean).join(" · ");
 
   const handleProfileClick = () => {
     const slug = (username || "").replace(/^@/, "").trim();
@@ -272,11 +326,17 @@ const FeedPost = ({
   };
 
   const handleShare = async () => {
-    if (!postId || !user) {
-      toast({ title: "Connexion requise", description: "Connectez-vous pour partager ce post." });
-      return;
+    if (!postId) return;
+
+    const shareUrl = postAbsoluteUrl(postId);
+    if (navigator.share) {
+      void navigator.share({ title: "Sifarah", text: description, url: shareUrl }).catch(() => {});
+    } else {
+      void navigator.clipboard.writeText(shareUrl);
+      toast({ title: "Lien copié", description: "Le lien de ce post a été copié." });
     }
-    
+
+    if (!user) return;
     try {
       const inserted = await postService.sharePost(postId, user.id);
       if (inserted) {
@@ -292,40 +352,30 @@ const FeedPost = ({
           message: "a partagé votre post.",
         });
       }
-      
-      // Also try native share of this post's unique URL
-      if (postId) {
-        const shareUrl = postAbsoluteUrl(postId);
-        if (navigator.share) {
-          void navigator.share({
-            title: "Sifarah",
-            text: description,
-            url: shareUrl,
-          });
-        } else {
-          void navigator.clipboard.writeText(shareUrl);
-          toast({ title: "Lien copié", description: "Le lien de ce post a été copié." });
-        }
-      }
     } catch (error) {
       console.error("Error sharing post:", error);
     }
   };
 
   const handleSave = async () => {
-    if (!postId || !user) {
-      toast({ title: "Connexion requise", description: "Connectez-vous pour enregistrer ce post." });
-      return;
-    }
-    
+    if (!postId) return;
+
+    const saver = await requestVisitor();
+    if (!saver) return;
+    saveVersionRef.current += 1;
+
     try {
       if (isSaved) {
-        await savedService.unsavePost(user.id, postId);
+        await savedService.unsavePost(saver.id, postId);
+        saveVersionRef.current += 1;
         setIsSaved(false);
       } else {
-        await savedService.savePost(user.id, postId);
+        await savedService.savePost(saver.id, postId);
+        saveVersionRef.current += 1;
         setIsSaved(true);
-        if (postUserId && postUserId !== user.id) {
+        if (!user) {
+          savedToast();
+        } else if (postUserId && postUserId !== user.id) {
           await notificationService.createNotification({
             actorUserId: user.id,
             targetUserId: postUserId,
@@ -338,6 +388,7 @@ const FeedPost = ({
       }
     } catch (error) {
       console.error("Error toggling save:", error);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer ce post." });
     }
   };
 
@@ -513,19 +564,23 @@ const FeedPost = ({
   };
 
   const handleFollowAuthor = async () => {
-    if (!user || !postUserId || isOwnPost || isFollowingAuthor) return;
+    if (!postUserId || isOwnPost || isFollowingAuthor || followedNow) return;
+    const actor = await requestVisitor();
+    if (!actor) return;
     try {
-      await followService.followUser(user.id, postUserId);
+      await followService.followUser(actor.id, postUserId);
+      if (postId) markFollowedNow(postUserId, postId);
       setIsFollowingAuthor(true);
-      await notificationService.createNotification({
-        actorUserId: user.id,
-        targetUserId: postUserId,
-        type: "follow",
-        entityType: "profile",
-        entityId: postUserId,
-        message: "a commencé à vous suivre.",
-      });
-      toast({ title: "Suivi activé", description: `Vous suivez désormais ${username}.` });
+      if (user && user.id !== postUserId) {
+        await notificationService.createNotification({
+          actorUserId: user.id,
+          targetUserId: postUserId,
+          type: "follow",
+          entityType: "profile",
+          entityId: postUserId,
+          message: "a commencé à vous suivre.",
+        });
+      }
     } catch (error) {
       console.error("Error following author:", error);
       toast({ title: "Erreur", description: "Impossible de suivre ce profil pour le moment." });
@@ -556,44 +611,50 @@ const FeedPost = ({
   return (
     <article className="mb-2 min-w-0 overflow-hidden border-b border-neutral-100 bg-white">
       {/* User Info */}
-      <div className="flex items-center justify-between px-4 pb-3 pt-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button onClick={handleProfileClick} className="hover:opacity-80 transition-opacity">
-            <img src={avatar || getDefaultAvatar("craftsman")} alt={username} className="h-11 w-11 flex-shrink-0 rounded-full object-cover" />
-          </button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <button onClick={handleProfileClick} className="truncate text-left text-[15px] font-semibold text-neutral-950 transition-opacity hover:opacity-80">
-                {username}
-              </button>
-              <VerifiedBadge verified={isVerified} className="h-[17px] w-[17px]" />
-              {isSponsored && (
-                <div className="flex items-center gap-1 bg-accent/10 text-accent px-1.5 py-0.5 rounded">
-                  <Sparkles className="w-3 h-3" />
-                  <span className="text-[10px] font-semibold uppercase">Sponsorisé</span>
-                </div>
-              )}
-            </div>
-            {businessLine ? (
-              <p className="truncate text-xs text-neutral-500">{businessLine}</p>
-            ) : null}
+      <div className="flex items-center gap-2.5 pl-2.5 pr-3 pb-3 pt-4">
+        <button onClick={handleProfileClick} className="shrink-0 hover:opacity-80 transition-opacity">
+          <img src={avatar || getDefaultAvatar("individual")} alt={displayName} className="h-11 w-11 rounded-full object-cover" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1">
+            <button onClick={handleProfileClick} className="min-w-0 truncate text-left text-lg font-semibold leading-tight text-neutral-950 transition-opacity hover:opacity-80">
+              {displayName}
+            </button>
+            <VerifiedBadge verified={isVerified} className="h-[17px] w-[17px] shrink-0" />
+            {isSponsored && (
+              <div className="flex shrink-0 items-center gap-1 rounded bg-accent/10 px-1.5 py-0.5 text-accent">
+                <Sparkles className="w-3 h-3" />
+                <span className="text-sm font-semibold uppercase">Sponsorisé</span>
+              </div>
+            )}
           </div>
+          {businessLine ? (
+            <p className="truncate text-sm leading-tight text-neutral-500">{businessLine}</p>
+          ) : null}
         </div>
-        <div className="ml-2 flex shrink-0 items-center gap-2">
-          {user && !isOwnPost && !isFollowingAuthor ? (
+        <div className="flex shrink-0 items-center gap-1.5">
+          {!isOwnPost && followedNow ? (
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#174f43] text-white"
+              aria-label="Suivi"
+            >
+              <UserCheck className="h-4 w-4" />
+            </span>
+          ) : !isOwnPost && followKnown && !isFollowingAuthor && !followedAuthorNow ? (
             <button
               type="button"
               onClick={handleFollowAuthor}
-              className="rounded-full border border-neutral-200 bg-transparent px-3.5 py-1.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#174f43] text-white transition hover:bg-[#123d34]"
+              aria-label="Suivre"
             >
-              Suivre
+              <UserPlus className="h-4 w-4" />
             </button>
           ) : null}
           <DropdownMenu onOpenChange={(open) => { if (!open) setShowCommentOptions(false); }}>
           <DropdownMenuTrigger asChild>
-            <button className="text-muted-foreground hover:opacity-70 transition-opacity ml-2">
-              <MoreHorizontal className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
+            <button className="text-muted-foreground hover:opacity-70 transition-opacity" aria-label="Plus d'options">
+              <MoreVertical className="h-5 w-5" />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" collisionPadding={12} className="w-[min(calc(100vw-1.5rem),16rem)] max-h-[min(70vh,28rem)] overflow-y-auto">
             {isOwnPost ? (
@@ -619,7 +680,7 @@ const FeedPost = ({
                 </DropdownMenuItem>
                 {showCommentOptions ? (
                   <div className="px-1 pb-1">
-                    <p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">
+                    <p className="px-2 pb-1 text-sm leading-snug text-muted-foreground">
                       This post only. 
                     </p>
                     <DropdownMenuRadioGroup value={commentOverride} onValueChange={(value) => void applyCommentOverride(value)}>
@@ -671,11 +732,11 @@ const FeedPost = ({
 
       {postType && postType !== "standard" ? (
         <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2">
-          <span className="inline-block rounded bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-accent">
+          <span className="inline-block rounded bg-accent/10 px-2 py-0.5 text-sm font-semibold uppercase text-accent">
             {postType === "property" ? "Bien" : "Projet"}
           </span>
           {postType === "property" ? (
-            <div className="mt-2 flex flex-wrap gap-3 text-sm text-card-foreground">
+            <div className="mt-2 flex flex-wrap gap-3 text-base text-card-foreground">
               {price ? <span className="font-semibold">{price}</span> : null}
               {surface ? <span>{surface}{/\d/.test(surface) && !/m/i.test(surface) ? " m²" : ""}</span> : null}
               {beds != null ? <span>{beds} ch.</span> : null}
@@ -687,7 +748,7 @@ const FeedPost = ({
 
       {displayDescription && (
         <div
-            className={`min-w-0 px-4 pb-2 ${postId && !isStandalonePost ? "cursor-pointer" : ""}`}
+            className={`min-w-0 pl-2.5 pr-4 pb-2 ${postId && !isStandalonePost ? "cursor-pointer" : ""}`}
           onClick={(event) => {
             if (!postId || isStandalonePost) return;
             if ((event.target as HTMLElement).closest("a,button")) return;
@@ -695,7 +756,7 @@ const FeedPost = ({
           }}
         >
           <p
-            className={`text-[15px] leading-6 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden ${
+            className={`text-base leading-5 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden ${
               captionExpanded ? "" : "line-clamp-4"
             }`}
           >
@@ -705,7 +766,7 @@ const FeedPost = ({
             <button
               type="button"
               onClick={() => setCaptionExpanded((v) => !v)}
-              className="mt-1 text-sm font-medium text-accent hover:underline"
+              className="mt-1 text-base font-medium text-accent hover:underline"
             >
               {captionExpanded ? "Voir moins" : "Voir plus"}
             </button>
@@ -720,7 +781,7 @@ const FeedPost = ({
               ? ""
               : allImages.length === 2
                 ? "grid grid-cols-2 gap-1"
-                : "grid h-[45vh] grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:aspect-[4/3] sm:h-auto"
+                : "grid h-[55vh] max-h-[55vh] grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:aspect-[4/3] sm:h-auto"
           }`}
         >
           {allImages.slice(0, allImages.length >= 3 ? 3 : 2).map((image, index) => (
@@ -732,25 +793,25 @@ const FeedPost = ({
                 allImages.length >= 3 && index === 0
                   ? "row-span-2 h-full"
                   : allImages.length === 2
-                    ? "h-[45vh] sm:aspect-[2/3] sm:h-auto"
+                    ? "h-[55vh] max-h-[55vh] sm:aspect-[2/3] sm:h-auto"
                     : "h-full"
               }
               className={
                 allImages.length === 1
-                  ? "max-h-[45vh] w-full cursor-pointer object-cover sm:aspect-[4/3] sm:max-h-none"
+                  ? "max-h-[55vh] w-full cursor-pointer object-cover sm:aspect-[4/3]"
                   : "h-full w-full cursor-pointer object-cover"
               }
               onClick={() => setSelectedImageIndex(index)}
             />
           ))}
           {hasMultipleImages ? (
-            <span className="absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[11px] font-semibold text-white">
+            <span className="absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-sm font-semibold text-white">
               1/{allImages.length}
             </span>
           ) : null}
           {beforeImage && afterImage ? (
             <span
-              className="absolute left-2 top-2 rounded bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground"
+              className="absolute left-2 top-2 rounded bg-primary px-2 py-0.5 text-sm font-bold text-primary-foreground"
             >
               AVANT
             </span>
@@ -795,7 +856,7 @@ const FeedPost = ({
             </button>
 
             {hasMultipleImages ? (
-              <span className={`absolute left-1/2 top-[max(1.25rem,env(safe-area-inset-top))] z-30 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold transition-opacity ${overlayFade}`}>
+              <span className={`absolute left-1/2 top-[max(1.25rem,env(safe-area-inset-top))] z-30 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-sm font-semibold transition-opacity ${overlayFade}`}>
                 {selectedImageIndex + 1}/{allImages.length}
               </span>
             ) : null}
@@ -825,14 +886,14 @@ const FeedPost = ({
               <div className="mb-2 flex items-center gap-3">
                 <button type="button" onClick={handleProfileClick} className="shrink-0">
                   <img
-                    src={avatar || getDefaultAvatar("craftsman")}
-                    alt={username}
+                    src={avatar || getDefaultAvatar("individual")}
+                    alt={displayName}
                     className="h-11 w-11 rounded-full border-2 border-white object-cover"
                   />
                 </button>
                 <div className="flex min-w-0 items-center gap-1">
-                  <button type="button" onClick={handleProfileClick} className="truncate text-[15px] font-semibold">
-                    {username}
+                  <button type="button" onClick={handleProfileClick} className="truncate text-lg font-semibold">
+                    {displayName}
                   </button>
                   <VerifiedBadge verified={isVerified} className="h-[17px] w-[17px]" />
                 </div>
@@ -841,7 +902,7 @@ const FeedPost = ({
                 <>
                   <p
                     ref={viewerCaptionRef}
-                    className={`whitespace-pre-wrap break-words text-sm leading-5 ${viewerCaptionExpanded ? "max-h-[40vh] overflow-y-auto" : "line-clamp-2"}`}
+                    className={`whitespace-pre-wrap break-words text-base leading-5 ${viewerCaptionExpanded ? "max-h-[40vh] overflow-y-auto" : "line-clamp-2"}`}
                   >
                     <TaggedText text={displayDescription} />
                   </p>
@@ -849,7 +910,7 @@ const FeedPost = ({
                     <button
                       type="button"
                       onClick={() => setViewerCaptionExpanded((v) => !v)}
-                      className="mt-1 text-sm font-semibold text-white/80 hover:text-white"
+                      className="mt-1 text-base font-semibold text-white/80 hover:text-white"
                     >
                       {viewerCaptionExpanded ? "Voir moins" : "Voir plus"}
                     </button>
@@ -859,23 +920,37 @@ const FeedPost = ({
             </div>
 
             <div className={`absolute bottom-0 right-0 z-20 flex flex-col items-center gap-5 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-opacity ${overlayFade}`}>
-              <button
-                type="button"
-                onClick={handleLike}
-                className="flex flex-col items-center gap-1 text-xs font-semibold transition-transform active:scale-90"
-                aria-label="J'aime"
-              >
-                <Heart className={`h-8 w-8 ${liked ? "fill-accent text-accent" : "text-white"}`} strokeWidth={1.8} />
-                {showLikeCount ? likeCount : null}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowComments(true)}
-                className="transition-transform active:scale-90"
-                aria-label="Commentaires"
-              >
-                <RoundCommentIcon className="h-8 w-8" />
-              </button>
+              {SHOW_LIKES_AND_COMMENTS ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleLike}
+                    className="flex flex-col items-center gap-1 text-sm font-semibold transition-transform active:scale-90"
+                    aria-label="J'aime"
+                  >
+                    <Heart className={`h-8 w-8 ${liked ? "fill-accent text-accent" : "text-white"}`} strokeWidth={1.8} />
+                    {showLikeCount ? likeCount : null}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowComments(true)}
+                    className="transition-transform active:scale-90"
+                    aria-label="Commentaires"
+                  >
+                    <RoundCommentIcon className="h-8 w-8" />
+                  </button>
+                </>
+              ) : null}
+              {postUserId ? (
+                <button
+                  type="button"
+                  onClick={() => void openReply()}
+                  className="transition-transform active:scale-90"
+                  aria-label="Commentaires"
+                >
+                  <RoundCommentIcon className="h-8 w-8" />
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={handleShare}
@@ -898,41 +973,91 @@ const FeedPost = ({
       )}
 
       {/* Actions */}
-      <div className="flex items-center px-4 py-2.5">
-        <button
-          onClick={handleLike}
-          className={`flex items-center gap-1.5 text-sm font-medium transition-transform active:scale-90 ${
-            liked ? "text-accent" : "text-neutral-700"
-          }`}
-        >
-          <Heart className={`h-7 w-7 ${liked ? "fill-accent text-accent" : ""}`} strokeWidth={1.8} />
-          {showLikeCount ? likeCount : null}
-        </button>
-        <button
-          onClick={() => setShowComments(true)}
-          className="ml-4 flex items-center gap-1.5 text-sm font-medium text-neutral-700 transition-transform active:scale-90"
-        >
-          <RoundCommentIcon className="h-7 w-7" />
-        </button>
-        <button
-          type="button"
-          onClick={handleShare}
-          className="ml-4 text-neutral-700 transition-transform active:scale-90"
-          aria-label="Partager"
-        >
-          <IosShareIcon className="h-7 w-7" />
-        </button>
-        <span className="ml-auto mr-3 text-xs text-muted-foreground sm:text-sm">{timeAgo}</span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
+        <div className="flex items-center gap-2">
+        {SHOW_LIKES_AND_COMMENTS ? (
+          <>
+            <button
+              onClick={handleLike}
+              className={`flex items-center gap-1.5 text-base font-medium transition-transform active:scale-90 ${
+                liked ? "text-accent" : "text-neutral-700"
+              }`}
+            >
+              <Heart className={`h-7 w-7 ${liked ? "fill-accent text-accent" : ""}`} strokeWidth={1.8} />
+              {showLikeCount ? likeCount : null}
+            </button>
+            <button
+              onClick={() => setShowComments(true)}
+              className="flex items-center gap-1.5 text-base font-medium text-neutral-700 transition-transform active:scale-90"
+            >
+              <RoundCommentIcon className="h-7 w-7" />
+            </button>
+          </>
+        ) : null}
         <button
           onClick={handleSave}
-          className={`flex items-center text-sm font-medium transition-colors active:scale-90 ${
+          className={`flex items-center text-base font-medium transition-colors active:scale-90 ${
             isSaved ? "text-accent" : "text-neutral-900"
           }`}
           aria-label="Enregistrer"
         >
           <Bookmark className={`h-7 w-7 ${isSaved ? "fill-accent" : ""}`} strokeWidth={1.8} />
         </button>
+        {postUserId ? (
+          <button
+            type="button"
+            onClick={() => void openReply()}
+            className="text-neutral-700 transition-transform active:scale-90"
+            aria-label="Commentaires"
+          >
+            <RoundCommentIcon className="h-7 w-7" />
+          </button>
+        ) : null}
+        {postUserId && !isOwnPost ? (
+          <button
+            type="button"
+            onClick={() => {
+              const digits = (phone || "").replace(/\D/g, "");
+              if (digits.length < 6) {
+                toast({ title: "WhatsApp", description: "Ce profil n'a pas de numéro WhatsApp." });
+                return;
+              }
+              window.open(`https://wa.me/${toWhatsAppNumber(phone || "")}`, "_blank", "noopener,noreferrer");
+            }}
+            className="text-neutral-900 transition-transform active:scale-90"
+            aria-label="WhatsApp"
+          >
+            <WhatsAppIcon className="h-7 w-7" />
+          </button>
+        ) : null}
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-sm text-muted-foreground sm:text-base">{timeAgo}</span>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="text-neutral-700 transition-transform active:scale-90"
+            aria-label="Partager"
+          >
+            <IosShareIcon className="h-7 w-7" />
+          </button>
+        </div>
       </div>
+
+      <PrivatePostThread
+        postId={postId}
+        businessName={displayName}
+        businessAvatar={avatar}
+        businessPhone={phone}
+        businessLine={businessLine}
+        isVerified={isVerified}
+        description={displayDescription}
+        image={allImages[0]}
+        viewerId={viewerId}
+        isOwner={isOwnPost}
+        open={replyOpen}
+        onOpenChange={setReplyOpen}
+      />
 
       {/* Comments Modal */}
       {showComments && (
@@ -948,7 +1073,7 @@ const FeedPost = ({
             <div className="max-w-3xl mx-auto bg-card min-h-full">
               {/* Modal Header */}
               <div className="sticky top-0 bg-card border-b border-border px-4 sm:px-6 py-4 flex items-center justify-between z-10">
-                <h2 className="text-lg sm:text-xl font-bold text-card-foreground">
+                <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">
                   Commentaires
                 </h2>
                 <button
@@ -963,26 +1088,26 @@ const FeedPost = ({
               <div ref={postPreviewRef} className="px-4 sm:px-6 py-4 border-b border-border">
                 <div className="flex items-center gap-3 mb-3">
                   <img
-                    src={avatar || getDefaultAvatar("craftsman")}
-                    alt={username}
+                    src={avatar || getDefaultAvatar("individual")}
+                    alt={displayName}
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
                   />
                   <div>
                     <div className="flex items-center gap-1">
-                      <p className="font-semibold text-sm sm:text-base text-card-foreground">
-                        {username}
+                      <p className="font-semibold text-base sm:text-lg text-card-foreground">
+                        {displayName}
                       </p>
                       <VerifiedBadge verified={isVerified} className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                     </div>
                     {businessLine ? (
-                    <p className="text-xs sm:text-sm text-muted-foreground">
+                    <p className="text-sm sm:text-base text-muted-foreground">
                       {businessLine}
                     </p>
                     ) : null}
                   </div>
                 </div>
                 {displayDescription && (
-                  <p className="mb-3 text-[15px] leading-7 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden line-clamp-6">
+                  <p className="mb-3 text-lg leading-7 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden line-clamp-6">
                     {displayDescription}
                   </p>
                 )}
@@ -1002,7 +1127,7 @@ const FeedPost = ({
               <CommentSection 
                 comments={postComments.map((c) => ({
                   id: c.id,
-                  avatar: c.profiles?.avatar_url || getDefaultAvatar("craftsman"),
+                  avatar: c.profiles?.avatar_url || getDefaultAvatar("individual"),
                   username: c.profiles?.username || "",
                   isVerified: Boolean(c.profiles?.is_verified),
                   text: c.content,

@@ -61,21 +61,21 @@ const SponsoredBanner = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
             <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-accent flex-shrink-0" />
-            <span className="text-[9px] sm:text-[10px] font-semibold text-accent uppercase tracking-wide">
+            <span className="text-sm font-semibold text-accent uppercase tracking-wide">
               Sponsored
             </span>
           </div>
-          <h3 className="text-xs sm:text-sm font-bold text-white leading-tight mb-0.5 line-clamp-1">
+          <h3 className="text-sm sm:text-base font-bold text-white leading-tight mb-0.5 line-clamp-1">
             {title}
           </h3>
-          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-white/90">
+          <div className="flex items-center gap-1 text-sm text-white/90">
             <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
             <span className="line-clamp-1">{location}</span>
           </div>
         </div>
         <button 
           onClick={handleView}
-          className="bg-accent text-accent-foreground text-[10px] sm:text-xs font-semibold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md hover:bg-accent/90 transition-all active:scale-95 whitespace-nowrap flex-shrink-0"
+          className="bg-accent text-accent-foreground text-sm font-semibold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md hover:bg-accent/90 transition-all active:scale-95 whitespace-nowrap flex-shrink-0"
         >
           Voir
         </button>

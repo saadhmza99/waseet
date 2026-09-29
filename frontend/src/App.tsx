@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { VisitorGateProvider } from "@/contexts/VisitorGateContext";
 import { AppLanguageProvider } from "@/contexts/AppLanguageContext";
 import AppHeader from "@/components/AppHeader";
 import TabNav from "@/components/TabNav";
@@ -26,9 +27,17 @@ import AdminModeration from "./pages/AdminModeration";
 import BlockedAccounts from "./pages/BlockedAccounts";
 
 import Profile from "./pages/Profile";
+import VisitorProfile, { JoinChoice } from "./pages/VisitorProfile";
 import Welcome, { hasSeenWelcome } from "./pages/Welcome";
 
 const queryClient = new QueryClient();
+
+// Agencies / professionals get their profile; visitors (or nobody yet) get the visitor page.
+const OwnProfileRoute = () => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="py-8 text-center text-muted-foreground">Chargement...</div>;
+  return user ? <Profile /> : <VisitorProfile />;
+};
 
 const AppLayout = () => {
   const { pathname } = useLocation();
@@ -67,9 +76,9 @@ const AppLayout = () => {
             <Route path="/job/:title" element={<JobDetail />} />
             <Route path="/explore" element={<Explore />} />
               <Route path="/reels" element={<Reels />} />
-              <Route path="/saved" element={<RequireAuth><Saved /></RequireAuth>} />
+              <Route path="/saved" element={<Saved />} />
             <Route path="/profile/:id" element={<Profile />} />
-            <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+            <Route path="/profile" element={<OwnProfileRoute />} />
               <Route path="/login" element={<Login />} />
               <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
               <Route path="/settings/blocked" element={<RequireAuth><BlockedAccounts /></RequireAuth>} />
@@ -77,6 +86,7 @@ const AppLayout = () => {
               <Route path="/privacy-settings" element={<RequireAuth><PrivacySettings /></RequireAuth>} />
               <Route path="/admin/moderation" element={<RequireAuth><AdminModeration /></RequireAuth>} />
               <Route path="/create-profile" element={<CreateProfile />} />
+              <Route path="/join" element={<JoinChoice />} />
               <Route path="/contact" element={<Contact />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -88,20 +98,22 @@ const AppLayout = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <AppLanguageProvider>
-      <TooltipProvider>
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
-        <Toaster />
-        <Sonner />
-        <AppLayout />
-      </BrowserRouter>
-    </TooltipProvider>
-    </AppLanguageProvider>
+      <VisitorGateProvider>
+        <AppLanguageProvider>
+        <TooltipProvider>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
+          <Toaster />
+          <Sonner />
+          <AppLayout />
+        </BrowserRouter>
+      </TooltipProvider>
+      </AppLanguageProvider>
+      </VisitorGateProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

@@ -48,6 +48,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { cityFromPost } from "@/lib/feedLocation";
+import { contactPhone } from "@/lib/propertyListing";
+import { catalogService } from "@/services/catalogService";
 import { profileHandle } from "@/lib/profileHandle";
 import AboutRichEditor from "@/components/AboutRichEditor";
 import { aboutHtmlIsEmpty, sanitizeAboutHtml, toAboutHtml } from "@/lib/aboutHtml";
@@ -57,13 +60,16 @@ import UploadProgressRing from "@/components/UploadProgressRing";
 import { RetryImage } from "@/components/RetryImage";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import ImageCropper from "@/components/ImageCropper";
+import PhoneInput from "@/components/PhoneInput";
+import { CityPicker } from "@/components/CityPicker";
+import { isCompletePhone } from "@/lib/phone";
 import BlockMemberModal from "@/components/BlockMemberModal";
 import MuteProfileModal from "@/components/MuteProfileModal";
 import AboutThisMemberSheet from "@/components/AboutThisMemberSheet";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
-import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, MessageCircle, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
+import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
 
 const tabs = ["Posts", "Portfolio", "Services"] as const;
 type PostsView = "grid" | "reels";
@@ -89,8 +95,6 @@ const PAGE = {
   properties: 12,
   projects: 10,
 } as const;
-const PROPERTY_POST_TYPES = ["property", "bien", "propriete", "propriété"];
-const PROJECT_POST_TYPES = ["project"];
 
 const takePage = <T,>(rows: T[] | null | undefined, limit: number) => {
   const list = rows || [];
@@ -546,21 +550,13 @@ const Profile = () => {
           listingService.getListingsByUser(profileData.id, PAGE.listings, 0),
           reviewService.getReviewsByUser(profileData.id),
           reelService.getReelsByUser(profileData.id, PAGE.reels, 0),
-          postService.getPortfolioPostsByUser(profileData.id, {
-            types: PROPERTY_POST_TYPES,
-            limit: PAGE.properties,
-            offset: 0,
-          }),
-          postService.getPortfolioPostsByUser(profileData.id, {
-            types: PROJECT_POST_TYPES,
-            limit: PAGE.projects,
-            offset: 0,
-          }),
+          catalogService.getPropertiesByUser(profileData.id, PAGE.properties, 0),
+          catalogService.getProjectsByUser(profileData.id, PAGE.projects, 0),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           followService.getFollowers(profileData.id),
           postService.countPostsByUser(profileData.id),
-          postService.countPostsByUser(profileData.id, PROPERTY_POST_TYPES),
-          postService.countPostsByUser(profileData.id, PROJECT_POST_TYPES),
+          catalogService.countPropertiesByUser(profileData.id),
+          catalogService.countProjectsByUser(profileData.id),
           listingService.countListingsByUser(profileData.id),
         ]);
         const blockedSet = new Set(blockedIds || []);
@@ -703,11 +699,7 @@ const Profile = () => {
     setLoadingMoreProperties(true);
     try {
       const page = takePage(
-        await postService.getPortfolioPostsByUser(profile.id, {
-          types: PROPERTY_POST_TYPES,
-          limit: PAGE.properties,
-          offset: propertyItems.length,
-        }),
+        await catalogService.getPropertiesByUser(profile.id, PAGE.properties, propertyItems.length),
         PAGE.properties
       );
       setPropertyItems((prev) => [...prev, ...page.items]);
@@ -724,11 +716,7 @@ const Profile = () => {
     setLoadingMoreProjects(true);
     try {
       const page = takePage(
-        await postService.getPortfolioPostsByUser(profile.id, {
-          types: PROJECT_POST_TYPES,
-          limit: PAGE.projects,
-          offset: projectItems.length,
-        }),
+        await catalogService.getProjectsByUser(profile.id, PAGE.projects, projectItems.length),
         PAGE.projects
       );
       setProjectItems((prev) => [...prev, ...page.items]);
@@ -795,8 +783,10 @@ const Profile = () => {
       postUserId={post.user_id}
       avatar={profileAvatar}
       username={profile.username || "Utilisateur"}
+      fullName={profile.full_name || ""}
       isVerified={Boolean(profile.is_verified)}
       location={profile.location || ""}
+      city={cityFromPost(post)}
       profession={profile.profession || ""}
       timeAgo={formatTimeAgo(post.created_at)}
       description={post.description}
@@ -814,6 +804,7 @@ const Profile = () => {
       surface={post.surface}
       beds={post.beds}
       baths={post.baths}
+      phone={contactPhone(post.property_details, profile.phone)}
     />
   );
 
@@ -959,6 +950,10 @@ const Profile = () => {
 
   const handleSaveInfos = async () => {
     if (!user || !isOwnProfile) return;
+    if (editForm.phone.trim() && !isCompletePhone(editForm.phone)) {
+      toast({ title: "Téléphone incomplet", description: "Entrez un numéro valide pour l'indicatif choisi." });
+      return;
+    }
     setSavingProfile(true);
     try {
       const websiteRows = locationsFrom(editForm.website);
@@ -1321,18 +1316,21 @@ const Profile = () => {
                       item.after_image_url ||
                       item.before_image_url ||
                       "";
+                    const isProperty = item.post_type
+                      ? item.post_type === "property"
+                      : propertyItems.some((row) => row.id === item.id);
                     return {
                       id: item.id,
-                      postType: item.post_type === "property" ? "property" : "project",
+                      postType: isProperty ? "property" : "project",
                       image,
                       images,
-                      title: item.title || (item.post_type === "property" ? "Bien" : "Projet"),
+                      title: item.title || (isProperty ? "Bien" : "Projet"),
                       description: item.description,
                       price: item.price,
                       surface: item.surface,
                       beds: item.beds,
                       baths: item.baths,
-                      details: item.property_details || null,
+                      details: item.details || item.property_details || null,
                       sellerId: item.user_id,
                       sellerPhone: profile.phone,
                     };
@@ -1433,7 +1431,6 @@ const Profile = () => {
                       {posts.map((post) => {
                         const cover = coverOfPost(post);
                         const likes = post.likes_count || 0;
-                        const comments = post.comments_count || 0;
                         const id = String(post.id);
                         const hovered = hoveredPostId === id;
                         return (
@@ -1469,18 +1466,14 @@ const Profile = () => {
                                 </span>
                               )}
                             </div>
-                            <span className="profile-post-thumb-meta pointer-events-none absolute inset-0 flex items-center justify-center gap-4 text-white drop-shadow">
-                              {isOwnProfile ? (
+                            {isOwnProfile ? (
+                              <span className="profile-post-thumb-meta pointer-events-none absolute inset-0 flex items-center justify-center gap-4 text-white drop-shadow">
                                 <span className="inline-flex items-center gap-1 text-sm font-semibold">
                                   <Heart className="h-5 w-5 fill-white" />
                                   {likes}
                                 </span>
-                              ) : null}
-                              <span className="inline-flex items-center gap-1 text-sm font-semibold">
-                                <MessageCircle className="h-5 w-5 fill-white" />
-                                {comments}
                               </span>
-                            </span>
+                            ) : null}
                           </div>
                         );
                       })}
@@ -1654,6 +1647,7 @@ const Profile = () => {
                       userId={listing.user_id}
                       avatar={profileAvatar}
                       username={profile.username || "Utilisateur"}
+                      fullName={profile.full_name || ""}
                       isVerified={Boolean(profile.is_verified)}
                       timeAgo={formatTimeAgo(listing.created_at)}
                       image={listing.image_url || ""}
@@ -1707,7 +1701,7 @@ const Profile = () => {
                 reviews.map((review) => (
                   <div key={review.id} className="overflow-hidden border-t border-border bg-card sm:rounded-lg sm:border">
                     <ReviewCard
-                      avatar={review.reviewer?.avatar_url || getDefaultAvatar("craftsman")}
+                      avatar={review.reviewer?.avatar_url || getDefaultAvatar("individual")}
                       username={review.reviewer?.username || "Utilisateur"}
                       isVerified={Boolean(review.reviewer?.is_verified)}
                       timeAgo={formatTimeAgo(review.created_at)}
@@ -1744,7 +1738,7 @@ const Profile = () => {
                   }}
                 >
                   <img
-                    src={follower.profiles?.avatar_url || getDefaultAvatar("craftsman")}
+                    src={follower.profiles?.avatar_url || getDefaultAvatar("individual")}
                     alt={follower.profiles?.username || "Follower"}
                     className="w-10 h-10 rounded-full object-cover"
                   />
@@ -1888,14 +1882,14 @@ const Profile = () => {
             <div className="space-y-2">
               {(editForm.location.length ? editForm.location.split("\n") : [""]).map((lieu, index, rows) => (
                 <div key={index} className="flex items-center gap-2">
-                  <Input
+                  <CityPicker
                     value={lieu}
-                    onChange={(e) => {
+                    onChange={(city) => {
                       const next = [...rows];
-                      next[index] = e.target.value;
+                      next[index] = city;
                       setEditForm((prev) => ({ ...prev, location: next.join("\n") }));
                     }}
-                    placeholder={`Lieu ${index + 1} (ville, région, pays)`}
+                    placeholder={`Ville ${index + 1}`}
                   />
                   {rows.length > 1 ? (
                     <Button
@@ -1930,19 +1924,22 @@ const Profile = () => {
             </div>
             ) : null}
             {infosEditField === "all" || infosEditField === "email" ? (
-            <Input
-              type="email"
-              value={editForm.email}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-              placeholder="Email de contact"
-            />
+            <div className="space-y-1.5">
+              <Input
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="Email de contact"
+              />
+              <p className="text-xs leading-snug text-muted-foreground">
+                Email public affiché dans Infos. Il ne change pas l'email de connexion — celui-ci se gère dans Paramètres.
+              </p>
+            </div>
             ) : null}
             {infosEditField === "all" || infosEditField === "phone" ? (
-            <Input
-              type="tel"
+            <PhoneInput
               value={editForm.phone}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
-              placeholder="Téléphone"
+              onChange={(phone) => setEditForm((prev) => ({ ...prev, phone }))}
             />
             ) : null}
             {infosEditField === "all" || infosEditField === "website" ? (

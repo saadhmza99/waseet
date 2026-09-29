@@ -16,7 +16,6 @@ const PortfolioModal = ({ image, label, username, avatar, isOpen, onClose }: Por
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
-  const [commentCount] = useState(0);
 
   const handleLike = () => {
     setLiked(!liked);
@@ -94,7 +93,6 @@ const PortfolioModal = ({ image, label, username, avatar, isOpen, onClose }: Por
               className="flex items-center gap-2 text-sm font-medium text-card-foreground"
             >
               <MessageCircle className="w-5 h-5" />
-              {commentCount}
             </button>
             <button
               onClick={handleShare}

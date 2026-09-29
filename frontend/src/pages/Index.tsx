@@ -4,10 +4,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
 import SponsoredBanner from "@/components/SponsoredBanner";
-import { postService } from "@/services/postService";
+import { FEED_PAGE_SIZE, postService } from "@/services/postService";
 import { listingService } from "@/services/listingService";
 import type { CreatePostPayload } from "@/components/CreatePost";
-import { followService } from "@/services/followService";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,8 +14,11 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
-import InfiniteScrollSentinel, { PAGE_SIZE } from "@/components/InfiniteScrollSentinel";
+import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { takeFeedFirstPage } from "@/lib/feedPrefetch";
+import { cityFromPost } from "@/lib/feedLocation";
+import { contactPhone } from "@/lib/propertyListing";
+import { catalogService } from "@/services/catalogService";
 import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
 
 const RenovationIcon = ({ className }: { className?: string }) => (
@@ -62,13 +64,12 @@ const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
 ];
 
 const Index = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, visitorUser, loading: authLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
   const [feedCategory, setFeedCategory] = useState<"all" | "immobilier" | "construction">("all");
   const [allPosts, setAllPosts] = useState<any[]>([]);
-  const [followingPosts, setFollowingPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [bannerImages, setBannerImages] = useState<FeedBannerImage[]>(DEFAULT_BANNER_IMAGES);
@@ -76,14 +77,39 @@ const Index = () => {
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const postsFetchedRef = useRef(0);
-  const hiddenAuthorsRef = useRef<Set<string>>(new Set());
+  const hasMoreRef = useRef(true);
+  const loadingMoreRef = useRef(false);
+  const feedGeneration = useRef(0);
+  const loadTicket = useRef(0);
 
-  // Track which posts from following users we've already shown
-  const shownFollowingPostsRef = useRef<Set<string>>(new Set());
-  // Track current index for each followed user
-  const userPostIndicesRef = useRef<Map<string, number>>(new Map());
-  // Track which users we've already shown posts from in current cycle
-  const currentCycleUsersRef = useRef<Set<string>>(new Set());
+  const loadMorePosts = async () => {
+    if (loadingMoreRef.current || !hasMoreRef.current) return;
+    const generation = feedGeneration.current;
+    const ticket = ++loadTicket.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const page = await postService.getFeedPage(FEED_PAGE_SIZE, postsFetchedRef.current);
+      if (generation !== feedGeneration.current) return;
+      postsFetchedRef.current += FEED_PAGE_SIZE;
+      hasMoreRef.current = page.hasMore;
+      setHasMorePosts(page.hasMore);
+      setAllPosts((prev) => {
+        const seen = new Set(prev.map((post) => post.id));
+        return [...prev, ...page.posts.filter((post) => !seen.has(post.id))];
+      });
+    } catch (error) {
+      if (generation !== feedGeneration.current) return;
+      console.error("Error loading more posts:", error);
+      hasMoreRef.current = false;
+      setHasMorePosts(false);
+    } finally {
+      if (loadTicket.current === ticket) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  };
 
   useEffect(() => {
     feedBannerService
@@ -108,27 +134,30 @@ const Index = () => {
     let cancelled = false;
     const loadData = async () => {
       try {
+        feedGeneration.current += 1;
+        loadTicket.current += 1;
+        loadingMoreRef.current = false;
+        postsFetchedRef.current = 0;
+        hasMoreRef.current = true;
         setLoading(true);
-        const [postsData, blockedUserIds, mutedIds] = await Promise.all([
-          takeFeedFirstPage().then((page) => page ?? postService.getPosts(PAGE_SIZE, 0)),
-          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
-          user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
-        ]);
+        const page = (await takeFeedFirstPage()) ?? (await postService.getFeedPage(FEED_PAGE_SIZE, 0));
         if (cancelled) return;
 
-        const blockedSet = new Set(blockedUserIds || []);
-        hiddenAuthorsRef.current = new Set([...blockedSet, ...mutedIds.posts]);
-        postsFetchedRef.current = (postsData || []).length;
-        setHasMorePosts((postsData || []).length === PAGE_SIZE);
-        setAllPosts(
-          (postsData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id))
-        );
+        postsFetchedRef.current = FEED_PAGE_SIZE;
+        hasMoreRef.current = page.hasMore;
+        setHasMorePosts(page.hasMore);
+        setAllPosts(page.posts);
         setLoading(false);
+        if (page.hasMore) void loadMorePosts();
 
-        listingService
-          .getListings(10, 0, true)
-          .then((listingsData) => {
+        Promise.all([
+          listingService.getListings(10, 0, true),
+          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
+          user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
+        ])
+          .then(([listingsData, blockedUserIds, mutedIds]) => {
             if (cancelled) return;
+            const blockedSet = new Set(blockedUserIds || []);
             setSponsoredListings(
               (listingsData || []).filter(
                 (listing) => !blockedSet.has(listing.user_id) && !mutedIds.services.has(listing.user_id)
@@ -136,20 +165,6 @@ const Index = () => {
             );
           })
           .catch((error) => console.error("Error loading sponsored listings:", error));
-
-        if (user) {
-          followService
-            .getPostsFromFollowing(user.id, 100)
-            .then((followingData) => {
-              if (cancelled) return;
-              setFollowingPosts(
-                (followingData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id))
-              );
-            })
-            .catch((error) => console.error("Error loading following posts:", error));
-        } else {
-          setFollowingPosts([]);
-        }
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {
@@ -162,26 +177,6 @@ const Index = () => {
       cancelled = true;
     };
   }, [user, authLoading]);
-
-  const loadMorePosts = async () => {
-    if (loadingMore || !hasMorePosts) return;
-    setLoadingMore(true);
-    try {
-      const data = (await postService.getPosts(PAGE_SIZE, postsFetchedRef.current)) || [];
-      postsFetchedRef.current += data.length;
-      setHasMorePosts(data.length === PAGE_SIZE);
-      const visible = data.filter((post) => !hiddenAuthorsRef.current.has(post.user_id));
-      setAllPosts((prev) => {
-        const seen = new Set(prev.map((post) => post.id));
-        return [...prev, ...visible.filter((post) => !seen.has(post.id))];
-      });
-    } catch (error) {
-      console.error("Error loading more posts:", error);
-      setHasMorePosts(false);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
 
   // Format time ago
   const formatTimeAgo = (date: string) => {
@@ -199,7 +194,7 @@ const Index = () => {
       location: listing.location,
       description: listing.description || "",
       image: listing.image_url || "",
-      avatar: listing.profiles?.avatar_url || getDefaultAvatar("craftsman"),
+      avatar: listing.profiles?.avatar_url || getDefaultAvatar("individual"),
       username: listing.profiles?.username || "",
       timeAgo: formatTimeAgo(listing.created_at),
       profession: listing.profession || "",
@@ -210,19 +205,112 @@ const Index = () => {
 
   // Handle post creation
   const handlePostCreated = async (postData: CreatePostPayload) => {
+    if (!user && visitorUser) {
+      if (postData.postType !== "property" || postData.publishTo !== "portfolio") {
+        toast({ title: "Compte professionnel requis", description: "Un particulier peut publier jusqu'à 3 biens dans son portfolio." });
+        return;
+      }
+      try {
+        const count = await catalogService.countPropertiesByUser(visitorUser.id);
+        if (count >= 3) {
+          toast({ title: "Limite atteinte", description: "Vous avez déjà publié 3 biens." });
+          return;
+        }
+        const city = postData.city || (postData.propertyDetails as { city?: string } | undefined)?.city || "";
+        const region = (postData.propertyDetails as { region?: string } | undefined)?.region || null;
+        await catalogService.createProperty(visitorUser.id, {
+          title: postData.title || "Bien",
+          description: postData.text,
+          city,
+          region,
+          price: postData.price || null,
+          surface: postData.surface || null,
+          beds: postData.beds ?? null,
+          baths: postData.baths ?? null,
+          images: postData.images || [],
+          details: { ...(postData.propertyDetails || {}), city },
+        });
+        toast({ title: "Bien publié", description: "Ajouté à votre portfolio." });
+      } catch (error) {
+        console.error("Error creating particulier property:", error);
+        toast({ title: "Erreur", description: "Impossible de publier ce bien." });
+      }
+      return;
+    }
     if (user) {
       try {
+      const city =
+        postData.city ||
+        (postData.propertyDetails as { city?: string } | undefined)?.city ||
+        "";
+      const region =
+        (postData.propertyDetails as { region?: string } | undefined)?.region || null;
+      const details = {
+        ...(postData.propertyDetails || {}),
+        city,
+      };
+      const destination = postData.publishTo || "both";
+      const toFeed = destination === "feed" || destination === "both";
+      const toPortfolio = destination === "portfolio" || destination === "both";
+
       if (postData.postType === "service") {
         await listingService.createListing(user.id, {
           title: postData.text.trim().slice(0, 80) || "Service",
           description: postData.text,
           profession: "",
-          location: postData.city || "",
+          location: city,
           image_url: postData.images?.[0] || "",
           image_count: postData.images?.length || 0,
           images: postData.images || [],
         });
         toast({ title: "Service publié", description: "Votre service a été publié avec succès." });
+      } else if (postData.postType === "property" || postData.postType === "project") {
+        const catalogPayload = {
+          title: postData.title || (postData.postType === "property" ? "Bien" : "Projet"),
+          description: postData.text,
+          city,
+          region,
+          price: postData.price || null,
+          surface: postData.surface || null,
+          beds: postData.beds ?? null,
+          baths: postData.baths ?? null,
+          images: postData.images || [],
+          details,
+        };
+        const catalogRow = toPortfolio
+          ? postData.postType === "property"
+            ? await catalogService.createProperty(user.id, catalogPayload)
+            : await catalogService.createProject(user.id, catalogPayload)
+          : null;
+
+        if (toFeed) {
+          await postService.createPost(user.id, {
+            title: postData.title || "",
+            description: postData.text,
+            before_image_url: postData.beforeImage,
+            after_image_url: postData.afterImage,
+            single_image_url: postData.singleImage,
+            images: postData.images || [],
+            post_type: postData.postType,
+            price: postData.price || null,
+            surface: postData.surface || null,
+            beds: postData.beds ?? null,
+            baths: postData.baths ?? null,
+            property_details: details,
+            city,
+            property_id: postData.postType === "property" ? catalogRow?.id || null : null,
+            project_id: postData.postType === "project" ? catalogRow?.id || null : null,
+          });
+        }
+
+        toast({
+          title: postData.postType === "property" ? "Bien publié" : "Projet publié",
+          description: !toFeed
+            ? "Ajouté au portfolio."
+            : !toPortfolio
+              ? "Publié sur le fil."
+              : "Ajouté au fil et au portfolio.",
+        });
       } else {
       await postService.createPost(user.id, {
         title: postData.title || "",
@@ -236,131 +324,31 @@ const Index = () => {
         surface: postData.surface || null,
         beds: postData.beds ?? null,
         baths: postData.baths ?? null,
-        property_details: {
-          ...(postData.propertyDetails || {}),
-          city: postData.city || (postData.propertyDetails as { city?: string } | undefined)?.city,
-        },
+        property_details: details,
+        city,
       });
       toast({
         title: "Post publié",
-        description:
-          postData.postType === "property" || postData.postType === "project"
-            ? "Ajouté au fil et au portfolio."
-            : "Votre post a été publié avec succès.",
+        description: "Votre post a été publié avec succès.",
       });
       }
-        // Reload posts
-        const [postsData, followingData, blockedUserIds, mutedIds] = await Promise.all([
-          postService.getPosts(PAGE_SIZE, 0),
-          user ? followService.getPostsFromFollowing(user.id, 100) : Promise.resolve([]),
-          moderationService.getBlockedUserIds(user.id),
-          muteService.getMutedIds(user.id),
-        ]);
-        const blockedSet = new Set(blockedUserIds || []);
-        hiddenAuthorsRef.current = new Set([...blockedSet, ...mutedIds.posts]);
-        postsFetchedRef.current = (postsData || []).length;
-        setHasMorePosts((postsData || []).length === PAGE_SIZE);
-        setAllPosts((postsData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)));
-        setFollowingPosts((followingData || []).filter((post) => !blockedSet.has(post.user_id) && !mutedIds.posts.has(post.user_id)));
-        // Reset tracking when new posts are loaded
-        shownFollowingPostsRef.current.clear();
-        userPostIndicesRef.current.clear();
-        currentCycleUsersRef.current.clear();
+        feedGeneration.current += 1;
+        loadTicket.current += 1;
+        loadingMoreRef.current = false;
+        const page = await postService.getFeedPage(FEED_PAGE_SIZE, 0);
+        postsFetchedRef.current = FEED_PAGE_SIZE;
+        hasMoreRef.current = page.hasMore;
+        setHasMorePosts(page.hasMore);
+        setAllPosts(page.posts);
+        if (page.hasMore) void loadMorePosts();
       } catch (error) {
         console.error("Error creating post:", error);
+        toast({ title: "Erreur", description: "Impossible de publier. Veuillez réessayer." });
       }
     }
   };
 
-  // Group following posts by user
-  const getFollowingPostsByUser = () => {
-    const postsByUser = new Map<string, any[]>();
-    followingPosts.forEach((post) => {
-      const userId = post.user_id;
-      if (!postsByUser.has(userId)) {
-        postsByUser.set(userId, []);
-      }
-      postsByUser.get(userId)!.push(post);
-    });
-    return postsByUser;
-  };
-
-  // Get next post from a followed user (different from last shown)
-  const getNextFollowingPost = (): any | null => {
-    if (followingPosts.length === 0) return null;
-
-    const postsByUser = getFollowingPostsByUser();
-    const userIds = Array.from(postsByUser.keys());
-    
-    if (userIds.length === 0) return null;
-
-    // Find a user we haven't shown in this cycle
-    let availableUserIds = userIds.filter(
-      (userId) => !currentCycleUsersRef.current.has(userId)
-    );
-
-    // If we've shown all users in this cycle, reset and start new cycle
-    if (availableUserIds.length === 0) {
-      currentCycleUsersRef.current.clear();
-      availableUserIds = userIds;
-    }
-
-    // Select a random user from available ones
-    const selectedUserId = availableUserIds[Math.floor(Math.random() * availableUserIds.length)];
-    currentCycleUsersRef.current.add(selectedUserId);
-
-    const userPosts = postsByUser.get(selectedUserId) || [];
-    if (userPosts.length === 0) return null;
-
-    // Get current index for this user
-    let currentIndex = userPostIndicesRef.current.get(selectedUserId) || 0;
-
-    // Find a post we haven't shown yet from this user
-    let attempts = 0;
-    const userShownPosts = new Set<string>();
-    
-    // Track which posts from this user we've already shown
-    followingPosts.forEach((post) => {
-      if (post.user_id === selectedUserId && shownFollowingPostsRef.current.has(post.id)) {
-        userShownPosts.add(post.id);
-      }
-    });
-
-    while (attempts < userPosts.length) {
-      const post = userPosts[currentIndex % userPosts.length];
-      
-      // If this post hasn't been shown, use it
-      if (!shownFollowingPostsRef.current.has(post.id)) {
-        shownFollowingPostsRef.current.add(post.id);
-        userPostIndicesRef.current.set(selectedUserId, (currentIndex + 1) % userPosts.length);
-        return post;
-      }
-      
-      currentIndex++;
-      attempts++;
-    }
-
-    // If all posts from this user are shown, reset index for this user only
-    // and try to find any unshown post from this user (shouldn't happen, but safety check)
-    userPostIndicesRef.current.set(selectedUserId, 0);
-    
-    // Try to find any unshown post from this user
-    for (const post of userPosts) {
-      if (!shownFollowingPostsRef.current.has(post.id)) {
-        shownFollowingPostsRef.current.add(post.id);
-        return post;
-      }
-    }
-
-    // All posts from this user have been shown - return null to skip this user
-    return null;
-  };
-
-  // Build feed with mixed posts: every 3 posts, insert one from following
   const buildFeed = (): ReactElement[] => {
-    shownFollowingPostsRef.current.clear();
-    userPostIndicesRef.current.clear();
-    currentCycleUsersRef.current.clear();
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
     const posts = allPosts.filter((post) => {
@@ -371,30 +359,22 @@ const Index = () => {
       return true;
     });
     let bannerIndex = 0;
-    let generalPostIndex = 0;
-    let feedItemCount = 0;
-    let consecutiveNoFollowingPost = 0;
-    const maxIterations = Math.max(posts.length * 2, 100); // Safety limit
-    let iterations = 0;
 
-    while (iterations < maxIterations && (generalPostIndex < posts.length || followingPosts.length > 0)) {
-      iterations++;
-      
-      // Add 3 general posts
-      let addedGeneralPosts = 0;
-      for (let i = 0; i < 3 && generalPostIndex < posts.length; i++) {
-        const post = posts[generalPostIndex];
-        const profile = post.profiles || {};
+    posts.forEach((post, index) => {
+      const profile = post.profiles || {};
+      const feedItemCount = index + 1;
         
         feed.push(
           <FeedPost
-            key={`general-${post.id}`}
+            key={post.id}
             postId={post.id}
             postUserId={post.user_id}
-            avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
+            avatar={profile.avatar_url || getDefaultAvatar("individual")}
             username={profile.username || ""}
+            fullName={profile.full_name || ""}
             isVerified={Boolean(profile.is_verified)}
             location={profile.location || ""}
+            city={cityFromPost(post)}
             profession={profile.profession || ""}
             timeAgo={formatTimeAgo(post.created_at)}
             description={post.description}
@@ -411,12 +391,9 @@ const Index = () => {
             surface={post.surface}
             beds={post.beds}
             baths={post.baths}
+            phone={contactPhone(post.property_details, profile.phone)}
           />
         );
-        
-        generalPostIndex++;
-        feedItemCount++;
-        addedGeneralPosts++;
 
         // Add 2 sponsored banners after every 8 posts
         if (feedItemCount % 8 === 0 && banners.length >= 2) {
@@ -454,55 +431,7 @@ const Index = () => {
           
           bannerIndex += 2;
         }
-      }
-
-      // Add 1 post from following (if available) after every 3 general posts
-        if (addedGeneralPosts === 3 || (generalPostIndex >= posts.length && addedGeneralPosts > 0)) {
-        const followingPost = getNextFollowingPost();
-        if (followingPost) {
-          const profile = followingPost.profiles || {};
-          
-          feed.push(
-            <FeedPost
-              key={`following-${followingPost.id}`}
-              postId={followingPost.id}
-              postUserId={followingPost.user_id}
-              avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
-              username={profile.username || ""}
-              isVerified={Boolean(profile.is_verified)}
-              location={profile.location || ""}
-              profession={profile.profession || ""}
-              timeAgo={formatTimeAgo(followingPost.created_at)}
-              description={followingPost.description}
-              beforeImage={followingPost.before_image_url}
-              afterImage={followingPost.after_image_url}
-              singleImage={followingPost.single_image_url}
-              images={followingPost.images || []}
-              likes={followingPost.likes_count || 0}
-              comments={followingPost.comments_count || 0}
-              shares={followingPost.shares_count || 0}
-              isSponsored={followingPost.is_sponsored || false}
-              postType={followingPost.post_type}
-              price={followingPost.price}
-              surface={followingPost.surface}
-              beds={followingPost.beds}
-              baths={followingPost.baths}
-            />
-          );
-          feedItemCount++;
-          consecutiveNoFollowingPost = 0;
-        } else {
-          consecutiveNoFollowingPost++;
-        }
-      }
-
-      // Stop if we've processed all general posts and can't get more following posts
-      if (generalPostIndex >= posts.length) {
-        if (consecutiveNoFollowingPost >= 3 || followingPosts.length === 0) {
-          break;
-        }
-      }
-    }
+    });
 
     return feed;
   };
@@ -547,7 +476,7 @@ const Index = () => {
               >
                 <item.Icon className="h-6 w-6" />
               </span>
-              <span className="w-full text-center text-[13px] font-semibold leading-normal text-neutral-800">
+              <span className="w-full text-center text-base font-semibold leading-normal text-neutral-800">
                 {item.label}
               </span>
             </button>
@@ -563,8 +492,8 @@ const Index = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
           <div className="relative flex min-h-[175px] max-w-full translate-y-4 flex-col justify-center px-4 py-4">
-            <p className="relative -top-1 mt-1 text-xl font-medium">Bonjour!</p>
-            <p className="mt-2 text-[14px] font-normal leading-relaxed text-white/95">
+            <p className="relative -top-1 mt-1 text-2xl font-medium">Bonjour!</p>
+            <p className="mt-2 text-base font-normal leading-relaxed text-white/95">
               <span className="block font-light">Découvrez les entreprises locales.</span>
               <span className="block font-medium sm:whitespace-nowrap">Suivez vos préférées et rejoignez la communauté.</span>
             </p>
@@ -582,7 +511,7 @@ const Index = () => {
                   location={listing.location}
                   description={listing.description || ""}
                   image={listing.image_url || ""}
-                  avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
+                  avatar={profile.avatar_url || getDefaultAvatar("individual")}
                   username={profile.username || ""}
                   timeAgo={formatTimeAgo(listing.created_at)}
                   profession={listing.profession || ""}
@@ -610,7 +539,7 @@ const Index = () => {
         {/* Feed with posts and sponsored banners */}
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-        ) : allPosts.length === 0 && followingPosts.length === 0 ? (
+        ) : allPosts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">Aucun post pour le moment</div>
         ) : (
           buildFeed()

@@ -1,16 +1,27 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Building2, FolderKanban, LayoutGrid, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
+import { catalogService } from "@/services/catalogService";
+import { visitorService } from "@/services/visitorService";
+import { isValidEmail } from "@/lib/visitorContact";
+import { isCompletePhone } from "@/lib/phone";
+import PhoneInput from "@/components/PhoneInput";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { storageService } from "@/services/storageService";
 import { PostType } from "@/services/postService";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import PropertyListingWizard from "@/components/PropertyListingWizard";
-import { allMoroccoCities } from "@/lib/moroccoPlaces";
+import { CityPicker } from "@/components/CityPicker";
 
 export type CreateKind = PostType | "service";
+
+export type PublishDestination = "feed" | "portfolio" | "both";
 
 export type CreatePostPayload = {
   text: string;
@@ -26,6 +37,7 @@ export type CreatePostPayload = {
   title?: string;
   city?: string;
   propertyDetails?: Record<string, unknown>;
+  publishTo?: PublishDestination;
 };
 
 interface CreatePostProps {
@@ -55,21 +67,46 @@ const postTypes: { id: CreateKind; label: string; Icon: typeof LayoutGrid | type
 
 const greenBtn = "bg-[#174f43] text-white hover:bg-[#123d34]";
 
+const destinations: { id: PublishDestination; label: string }[] = [
+  { id: "feed", label: "Fil" },
+  { id: "portfolio", label: "Portfolio" },
+  { id: "both", label: "Les deux" },
+];
+
+const destinationHint: Record<PublishDestination, string> = {
+  feed: "Visible sur le fil, pas dans le portfolio.",
+  portfolio: "Visible uniquement dans votre portfolio.",
+  both: "Visible sur le fil et dans votre portfolio.",
+};
+
+const PARTICULIER_BIEN_LIMIT = 3;
+
 const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, onClose }: CreatePostProps) => {
-  const { user } = useAuth();
+  const { user, visitorUser } = useAuth();
+  const { visitorProfile, refreshVisitorProfile } = useVisitorGate();
+  const particulier = Boolean(visitorUser && !user);
   const navigate = useNavigate();
-  const cityListId = useId();
   const [isOpen, setIsOpen] = useState(startOpen);
   const [postType, setPostType] = useState<CreateKind>("standard");
+  const [publishTo, setPublishTo] = useState<PublishDestination>("both");
   const [postText, setPostText] = useState("");
   const [city, setCity] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmContact, setConfirmContact] = useState({ phone: "", email: "" });
+  const [pendingBien, setPendingBien] = useState<CreatePostPayload | null>(null);
 
   useEffect(() => {
     setIsOpen(Boolean(startOpen));
   }, [startOpen]);
+
+  useEffect(() => {
+    if (!particulier || !isOpen) return;
+    setPostType("property");
+    setPublishTo("portfolio");
+  }, [particulier, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -85,6 +122,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
     setSelectedImages([]);
     setSelectedFiles([]);
     setPostType("standard");
+    setPublishTo("both");
     setIsOpen(false);
     onClose?.();
   };
@@ -152,6 +190,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
         postType,
         city: city.trim(),
         propertyDetails: { city: city.trim() },
+        publishTo: postType === "project" ? publishTo : undefined,
       });
 
       resetForm();
@@ -169,7 +208,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
       <div className="flex justify-center bg-card py-3">
         <button
           onClick={() => {
-            if (!user) {
+            if (!user && !visitorUser) {
               navigate("/login");
               return;
             }
@@ -179,14 +218,44 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
         >
           <Plus className="h-5 w-5 text-accent" />
           <span className="text-sm font-medium text-card-foreground sm:text-base">
-            {user ? "Créer un poste" : "Se connecter pour publier"}
+            {particulier ? "Publier un bien" : user || visitorUser ? "Créer un poste" : "Se connecter pour publier"}
           </span>
         </button>
       </div>
     );
   }
 
+  const publishBien = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!pendingBien || !visitorUser || !visitorProfile) return;
+    if (!isCompletePhone(confirmContact.phone) || !isValidEmail(confirmContact.email)) {
+      toast({ title: "Coordonnées à vérifier", description: "Confirmez un email valide et un numéro de téléphone corrects." });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await visitorService.updateMine({
+        name: visitorProfile.name,
+        phone: confirmContact.phone,
+        email: confirmContact.email.trim(),
+        bio: visitorProfile.bio || "",
+        avatarUrl: visitorProfile.avatar_url,
+      });
+      await refreshVisitorProfile();
+      onPostCreated?.(pendingBien);
+      setConfirmOpen(false);
+      setPendingBien(null);
+      resetForm();
+    } catch (error) {
+      console.error("Error confirming contact:", error);
+      toast({ title: "Erreur", description: "Impossible d'enregistrer ces coordonnées." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return createPortal(
+    <>
     <div className="fixed inset-0 z-[220] flex flex-col bg-background">
       <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center border-b border-border px-3 py-3">
         <button
@@ -198,7 +267,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="truncate text-center text-base font-bold text-card-foreground sm:text-lg">
-          Créer une publication
+          {particulier ? "Publier un bien" : "Créer une publication"}
         </h1>
         <button
           type="button"
@@ -212,6 +281,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8">
         <div className="mx-auto max-w-2xl space-y-5">
+          {!particulier ? (
           <div>
             <p className="mb-2 text-sm font-semibold text-card-foreground">Ajouter des photos</p>
             <div className="flex flex-wrap gap-2">
@@ -234,37 +304,83 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
               </label>
             </div>
           </div>
+          ) : null}
 
           <div>
             <p className="mb-2 text-sm font-semibold text-card-foreground">Type de post</p>
             <div className="grid grid-cols-4 gap-2">
-              {postTypes.map((type) => (
-                <button
-                  key={type.id}
-                  type="button"
-                  onClick={() => setPostType(type.id)}
-                  className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 text-center transition-colors ${
-                    postType === type.id
-                      ? "border-[#174f43] bg-[#174f43]/10 text-[#174f43]"
-                      : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50"
-                  }`}
-                >
-                  <type.Icon className="h-6 w-6" />
-                  <span className="truncate text-xs font-semibold">{type.label}</span>
-                </button>
-              ))}
+              {postTypes.map((type) => {
+                const locked = particulier && type.id !== "property";
+                return (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => {
+                      if (locked) {
+                        toast({ title: "Compte professionnel requis", description: "Un particulier publie un bien dans son portfolio." });
+                        return;
+                      }
+                      setPostType(type.id);
+                    }}
+                    className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 text-center transition-colors ${
+                      postType === type.id
+                        ? "border-[#174f43] bg-[#174f43]/10 text-[#174f43]"
+                        : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50"
+                    } ${locked ? "opacity-40" : ""}`}
+                  >
+                    <type.Icon className="h-6 w-6" />
+                    <span className="truncate text-xs font-semibold">{type.label}</span>
+                  </button>
+                );
+              })}
             </div>
+            {particulier ? (
+              <p className="mt-2 text-xs leading-snug text-muted-foreground">
+                Un particulier publie jusqu'à 3 biens, uniquement dans son portfolio.
+              </p>
+            ) : null}
           </div>
+
+          {!particulier && (postType === "property" || postType === "project") ? (
+            <div>
+              <p className="mb-2 text-sm font-semibold text-card-foreground">Où publier ?</p>
+              <div className="grid grid-cols-3 gap-2">
+                {destinations.map((dest) => (
+                  <button
+                    key={dest.id}
+                    type="button"
+                    onClick={() => setPublishTo(dest.id)}
+                    className={`rounded-lg border px-2 py-2 text-center text-xs font-semibold transition-colors ${
+                      publishTo === dest.id
+                        ? "border-[#174f43] bg-[#174f43]/10 text-[#174f43]"
+                        : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50"
+                    }`}
+                  >
+                    {dest.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">{destinationHint[publishTo]}</p>
+            </div>
+          ) : null}
 
           {postType === "property" ? (
             <PropertyListingWizard
               onCancel={resetForm}
               submitLabel="Publier"
+              stepTitle={particulier ? "Publier un bien" : "Créer service"}
               onComplete={async ({ details, files }) => {
                 setIsSubmitting(true);
                 try {
+                  if (particulier && visitorUser) {
+                    const count = await catalogService.countPropertiesByUser(visitorUser.id);
+                    if (count >= PARTICULIER_BIEN_LIMIT) {
+                      toast({ title: "Limite atteinte", description: "Un particulier peut publier 3 biens dans son portfolio." });
+                      return;
+                    }
+                  }
                   const uploaded = await storageService.uploadImages(files, "posts");
-                  onPostCreated?.({
+                  const payload: CreatePostPayload = {
                     text: details.description,
                     title: details.title,
                     images: uploaded,
@@ -276,7 +392,15 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
                     beds: details.beds,
                     baths: details.baths,
                     propertyDetails: details,
-                  });
+                    publishTo: particulier ? "portfolio" : publishTo,
+                  };
+                  if (particulier) {
+                    setConfirmContact({ phone: visitorProfile?.phone || "", email: visitorProfile?.email || "" });
+                    setPendingBien(payload);
+                    setConfirmOpen(true);
+                    return;
+                  }
+                  onPostCreated?.(payload);
                   resetForm();
                 } catch (error) {
                   console.error("Error creating property listing:", error);
@@ -303,18 +427,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
               <div>
                 <p className="mb-2 text-sm font-semibold text-card-foreground">Localisation</p>
-                <input
-                  list={cityListId}
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Ville"
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-[#174f43]"
-                />
-                <datalist id={cityListId}>
-                  {allMoroccoCities().map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
+                <CityPicker value={city} onChange={setCity} placeholder="Choisir une ville" required />
               </div>
             </>
           )}
@@ -333,7 +446,31 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
           </div>
         </div>
       ) : null}
-    </div>,
+    </div>
+    <Dialog open={confirmOpen} onOpenChange={(next) => !isSubmitting && setConfirmOpen(next)}>
+      <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-2xl sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Vérifiez vos coordonnées</DialogTitle>
+          <DialogDescription>
+            Pour publier un bien, confirmez que votre email et votre téléphone sont corrects.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={publishBien} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="bien-phone">Téléphone</Label>
+            <PhoneInput id="bien-phone" required value={confirmContact.phone} onChange={(phone) => setConfirmContact((prev) => ({ ...prev, phone }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="bien-email">Email</Label>
+            <Input id="bien-email" type="email" required value={confirmContact.email} onChange={(event) => setConfirmContact((prev) => ({ ...prev, email: event.target.value }))} />
+          </div>
+          <button type="submit" disabled={isSubmitting} className="flex h-11 w-full items-center justify-center rounded-xl bg-[#174f43] text-sm font-semibold text-white disabled:opacity-60">
+            {isSubmitting ? "Publication..." : "Ces coordonnées sont correctes"}
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
+    </>,
     document.body
   );
 };

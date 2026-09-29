@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { CityPicker } from "@/components/CityPicker";
 import {
-  MapPin,
   X,
   Check,
   Scale,
@@ -50,7 +50,7 @@ const professions = [
 ];
 
 const JobFilterModal = ({ isOpen, onClose }: JobFilterModalProps) => {
-  const [locationValue, setLocationValue] = useState("Chicago");
+  const [locationValue, setLocationValue] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [minBudget, setMinBudget] = useState("");
   const [maxBudget, setMaxBudget] = useState("");
@@ -95,14 +95,8 @@ const JobFilterModal = ({ isOpen, onClose }: JobFilterModalProps) => {
 
         {/* Location */}
         <label className="text-sm font-semibold text-card-foreground mb-1.5 block">Localisation</label>
-        <div className="relative mb-4">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={locationValue}
-            onChange={(e) => setLocationValue(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground"
-          />
+        <div className="mb-4">
+          <CityPicker value={locationValue} onChange={setLocationValue} placeholder="Ville" />
         </div>
 
         {/* Account Type */}

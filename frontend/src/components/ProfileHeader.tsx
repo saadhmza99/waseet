@@ -377,7 +377,19 @@ const ProfileHeader = ({
 
         {bio ? (
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
-            {bio}
+            {bio.split(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g).map((part, index) =>
+              part.includes("@") && part.includes(".") ? (
+                <a
+                  key={`${part}-${index}`}
+                  href={`mailto:${part}`}
+                  className="inline-block font-medium text-[#174f43] underline-offset-2 transition-transform hover:underline hover:scale-[0.97] active:scale-[0.95]"
+                >
+                  {part}
+                </a>
+              ) : (
+                part
+              )
+            )}
           </p>
         ) : null}
 

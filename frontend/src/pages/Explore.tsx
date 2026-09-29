@@ -16,6 +16,7 @@ interface ListingData {
   userId: string;
   avatar: string;
   username: string;
+  fullName?: string;
   isVerified: boolean;
   timeAgo: string;
   image: string;
@@ -65,8 +66,9 @@ const Explore = () => {
       .map((listing) => ({
           id: listing.id,
           userId: listing.user_id,
-          avatar: listing.profiles?.avatar_url || getDefaultAvatar("craftsman"),
+          avatar: listing.profiles?.avatar_url || getDefaultAvatar("individual"),
           username: listing.profiles?.username || "Utilisateur",
+          fullName: listing.profiles?.full_name || "",
           isVerified: Boolean(listing.profiles?.is_verified),
           timeAgo: "récemment",
           image: listing.image_url || "",
@@ -214,6 +216,7 @@ const Explore = () => {
                   userId={listing.userId}
                   avatar={listing.avatar}
                   username={listing.username}
+                  fullName={listing.fullName}
                   isVerified={listing.isVerified}
                   timeAgo={listing.timeAgo}
                   image={listing.image}
@@ -246,6 +249,7 @@ const Explore = () => {
                     userId={listing.userId}
                     avatar={listing.avatar}
                     username={listing.username}
+                    fullName={listing.fullName}
                     isVerified={listing.isVerified}
                     timeAgo={listing.timeAgo}
                     image={listing.image}

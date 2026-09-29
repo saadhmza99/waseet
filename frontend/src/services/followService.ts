@@ -10,8 +10,10 @@ export const followService = {
         profiles:following_id (
           id,
           username,
+          full_name,
           avatar_url,
-          is_verified
+          is_verified,
+          phone
         )
       `)
       .eq('follower_id', userId);
@@ -20,23 +22,29 @@ export const followService = {
     return data;
   },
 
-  // Get users that follow current user
+  // Get users that follow current user.
+  // follower_id points at auth.users (members and visitors), so it cannot be
+  // embedded as a profile. Visitors have no profile row and are omitted.
   async getFollowers(userId: string) {
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from('follows')
-      .select(`
-        follower_id,
-        profiles:follower_id (
-          id,
-          username,
-          avatar_url,
-          is_verified
-        )
-      `)
+      .select('follower_id')
       .eq('following_id', userId);
 
     if (error) throw error;
-    return data;
+    const ids = [...new Set((rows || []).map((row) => row.follower_id).filter(Boolean))];
+    if (!ids.length) return [];
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url, is_verified')
+      .in('id', ids);
+
+    if (profilesError) throw profilesError;
+    const byId = new Map((profiles || []).map((profile) => [profile.id, profile]));
+    return ids
+      .filter((id) => byId.has(id))
+      .map((id) => ({ follower_id: id, profiles: byId.get(id) }));
   },
 
   // Get posts from users that the current user follows
@@ -66,7 +74,8 @@ export const followService = {
           avatar_url,
           location,
           profession,
-          is_verified
+          is_verified,
+          phone
         )
       `)
       .in('user_id', followingIds)

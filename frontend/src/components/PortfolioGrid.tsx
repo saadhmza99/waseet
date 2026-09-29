@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bath, BedDouble, Heart, Maximize2, MessageCircle, Phone, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
-import { inquiryService } from "@/services/inquiryService";
+import PhoneInput from "@/components/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
+import {
+  inquiryCooldownMessage,
+  inquiryService,
+  inquiryTypeFromPostType,
+  isInquiryRateLimitError,
+  type InquiryRateStatus,
+} from "@/services/inquiryService";
 import FullScreenPopup from "@/components/FullScreenPopup";
 import FeatureAmenityGrid from "@/components/FeatureAmenityGrid";
 import { RetryImage } from "@/components/RetryImage";
@@ -61,6 +69,23 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
   const [selected, setSelected] = useState<PortfolioCardItem | null>(null);
   const [contact, setContact] = useState({ name: "", email: "", phone: "", needs: "" });
   const [sending, setSending] = useState(false);
+  const [rate, setRate] = useState<InquiryRateStatus | null>(null);
+  const blocked = rate && !rate.allowed;
+
+  useEffect(() => {
+    if (!selected) {
+      setRate(null);
+      return;
+    }
+    void inquiryService
+      .getRateStatus({
+        propertyId: selected.postType === "property" ? selected.id : undefined,
+        projectId: selected.postType === "project" ? selected.id : undefined,
+        phone: contact.phone,
+      })
+      .then(setRate)
+      .catch(() => setRate(null));
+  }, [selected, contact.phone]);
 
   if (!items.length) {
     return (
@@ -89,15 +114,21 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
 
   const sendInquiry = async () => {
     if (!selected?.sellerId) return;
-    if (!contact.name.trim() || !contact.email.trim() || !contact.phone.trim()) {
-      toast({ title: "Contact", description: "Nom, email et téléphone sont requis." });
+    if (blocked) {
+      toast({ title: "Limite atteinte", description: inquiryCooldownMessage(rate.retryAt) });
+      return;
+    }
+    if (!contact.name.trim() || !isCompletePhone(contact.phone)) {
+      toast({ title: "Contact", description: "Nom et un numéro de téléphone valide sont requis." });
       return;
     }
     setSending(true);
     try {
       await inquiryService.createInquiry({
+        type: inquiryTypeFromPostType(selected.postType),
         sellerId: selected.sellerId,
-        postId: selected.id,
+        propertyId: selected.postType === "property" ? selected.id : undefined,
+        projectId: selected.postType === "project" ? selected.id : undefined,
         name: contact.name,
         email: contact.email,
         phone: contact.phone,
@@ -105,8 +136,20 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
       });
       toast({ title: "Message envoyé", description: "Le propriétaire a reçu votre demande." });
       setContact({ name: "", email: "", phone: "", needs: "" });
-    } catch {
-      toast({ title: "Erreur", description: "Impossible d'envoyer la demande." });
+    } catch (error) {
+      if (isInquiryRateLimitError(error)) {
+        const next = await inquiryService
+          .getRateStatus({
+            propertyId: selected.postType === "property" ? selected.id : undefined,
+            projectId: selected.postType === "project" ? selected.id : undefined,
+            phone: contact.phone,
+          })
+          .catch(() => null);
+        if (next) setRate(next);
+        toast({ title: "Limite atteinte", description: inquiryCooldownMessage(next?.retryAt) });
+      } else {
+        toast({ title: "Erreur", description: "Impossible d'envoyer la demande." });
+      }
     } finally {
       setSending(false);
     }
@@ -277,11 +320,17 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
                     </Button>
                   </div>
                   <Input placeholder="Nom" value={contact.name} onChange={(e) => setContact((prev) => ({ ...prev, name: e.target.value }))} />
-                  <Input type="email" placeholder="Email" value={contact.email} onChange={(e) => setContact((prev) => ({ ...prev, email: e.target.value }))} />
-                  <Input placeholder="Téléphone" value={contact.phone} onChange={(e) => setContact((prev) => ({ ...prev, phone: e.target.value }))} />
-                  <Textarea placeholder="Besoins spécifiques" rows={3} className="resize-none" value={contact.needs} onChange={(e) => setContact((prev) => ({ ...prev, needs: e.target.value }))} />
-                  <Button className="w-full" onClick={sendInquiry} disabled={sending}>
-                    {sending ? "Envoi..." : "Contact"}
+                  <Input type="email" placeholder="Email (optionnel)" value={contact.email} onChange={(e) => setContact((prev) => ({ ...prev, email: e.target.value }))} />
+                  <PhoneInput value={contact.phone} onChange={(phone) => setContact((prev) => ({ ...prev, phone }))} />
+                  {blocked ? (
+                    <p className="rounded-xl bg-[#174f43]/5 px-3 py-2.5 text-sm leading-snug text-[#174f43]">
+                      {inquiryCooldownMessage(rate.retryAt)}
+                    </p>
+                  ) : (
+                    <Textarea placeholder="Besoins spécifiques" rows={3} className="resize-none" value={contact.needs} onChange={(e) => setContact((prev) => ({ ...prev, needs: e.target.value }))} />
+                  )}
+                  <Button className="w-full" onClick={sendInquiry} disabled={sending || Boolean(blocked)}>
+                    {blocked ? "Réessayer plus tard" : sending ? "Envoi..." : "Contact"}
                   </Button>
                 </div>
               </div>

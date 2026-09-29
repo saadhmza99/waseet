@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
-import { LayoutGrid, Video } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Bookmark, LayoutGrid, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
 import { savedService } from "@/services/savedService";
@@ -11,6 +12,8 @@ import { streamService } from "@/services/streamService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { cityFromPost } from "@/lib/feedLocation";
+import { contactPhone } from "@/lib/propertyListing";
 import { RetryImage } from "@/components/RetryImage";
 import InfiniteScrollSentinel, { PAGE_SIZE } from "@/components/InfiniteScrollSentinel";
 
@@ -28,7 +31,8 @@ const isBienPost = (post: any) =>
 
 const Saved = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, visitorUser, loading: authLoading } = useAuth();
+  const { requestVisitor } = useVisitorGate();
   const [activeTab, setActiveTab] = useState<SavedTab>("posts");
   const [postsView, setPostsView] = useState<PostsView>("grid");
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
@@ -38,7 +42,31 @@ const Saved = () => {
 
   useEffect(() => {
     const loadSaved = async () => {
+      if (authLoading) return;
+
+      if (!user && visitorUser) {
+        try {
+          setLoading(true);
+          const [posts, listings, reels] = await Promise.all([
+            savedService.getSavedPosts(visitorUser.id),
+            savedService.getSavedListings(visitorUser.id),
+            savedService.getSavedReels(visitorUser.id),
+          ]);
+          setSavedPosts(posts || []);
+          setSavedListings(listings || []);
+          setSavedReels(reels || []);
+        } catch (error) {
+          console.error("Error loading saved items:", error);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
       if (!user) {
+        setSavedPosts([]);
+        setSavedListings([]);
+        setSavedReels([]);
         setLoading(false);
         return;
       }
@@ -72,7 +100,16 @@ const Saved = () => {
     };
 
     loadSaved();
-  }, [user]);
+  }, [user, visitorUser, authLoading]);
+
+  const needsVisitorForm = !authLoading && !user && !visitorUser;
+  const promptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!needsVisitorForm || promptedRef.current) return;
+    promptedRef.current = true;
+    void requestVisitor();
+  }, [needsVisitorForm, requestVisitor]);
 
   const formatTimeAgo = (date: string) => {
     try {
@@ -130,10 +167,12 @@ const Saved = () => {
         key={post.id}
         postId={post.id}
         postUserId={post.user_id}
-        avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
+        avatar={profile.avatar_url || getDefaultAvatar("individual")}
         username={profile.username || ""}
+        fullName={profile.full_name || ""}
         isVerified={Boolean(profile.is_verified)}
         location={profile.location || ""}
+        city={cityFromPost(post)}
         profession={profile.profession || ""}
         timeAgo={formatTimeAgo(post.created_at)}
         description={post.description}
@@ -149,6 +188,7 @@ const Saved = () => {
         surface={post.surface}
         beds={post.beds}
         baths={post.baths}
+        phone={contactPhone(post.property_details, profile.phone)}
       />
     );
   };
@@ -161,8 +201,9 @@ const Saved = () => {
         key={listing.id}
         id={listing.id}
         userId={listing.user_id}
-        avatar={profile.avatar_url || getDefaultAvatar("craftsman")}
+        avatar={profile.avatar_url || getDefaultAvatar("individual")}
         username={profile.username || ""}
+        fullName={profile.full_name || ""}
         isVerified={Boolean(profile.is_verified)}
         timeAgo={formatTimeAgo(listing.created_at)}
         image={listing.image_url || ""}
@@ -175,6 +216,27 @@ const Saved = () => {
       />
     );
   };
+
+  if (needsVisitorForm) {
+    return (
+      <div className="mx-auto flex max-w-sm flex-col items-center px-6 py-16 text-center">
+        <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#174f43]/10">
+          <Bookmark className="h-8 w-8 fill-[#174f43] text-[#174f43]" />
+        </span>
+        <h1 className="text-xl font-semibold">Vos enregistrements</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Laissez vos coordonnées pour enregistrer des biens, projets et services et les retrouver ici.
+        </p>
+        <button
+          type="button"
+          onClick={() => void requestVisitor()}
+          className="mt-6 rounded-xl bg-[#174f43] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#123d34] active:scale-[0.98]"
+        >
+          Continuer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-20">

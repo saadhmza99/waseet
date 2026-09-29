@@ -18,9 +18,62 @@ export interface PostData {
   beds?: number | null;
   baths?: number | null;
   property_details?: Record<string, unknown> | null;
+  city?: string | null;
+  property_id?: string | null;
+  project_id?: string | null;
 }
 
 export type PostCommentPermission = 'anyone' | 'followers' | 'follow_back' | 'off';
+
+export const FEED_PAGE_SIZE = 2;
+
+export type FeedPage = { posts: any[]; hasMore: boolean };
+
+const mapFeedRow = (row: any) => ({
+  id: row.id,
+  user_id: row.user_id,
+  description: row.description,
+  before_image_url: row.before_image_url,
+  after_image_url: row.after_image_url,
+  single_image_url: row.single_image_url,
+  images: row.images || [],
+  likes_count: row.likes_count || 0,
+  comments_count: row.comments_count || 0,
+  shares_count: row.shares_count || 0,
+  is_sponsored: row.is_sponsored || false,
+  created_at: row.created_at,
+  post_type: row.post_type,
+  price: row.price,
+  surface: row.surface,
+  beds: row.beds,
+  baths: row.baths,
+  city: row.city,
+  profiles: {
+    id: row.user_id,
+    username: row.username || "",
+    full_name: row.full_name || "",
+    avatar_url: row.avatar_url,
+    location: row.location || "",
+    profession: row.profession || "",
+    is_verified: row.is_verified,
+    phone: row.phone || "",
+  },
+});
+
+// feed_page can return no rows when every visible post is from someone the viewer
+// follows and the database function still uses the old slot mix. Read the view directly.
+const fallbackFeedPage = async (limit: number): Promise<FeedPage | null> => {
+  const { data, error } = await supabase
+    .from('visible_feed_posts')
+    .select('id, user_id, description, before_image_url, after_image_url, single_image_url, images, likes_count, comments_count, shares_count, is_sponsored, created_at, post_type, price, surface, beds, baths, city, phone, username, full_name, avatar_url, location, profession, is_verified')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !data?.length) return null;
+  return {
+    hasMore: data.length === limit,
+    posts: data.map(mapFeedRow),
+  };
+};
 
 export const postService = {
   // Create a new post
@@ -42,6 +95,9 @@ export const postService = {
         beds: data.beds,
         baths: data.baths,
         property_details: data.property_details,
+        city: data.city || null,
+        property_id: data.property_id || null,
+        project_id: data.project_id || null,
       })
       .select()
       .single();
@@ -51,26 +107,19 @@ export const postService = {
     return post;
   },
 
-  // Get all posts (with pagination)
-  async getPosts(limit = 20, offset = 0) {
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          username,
-          avatar_url,
-          location,
-          profession,
-          is_verified
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
+  // One page of visible posts. Blocked and muted authors are excluded in SQL.
+  async getFeedPage(limit = FEED_PAGE_SIZE, offset = 0): Promise<FeedPage> {
+    const { data, error } = await supabase.rpc('feed_page', { p_limit: limit, p_offset: offset });
     if (error) throw error;
-    return data;
+    const rows = data || [];
+    if (rows.length === 0 && offset === 0) {
+      const fallback = await fallbackFeedPage(limit);
+      if (fallback) return fallback;
+    }
+    return {
+      hasMore: Boolean(rows[0]?.has_more),
+      posts: rows.map(mapFeedRow),
+    };
   },
 
   // Get post by ID
@@ -82,10 +131,12 @@ export const postService = {
         profiles:user_id (
           id,
           username,
+          full_name,
           avatar_url,
           location,
           profession,
-          is_verified
+          is_verified,
+          phone
         )
       `)
       .eq('id', postId)

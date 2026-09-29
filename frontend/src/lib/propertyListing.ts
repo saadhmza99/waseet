@@ -45,20 +45,7 @@ export const FLOORING_OPTIONS = ["Carrelage", "Parquet", "Marbre", "Moquette", "
 
 export const ORIENTATIONS = ["Nord", "Sud", "Est", "Ouest"];
 
-export const MOROCCO_REGIONS = [
-  "Tanger-Tétouan-Al Hoceïma",
-  "Oriental",
-  "Fès-Meknès",
-  "Rabat-Salé-Kénitra",
-  "Béni Mellal-Khénifra",
-  "Casablanca-Settat",
-  "Marrakech-Safi",
-  "Drâa-Tafilalet",
-  "Souss-Massa",
-  "Guelmim-Oued Noun",
-  "Laâyoune-Sakia El Hamra",
-  "Dakhla-Oued Ed-Dahab",
-];
+export { MOROCCO_REGIONS } from "@/lib/moroccoPlaces";
 
 export const FEATURE_GROUPS: { title: string; items: { id: string; label: string }[] }[] = [
   {
@@ -197,4 +184,14 @@ export const toWhatsAppNumber = (phone: string) => {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("0")) return `212${digits.slice(1)}`;
   return digits;
+};
+
+export const contactPhone = (details: unknown, profilePhone?: string | null) => {
+  const phones =
+    details && typeof details === "object" ? (details as { phones?: unknown }).phones : null;
+  const listingPhone = Array.isArray(phones)
+    ? phones.find((item) => typeof item === "string" && item.replace(/\D/g, "").length >= 6)
+    : "";
+  if (typeof listingPhone === "string" && listingPhone.trim()) return listingPhone.trim();
+  return (profilePhone || "").trim();
 };

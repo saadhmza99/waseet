@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import PhoneInput from "@/components/PhoneInput";
+import { isCompletePhone } from "@/lib/phone";
 
 const Contact = () => {
   const location = useLocation();
@@ -31,6 +33,9 @@ const Contact = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.phone && !isCompletePhone(formData.phone)) {
+      return;
+    }
     setIsSubmitting(true);
 
     // Simulate API call
@@ -182,18 +187,11 @@ const Contact = () => {
                       <Label htmlFor="phone" className="mb-2">
                         Téléphone
                       </Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="phone"
-                          name="phone"
-                          type="tel"
-                          value={formData.phone}
-                          onChange={handleChange}
-                          placeholder="+212 612 345 678"
-                          className="pl-10"
-                        />
-                      </div>
+                      <PhoneInput
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(phone) => setFormData((prev) => ({ ...prev, phone }))}
+                      />
                     </div>
 
                     <div>

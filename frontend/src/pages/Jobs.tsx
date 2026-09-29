@@ -51,7 +51,7 @@ const Jobs = () => {
           jobs.map((job) => (
             <JobCard
               key={job.id}
-              avatar={job.profiles?.avatar_url || getDefaultAvatar("craftsman")}
+              avatar={job.profiles?.avatar_url || getDefaultAvatar("individual")}
               username={job.profiles?.username || "Utilisateur"}
               isVerified={Boolean(job.profiles?.is_verified)}
               location={job.location || ""}

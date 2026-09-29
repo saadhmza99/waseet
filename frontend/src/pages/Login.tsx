@@ -102,6 +102,7 @@ const Login = () => {
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-card-foreground mb-2">Welcome Back</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Log in to your Sifarah account</p>
+          <p className="mt-2 text-sm text-muted-foreground">Particulier : email et mot de passe définis sur votre profil.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
@@ -186,7 +187,7 @@ const Login = () => {
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
             <button
-              onClick={() => navigate("/create-profile")}
+              onClick={() => navigate("/join")}
               className="font-medium text-[#174f43] hover:underline"
             >
               Create Profile

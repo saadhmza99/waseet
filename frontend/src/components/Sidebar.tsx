@@ -48,7 +48,7 @@ const Sidebar = () => {
           Join thousands of professionals and clients connecting on Sifarah
         </p>
         <button
-          onClick={() => navigate("/create-profile")}
+          onClick={() => navigate("/join")}
           className="w-full bg-accent text-accent-foreground font-semibold py-2.5 rounded-lg hover:bg-accent/90 transition-colors"
         >
           Create Profile

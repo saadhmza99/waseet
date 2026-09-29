@@ -1,8 +1,12 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, UserPlus, Hammer, Building2, Mail, Lock, User, Phone, MapPin } from "lucide-react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Hammer, Mail, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import PhoneInput from "@/components/PhoneInput";
+import { CityPicker, RegionSelect } from "@/components/CityPicker";
+import { isCompletePhone } from "@/lib/phone";
+import { citiesForRegion } from "@/lib/moroccoPlaces";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
@@ -23,15 +27,16 @@ const CreateProfile = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signUp } = useAuth();
-  const [profileType, setProfileType] = useState<"craftsman" | "hunter" | null>(
-    searchParams.get("type") === "craftsman" ? "craftsman" : searchParams.get("type") === "hunter" ? "hunter" : null
-  );
+  const typeParam = searchParams.get("type");
+  const profileType: "individual" | "enterprise" | null =
+    typeParam === "individual" || typeParam === "enterprise" ? typeParam : null;
   const [formData, setFormData] = useState({
     username: "",
     name: "",
     email: "",
     password: "",
     phone: "",
+    region: "",
     location: "",
     profession: "",
     bio: "",
@@ -87,6 +92,11 @@ const CreateProfile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!isCompletePhone(formData.phone)) {
+      setError("Entrez un numéro de téléphone valide pour l'indicatif choisi.");
+      toast.error("Numéro de téléphone incomplet");
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -145,61 +155,23 @@ const CreateProfile = () => {
   };
 
   if (!profileType) {
-    return (
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 py-8 sm:py-12">
-        <div className="w-full max-w-2xl">
-          <div className="text-center mb-6 sm:mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-accent/10 rounded-full mb-4 mx-auto">
-              <UserPlus className="w-8 h-8 sm:w-10 sm:h-10 text-accent" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-card-foreground mb-2">Create Your Profile</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Choose your account type to get started</p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
-            <button
-              onClick={() => setProfileType("craftsman")}
-              className="bg-card border-2 border-border rounded-lg p-6 sm:p-8 hover:border-accent hover:bg-accent/5 transition-all text-left group"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-accent/10 rounded-full flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-                  <Hammer className="w-6 h-6 sm:w-7 sm:h-7 text-accent" />
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">Craftsman</h2>
-              </div>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Showcase your work, find jobs, and connect with clients. Perfect for individual professionals and contractors.
-              </p>
-            </button>
-
-            <button
-              onClick={() => setProfileType("hunter")}
-              className="bg-card border-2 border-border rounded-lg p-6 sm:p-8 hover:border-accent hover:bg-accent/5 transition-all text-left group"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-accent/10 rounded-full flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-                  <Building2 className="w-6 h-6 sm:w-7 sm:h-7 text-accent" />
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">Craftsman Hunter</h2>
-              </div>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Post jobs, find skilled professionals, and manage projects. Ideal for businesses and enterprises.
-              </p>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <Navigate to="/join" replace />;
   }
+
+  const goBack = () => {
+    // Opened directly (no in-app history): go to the account-type choice instead of leaving the app.
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate("/join", { replace: true });
+  };
 
   return (
     <div className="pb-20">
       <div className="sticky top-[57px] sm:top-[60px] z-40 bg-background border-b border-border px-4 sm:px-6 md:px-8 py-3 sm:py-4 flex items-center gap-3">
-        <button onClick={() => profileType ? setProfileType(null) : navigate(-1)} className="text-card-foreground hover:opacity-70 transition-opacity">
+        <button onClick={goBack} className="text-card-foreground hover:opacity-70 transition-opacity">
           <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
         <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-card-foreground">
-          Create {profileType === "craftsman" ? "Craftsman" : "Craftsman Hunter"} Profile
+          {profileType === "individual" ? "Compte professionnel indépendant" : "Compte agence"}
         </h1>
       </div>
 
@@ -305,39 +277,47 @@ const CreateProfile = () => {
             <label htmlFor="phone" className="block text-sm font-medium text-card-foreground mb-2">
               Phone Number
             </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="pl-10 sm:pl-12 h-11 sm:h-12"
-                required
-              />
-            </div>
+            <PhoneInput
+              id="phone"
+              required
+              value={formData.phone}
+              onChange={(phone) => setFormData({ ...formData, phone })}
+              inputClassName="h-11 sm:h-12"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="region" className="block text-sm font-medium text-card-foreground mb-2">
+              Région
+            </label>
+            <RegionSelect
+              id="region"
+              required
+              value={formData.region}
+              onChange={(region) => {
+                const nextCity = citiesForRegion(region).includes(formData.location) ? formData.location : "";
+                setFormData({ ...formData, region, location: nextCity });
+              }}
+              className="h-11 sm:h-12"
+            />
           </div>
 
           <div>
             <label htmlFor="location" className="block text-sm font-medium text-card-foreground mb-2">
-              Location
+              Ville
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-              <Input
-                id="location"
-                type="text"
-                placeholder="Enter your location"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="pl-10 sm:pl-12 h-11 sm:h-12"
-                required
-              />
-            </div>
+            <CityPicker
+              id="location"
+              required
+              region={formData.region}
+              value={formData.location}
+              onChange={(location) => setFormData({ ...formData, location })}
+              placeholder="Ville"
+              className="h-11 sm:h-12"
+            />
           </div>
 
-          {profileType === "craftsman" && (
+          {profileType === "individual" && (
             <div>
               <label htmlFor="profession" className="block text-sm font-medium text-card-foreground mb-2">
                 Profession

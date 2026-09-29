@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Bell, Shield, Moon, Globe, Trash2, User, Users, Eye } from "lucide-react";
+import { ArrowLeft, Bell, Shield, Moon, Globe, Trash2, User, Users, Eye, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -27,6 +27,8 @@ const Settings = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [confirmLoginEmail, setConfirmLoginEmail] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -85,9 +87,10 @@ const Settings = () => {
     if (!profile) return;
     setUsername(profile.username || "");
     setFullName(profile.full_name || "");
+    setLoginEmail(user?.email || "");
     setBio(profile.bio || "");
     setWebsiteUrl(preferredWebsiteFrom(profile.website_url));
-  }, [profile]);
+  }, [profile, user?.email]);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -134,7 +137,7 @@ const Settings = () => {
     return parsed.toString();
   };
 
-  const handleSaveProfile = async () => {
+  const persistProfile = async (alsoChangeLoginEmail = false) => {
     if (!user || !profile) return;
     setIsSaving(true);
     try {
@@ -163,10 +166,17 @@ const Settings = () => {
         avatar_url: avatarUrl,
       });
 
+      if (alsoChangeLoginEmail) {
+        await profileService.updateLoginEmail(loginEmail.trim());
+      }
+
       setAvatarFile(null);
+      setConfirmLoginEmail(null);
       toast({
-        title: "Profil mis à jour",
-        description: "Vos informations ont bien été enregistrées.",
+        title: alsoChangeLoginEmail ? "Email de connexion mis à jour" : "Profil mis à jour",
+        description: alsoChangeLoginEmail
+          ? `Vous vous connecterez avec ${loginEmail.trim()}. Si un message de confirmation arrive, ouvrez-le pour valider le changement.`
+          : "Vos informations ont bien été enregistrées.",
       });
     } catch (error) {
       console.error("Error updating settings profile:", error);
@@ -182,6 +192,17 @@ const Settings = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user || !profile) return;
+    const next = loginEmail.trim();
+    const current = (user.email || "").trim();
+    if (next && next.toLowerCase() !== current.toLowerCase()) {
+      setConfirmLoginEmail(next);
+      return;
+    }
+    await persistProfile(false);
   };
 
   const handleSavePreferences = async () => {
@@ -322,6 +343,46 @@ const Settings = () => {
                 placeholder="Votre nom"
               />
             </div>
+
+            <div>
+              <Label htmlFor="login-email" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                Email de connexion
+              </Label>
+              <Input
+                id="login-email"
+                type="email"
+                value={loginEmail}
+                onChange={(e) => {
+                  setLoginEmail(e.target.value);
+                  setConfirmLoginEmail(null);
+                }}
+                placeholder="vous@exemple.com"
+              />
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                C'est l'email du compte Auth. Le changer change aussi votre prochaine connexion.
+              </p>
+            </div>
+
+            {confirmLoginEmail ? (
+              <div className="rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 px-3 py-3 text-sm leading-relaxed text-[#174f43]">
+                <p className="flex items-center gap-2 font-semibold">
+                  <Mail className="h-4 w-4" />
+                  Changer l'email de connexion ?
+                </p>
+                <p className="mt-1 text-[13px]">
+                  Vous vous connecterez ensuite avec <span className="font-semibold">{confirmLoginEmail}</span>
+                  {user?.email ? `, et non plus avec ${user.email}` : ""}.
+                </p>
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setConfirmLoginEmail(null)} disabled={isSaving}>
+                    Annuler
+                  </Button>
+                  <Button type="button" onClick={() => void persistProfile(true)} disabled={isSaving}>
+                    {isSaving ? "Enregistrement..." : "Oui, changer l'email"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             <div>
               <Label htmlFor="website" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">

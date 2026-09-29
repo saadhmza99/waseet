@@ -1,13 +1,12 @@
-import { postService } from "@/services/postService";
-import { PAGE_SIZE } from "@/components/InfiniteScrollSentinel";
+import { FEED_PAGE_SIZE, postService, type FeedPage } from "@/services/postService";
 
 const MAX_AGE_MS = 60 * 1000;
 
-let pending: { page: Promise<any[] | null>; at: number } | null = null;
+let pending: { page: Promise<FeedPage | null>; at: number } | null = null;
 
 export const prefetchFeedFirstPage = () => {
   if (pending && Date.now() - pending.at < MAX_AGE_MS) return;
-  pending = { page: postService.getPosts(PAGE_SIZE, 0).catch(() => null), at: Date.now() };
+  pending = { page: postService.getFeedPage(FEED_PAGE_SIZE, 0).catch(() => null), at: Date.now() };
 };
 
 export const takeFeedFirstPage = async () => {

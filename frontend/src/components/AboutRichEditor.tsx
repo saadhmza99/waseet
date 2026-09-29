@@ -40,6 +40,7 @@ const hrefForLink = (url: string) => {
   const trimmed = url.trim();
   if (!trimmed) return "";
   if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return `mailto:${trimmed}`;
   return `https://${trimmed}`;
 };
 
@@ -309,7 +310,7 @@ const AboutRichEditor = ({ value, onChange }: AboutRichEditorProps) => {
                 />
               ) : null}
               <Input
-                placeholder="https://exemple.com"
+                placeholder="https://exemple.com ou contact@agence.com"
                 value={pendingLink.url}
                 onChange={(e) => setPendingLink({ ...pendingLink, url: e.target.value })}
                 onKeyDown={(e) => {

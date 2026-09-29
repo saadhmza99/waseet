@@ -1,4 +1,4 @@
-const STORAGE_KEY = "sifarah.profileBuffer.v2";
+const STORAGE_KEY = "sifarah.profileBuffer.v3";
 const MAX_ACCOUNTS = 8;
 const TTL_MS = 5 * 60 * 1000;
 

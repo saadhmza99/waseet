@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { reelService } from "@/services/reelService";
 import { savedService } from "@/services/savedService";
 import CommentSection from "@/components/CommentSection";
@@ -27,6 +28,7 @@ import { REEL_MAX_DURATION_SECONDS } from "@/services/streamService";
 import { Button } from "@/components/ui/button";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import { toast } from "@/components/ui/use-toast";
+import { savedToast } from "@/lib/savedToast";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { IosShareIcon, RoundCommentIcon } from "@/components/PostActionIcons";
 import { followService } from "@/services/followService";
@@ -45,12 +47,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 const Reels = () => {
-  const { user } = useAuth();
+  const { user, visitorUser, loading: authLoading } = useAuth();
+  const { requestVisitor } = useVisitorGate();
+  const localSaveTogglesRef = useRef(new Map<string, boolean>());
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const feedFrom = searchParams.get("from");
   const feedProfileId = searchParams.get("profileId");
   const isSubFeed = feedFrom === "profile" || feedFrom === "saved";
+  const saverId = user?.id ?? visitorUser?.id;
+  // Only the saved sub-feed depends on the visitor; reloading the main feed would reset playback.
+  const savedFeedOwnerId = feedFrom === "saved" ? saverId : null;
   const [reels, setReels] = useState<any[]>([]);
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [likedReels, setLikedReels] = useState<Set<string>>(new Set());
@@ -83,18 +90,15 @@ const Reels = () => {
         let reelsData: any[] = [];
 
         if (feedFrom === "saved") {
-          if (!user) {
+          if (authLoading) return;
+          if (!saverId) {
             setReels([]);
             setLikedReels(new Set());
             setSavedReels(new Set());
-            toast({
-              title: "Connexion requise",
-              description: "Connecte-toi pour voir tes reels enregistrés.",
-            });
-            navigate("/login", { replace: true });
+            navigate("/saved", { replace: true });
             return;
           }
-          const savedRows = await savedService.getSavedReels(user.id);
+          const savedRows = await savedService.getSavedReels(saverId);
           reelsData = (savedRows || [])
             .map((row: { reels?: any }) => row.reels)
             .filter(Boolean);
@@ -131,23 +135,16 @@ const Reels = () => {
         }
 
         if (user && reelsData.length) {
-          const likedPromises = reelsData.map((reel) => reelService.isReelLiked(user.id, reel.id));
-          const savedPromises = reelsData.map((reel) => savedService.isReelSaved(user.id, reel.id));
-          const [likedResults, savedResults] = await Promise.all([
-            Promise.all(likedPromises),
-            Promise.all(savedPromises),
-          ]);
+          const likedResults = await Promise.all(
+            reelsData.map((reel) => reelService.isReelLiked(user.id, reel.id)),
+          );
           const likedSet = new Set<string>();
-          const savedSet = new Set<string>();
           reelsData.forEach((reel, index) => {
             if (likedResults[index]) likedSet.add(reel.id);
-            if (savedResults[index]) savedSet.add(reel.id);
           });
           setLikedReels(likedSet);
-          setSavedReels(savedSet);
         } else {
           setLikedReels(new Set());
-          setSavedReels(new Set());
         }
       } catch (error) {
         console.error("Error loading reels:", error);
@@ -158,7 +155,31 @@ const Reels = () => {
     };
 
     void loadReels();
-  }, [user, feedQueryKey, navigate]);
+  }, [user, savedFeedOwnerId, authLoading, feedQueryKey, navigate]);
+
+  useEffect(() => {
+    localSaveTogglesRef.current.clear();
+    if (!saverId || !reels.length) {
+      setSavedReels(new Set());
+      return;
+    }
+    let cancelled = false;
+    Promise.all(reels.map((reel) => savedService.isReelSaved(saverId, reel.id)))
+      .then((results) => {
+        if (cancelled) return;
+        // Saves made while this check was in flight win over its (possibly older) answer.
+        const saved = new Set(reels.filter((_, index) => results[index]).map((reel) => reel.id));
+        localSaveTogglesRef.current.forEach((isSaved, reelId) => {
+          if (isSaved) saved.add(reelId);
+          else saved.delete(reelId);
+        });
+        setSavedReels(saved);
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [saverId, reels]);
 
   useEffect(() => {
     if (!user) {
@@ -260,24 +281,24 @@ const Reels = () => {
   };
 
   const handleSave = async (reelId: string) => {
-    if (!user) {
-      toast({ title: "Connexion requise", description: "Connecte-toi pour enregistrer ce reel." });
-      return;
-    }
+    const saver = await requestVisitor();
+    if (!saver) return;
 
     try {
       if (savedReels.has(reelId)) {
-        await savedService.unsaveReel(user.id, reelId);
+        await savedService.unsaveReel(saver.id, reelId);
+        localSaveTogglesRef.current.set(reelId, false);
         setSavedReels((prev) => {
           const next = new Set(prev);
           next.delete(reelId);
           return next;
         });
-        toast({ title: "Retiré", description: "Reel retiré des enregistrements." });
+        savedToast("Retiré", "Reel retiré des enregistrements.");
       } else {
-        await savedService.saveReel(user.id, reelId);
+        await savedService.saveReel(saver.id, reelId);
+        localSaveTogglesRef.current.set(reelId, true);
         setSavedReels((prev) => new Set(prev).add(reelId));
-        toast({ title: "Enregistré", description: "Reel ajouté à tes enregistrements." });
+        savedToast("Enregistré", "Reel ajouté à tes enregistrements.");
       }
     } catch (error) {
       console.error("Error toggling save:", error);

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   about_text TEXT,
   avatar_url TEXT,
   cover_photo_url TEXT,
-  profile_type TEXT CHECK (profile_type IN ('craftsman', 'hunter')),
+  profile_type TEXT CHECK (profile_type IN ('individual', 'enterprise')),
   phone TEXT,
   email TEXT,
   website_url TEXT,
@@ -30,6 +30,13 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMP
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signup_ip TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signup_country TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS signup_country_code TEXT;
+
+-- profile_type: craftsman / hunter are deprecated; individual / enterprise replace them.
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_profile_type_check;
+UPDATE public.profiles SET profile_type = 'individual' WHERE profile_type = 'craftsman';
+UPDATE public.profiles SET profile_type = 'enterprise' WHERE profile_type = 'hunter';
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_profile_type_check
+  CHECK (profile_type IS NULL OR profile_type IN ('individual', 'enterprise'));
 
 COMMENT ON COLUMN public.profiles.is_verified IS
   'True when this profile has passed Sifarah verification. Default false until a moderator sets it.';
@@ -193,7 +200,7 @@ CREATE TABLE IF NOT EXISTS public.reviews (
 -- Follows table
 CREATE TABLE IF NOT EXISTS public.follows (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  follower_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  follower_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   following_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   UNIQUE(follower_id, following_id),
@@ -303,7 +310,7 @@ RETURNS TEXT AS $$
 DECLARE
   svg TEXT;
 BEGIN
-  IF profile_kind = 'hunter' THEN
+  IF profile_kind = 'enterprise' THEN
     svg := '<svg xmlns=''http://www.w3.org/2000/svg'' viewBox=''0 0 120 120''><rect width=''120'' height=''120'' fill=''#e5e7eb''/><circle cx=''60'' cy=''44'' r=''22'' fill=''#9ca3af''/><path d=''M20 108c6-22 22-34 40-34s34 12 40 34'' fill=''#9ca3af''/><path d=''M38 42c6-16 16-20 22-20s16 4 22 20'' fill=''none'' stroke=''#9ca3af'' stroke-width=''8''/></svg>';
   ELSE
     svg := '<svg xmlns=''http://www.w3.org/2000/svg'' viewBox=''0 0 120 120''><rect width=''120'' height=''120'' fill=''#e5e7eb''/><circle cx=''60'' cy=''40'' r=''22'' fill=''#9ca3af''/><path d=''M18 108c8-24 24-34 42-34s34 10 42 34'' fill=''#9ca3af''/></svg>';
@@ -321,7 +328,7 @@ BEGIN
   END IF;
 
   IF NEW.avatar_url IS NULL OR btrim(NEW.avatar_url) = '' THEN
-    NEW.avatar_url := public.get_default_avatar_url(COALESCE(NEW.profile_type, 'craftsman'));
+    NEW.avatar_url := public.get_default_avatar_url(COALESCE(NEW.profile_type, 'individual'));
   END IF;
 
   RETURN NEW;
@@ -336,7 +343,7 @@ CREATE TRIGGER enforce_profile_defaults_trigger
 UPDATE public.profiles
 SET
   username = COALESCE(NULLIF(btrim(username), ''), 'user_' || substr(id::text, 1, 8)),
-  avatar_url = COALESCE(NULLIF(btrim(avatar_url), ''), public.get_default_avatar_url(COALESCE(profile_type, 'craftsman')))
+  avatar_url = COALESCE(NULLIF(btrim(avatar_url), ''), public.get_default_avatar_url(COALESCE(profile_type, 'individual')))
 WHERE username IS NULL
    OR btrim(username) = ''
    OR avatar_url IS NULL
@@ -345,6 +352,11 @@ WHERE username IS NULL
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- Visitors (anonymous sign-ins) live in public.visitors, not in profiles.
+  IF COALESCE(NEW.is_anonymous, FALSE) THEN
+    RETURN NEW;
+  END IF;
+
   INSERT INTO public.profiles (
     id, username, full_name, profession, location, bio, phone, email, profile_type,
     signup_ip, signup_country, signup_country_code
@@ -358,10 +370,12 @@ BEGIN
     NEW.raw_user_meta_data->>'bio',
     NEW.raw_user_meta_data->>'phone',
     NULLIF(btrim(NEW.email), ''),
-    CASE
-      WHEN NEW.raw_user_meta_data->>'profile_type' IN ('craftsman', 'hunter')
-      THEN NEW.raw_user_meta_data->>'profile_type'
-      ELSE 'craftsman'
+    CASE NEW.raw_user_meta_data->>'profile_type'
+      WHEN 'individual' THEN 'individual'
+      WHEN 'enterprise' THEN 'enterprise'
+      WHEN 'craftsman' THEN 'individual'
+      WHEN 'hunter' THEN 'enterprise'
+      ELSE 'individual'
     END,
     NULLIF(btrim(NEW.raw_user_meta_data->>'signup_ip'), ''),
     NULLIF(btrim(NEW.raw_user_meta_data->>'signup_country'), ''),
@@ -376,6 +390,55 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- auth.users has no full_name column. Name, phone, username, etc. live in
+-- raw_user_meta_data. Keep that JSON in sync whenever public.profiles changes
+-- so the Auth dashboard and JWT user_metadata match the profile.
+CREATE OR REPLACE FUNCTION public.sync_profile_to_auth()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE auth.users
+  SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
+    'full_name', NEW.full_name,
+    'username', NEW.username,
+    'phone', NEW.phone,
+    'email', NEW.email,
+    'profession', NEW.profession,
+    'location', NEW.location,
+    'bio', NEW.bio,
+    'profile_type', NEW.profile_type,
+    'avatar_url', NEW.avatar_url
+  )
+  WHERE id = NEW.id;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS sync_profile_to_auth_trigger ON public.profiles;
+CREATE TRIGGER sync_profile_to_auth_trigger
+  AFTER INSERT OR UPDATE OF
+    full_name, username, phone, email, profession, location, bio, profile_type, avatar_url
+  ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.sync_profile_to_auth();
+
+UPDATE auth.users u
+SET raw_user_meta_data = COALESCE(u.raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
+  'full_name', p.full_name,
+  'username', p.username,
+  'phone', p.phone,
+  'email', p.email,
+  'profession', p.profession,
+  'location', p.location,
+  'bio', p.bio,
+  'profile_type', p.profile_type,
+  'avatar_url', p.avatar_url
+)
+FROM public.profiles p
+WHERE u.id = p.id;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -579,53 +642,10 @@ CREATE POLICY "Users can unfollow"
   ON public.follows FOR DELETE
   USING (auth.uid() = follower_id);
 
--- RLS Policies for saved_posts
-DROP POLICY IF EXISTS "Users can view their own saved posts" ON public.saved_posts;
-CREATE POLICY "Users can view their own saved posts"
-  ON public.saved_posts FOR SELECT
-  USING (auth.uid() = user_id);
+-- RLS policies for saved_posts / saved_listings are in the "Visitors" section
+-- at the end of this file (they also cover visitor accounts).
 
-DROP POLICY IF EXISTS "Users can save posts" ON public.saved_posts;
-CREATE POLICY "Users can save posts"
-  ON public.saved_posts FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can unsave posts" ON public.saved_posts;
-CREATE POLICY "Users can unsave posts"
-  ON public.saved_posts FOR DELETE
-  USING (auth.uid() = user_id);
-
--- RLS Policies for saved_listings
-DROP POLICY IF EXISTS "Users can view their own saved listings" ON public.saved_listings;
-CREATE POLICY "Users can view their own saved listings"
-  ON public.saved_listings FOR SELECT
-  USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can save listings" ON public.saved_listings;
-CREATE POLICY "Users can save listings"
-  ON public.saved_listings FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can unsave listings" ON public.saved_listings;
-CREATE POLICY "Users can unsave listings"
-  ON public.saved_listings FOR DELETE
-  USING (auth.uid() = user_id);
-
--- RLS Policies for saved_reels
-DROP POLICY IF EXISTS "Users can view their own saved reels" ON public.saved_reels;
-CREATE POLICY "Users can view their own saved reels"
-  ON public.saved_reels FOR SELECT
-  USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can save reels" ON public.saved_reels;
-CREATE POLICY "Users can save reels"
-  ON public.saved_reels FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can unsave reels" ON public.saved_reels;
-CREATE POLICY "Users can unsave reels"
-  ON public.saved_reels FOR DELETE
-  USING (auth.uid() = user_id);
+-- RLS policies for saved_reels are in the "Visitors" section at the end of this file.
 
 -- RLS Policies for reels
 DROP POLICY IF EXISTS "Reels are viewable by everyone" ON public.reels;
@@ -1074,7 +1094,7 @@ GRANT SELECT, INSERT, UPDATE ON public.user_settings TO authenticated;
 
 -- Muted accounts (hide posts and/or services in the viewer feed)
 CREATE TABLE IF NOT EXISTS public.muted_accounts (
-  muter_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  muter_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   muted_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   mute_posts BOOLEAN DEFAULT FALSE NOT NULL,
   mute_services BOOLEAN DEFAULT FALSE NOT NULL,
@@ -1519,28 +1539,65 @@ ALTER TABLE public.listings
 CREATE INDEX IF NOT EXISTS posts_user_id_post_type_idx
   ON public.posts (user_id, post_type, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS public.property_inquiries (
+-- Information requests sent to agencies from posts (property / project / post)
+-- or services (listings). Visitors don't need an account; email is optional.
+DO $$
+BEGIN
+  IF to_regclass('public.property_inquiries') IS NOT NULL
+     AND to_regclass('public.inquiries') IS NULL THEN
+    ALTER TABLE public.property_inquiries RENAME TO inquiries;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.inquiries (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  type TEXT NOT NULL DEFAULT 'property',
   post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
   listing_id UUID REFERENCES public.listings(id) ON DELETE CASCADE,
   seller_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
-  email TEXT NOT NULL,
+  email TEXT,
   phone TEXT NOT NULL,
   needs TEXT,
+  details JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
-ALTER TABLE public.property_inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inquiries
+  ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'property',
+  ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.inquiries ALTER COLUMN email DROP NOT NULL;
 
-DROP POLICY IF EXISTS "Anyone can send a property inquiry" ON public.property_inquiries;
-CREATE POLICY "Anyone can send a property inquiry"
-  ON public.property_inquiries FOR INSERT
+UPDATE public.inquiries i
+SET type = CASE WHEN p.post_type = 'standard' THEN 'post' ELSE p.post_type END
+FROM public.posts p
+WHERE i.post_id = p.id AND i.listing_id IS NULL;
+
+UPDATE public.inquiries SET type = 'service' WHERE listing_id IS NOT NULL;
+
+ALTER TABLE public.inquiries DROP CONSTRAINT IF EXISTS inquiries_type_check;
+ALTER TABLE public.inquiries ADD CONSTRAINT inquiries_type_check
+  CHECK (type IN ('property', 'project', 'service', 'post'));
+
+ALTER TABLE public.inquiries DROP CONSTRAINT IF EXISTS inquiries_target_check;
+ALTER TABLE public.inquiries ADD CONSTRAINT inquiries_target_check
+  CHECK ((post_id IS NOT NULL) <> (listing_id IS NOT NULL)) NOT VALID;
+
+CREATE INDEX IF NOT EXISTS inquiries_seller_created_idx
+  ON public.inquiries (seller_id, created_at DESC);
+
+ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can send a property inquiry" ON public.inquiries;
+DROP POLICY IF EXISTS "Anyone can send an inquiry" ON public.inquiries;
+CREATE POLICY "Anyone can send an inquiry"
+  ON public.inquiries FOR INSERT
   WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Sellers can view their property inquiries" ON public.property_inquiries;
-CREATE POLICY "Sellers can view their property inquiries"
-  ON public.property_inquiries FOR SELECT
+DROP POLICY IF EXISTS "Sellers can view their property inquiries" ON public.inquiries;
+DROP POLICY IF EXISTS "Sellers can view their inquiries" ON public.inquiries;
+CREATE POLICY "Sellers can view their inquiries"
+  ON public.inquiries FOR SELECT
   USING (auth.uid() = seller_id);
 
 ALTER TABLE public.posts ALTER COLUMN title DROP NOT NULL;
@@ -1570,4 +1627,1249 @@ INSERT INTO public.feed_banner_images (image_url, alt, sort_order) VALUES
   ('/feed-banners/villa-jardin.webp', 'Villa marocaine dans un jardin', 3),
   ('/feed-banners/riad-patio.jpg', 'Patio de riad avec piscine', 4)
 ON CONFLICT (image_url) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Visitors: regular traffic (not agencies / professionals).
+-- A visitor is a Supabase anonymous sign-in (no password, no email verification)
+-- plus the contact details they typed. Agencies keep using email + password
+-- and live in public.profiles.
+-- Requires: Dashboard > Authentication > Sign In / Providers > "Allow anonymous sign-ins".
+-- A visitor session stays valid while the visitor comes back at least once every
+-- 30 days; after 30 days of inactivity it can no longer be renewed. The visitor
+-- then fills the form again: if name + phone match a stored visitor, the new
+-- session takes over that visitor (same lead, same saves).
+-- public.visitors is also the leads table: one row per person, kept even if the
+-- auth account behind it is deleted.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.normalize_phone(p TEXT)
+RETURNS TEXT
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN d LIKE '00212%' THEN '0' || substr(d, 6)
+    WHEN d LIKE '212%' AND length(d) = 12 THEN '0' || substr(d, 4)
+    ELSE d
+  END
+  FROM (SELECT regexp_replace(COALESCE(p, ''), '\D', '', 'g') AS d) digits;
+$$;
+
+CREATE OR REPLACE FUNCTION public.normalize_person_name(p TEXT)
+RETURNS TEXT
+LANGUAGE sql IMMUTABLE
+AS $$
+  SELECT lower(regexp_replace(btrim(COALESCE(p, '')), '\s+', ' ', 'g'));
+$$;
+
+CREATE TABLE IF NOT EXISTS public.visitors (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Earlier shape keyed visitors.id on auth.users; move that link to user_id.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'visitors' AND column_name = 'user_id'
+  ) THEN
+    ALTER TABLE public.visitors DROP CONSTRAINT IF EXISTS visitors_id_fkey;
+    ALTER TABLE public.visitors ADD COLUMN user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL;
+    UPDATE public.visitors SET user_id = id;
+    ALTER TABLE public.visitors ALTER COLUMN id SET DEFAULT uuid_generate_v4();
+  END IF;
+END $$;
+
+ALTER TABLE public.visitors
+  ADD COLUMN IF NOT EXISTS phone_normalized TEXT GENERATED ALWAYS AS (public.normalize_phone(phone)) STORED,
+  ADD COLUMN IF NOT EXISTS name_normalized TEXT GENERATED ALWAYS AS (public.normalize_person_name(name)) STORED,
+  ADD COLUMN IF NOT EXISTS login_count INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS bio TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+CREATE INDEX IF NOT EXISTS visitors_phone_name_idx
+  ON public.visitors (phone_normalized, name_normalized);
+CREATE INDEX IF NOT EXISTS visitors_created_idx
+  ON public.visitors (created_at DESC);
+
+ALTER TABLE public.visitors ENABLE ROW LEVEL SECURITY;
+
+-- Visitors read their own row; writes only go through the functions below so
+-- last_seen_at can't be pushed forward by hand.
+DROP POLICY IF EXISTS "Visitors can view their own row" ON public.visitors;
+CREATE POLICY "Visitors can view their own row"
+  ON public.visitors FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION public.is_anonymous_session()
+RETURNS BOOLEAN
+LANGUAGE sql STABLE
+AS $$
+  SELECT COALESCE((auth.jwt() ->> 'is_anonymous')::boolean, FALSE);
+$$;
+
+-- TRUE for members (agencies / professionals) and for visitors seen in the last 30 days.
+CREATE OR REPLACE FUNCTION public.visitor_session_active()
+RETURNS BOOLEAN
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_anonymous_session() THEN
+    RETURN TRUE;
+  END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.visitors
+    WHERE user_id = auth.uid()
+      AND last_seen_at > NOW() - INTERVAL '30 days'
+  );
+END;
+$$;
+
+-- Called right after an anonymous sign-in with the form values.
+-- Returns TRUE when name + phone matched a stored visitor and that visitor
+-- (lead + saves) was moved onto the new session, FALSE when a new lead was created.
+DROP FUNCTION IF EXISTS public.register_visitor(TEXT, TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.register_visitor(p_name TEXT, p_phone TEXT, p_email TEXT DEFAULT NULL)
+RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_visitor_id UUID;
+  v_old_user UUID;
+BEGIN
+  IF v_uid IS NULL OR NOT public.is_anonymous_session() THEN
+    RAISE EXCEPTION 'register_visitor requires an anonymous session';
+  END IF;
+  IF COALESCE(btrim(p_name), '') = '' OR public.normalize_phone(p_phone) = '' THEN
+    RAISE EXCEPTION 'name and phone are required';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.visitors WHERE user_id = v_uid) THEN
+    UPDATE public.visitors
+    SET name = btrim(p_name),
+        phone = btrim(p_phone),
+        email = COALESCE(NULLIF(btrim(p_email), ''), email)
+    WHERE user_id = v_uid;
+    RETURN FALSE;
+  END IF;
+
+  SELECT id, user_id INTO v_visitor_id, v_old_user
+  FROM public.visitors
+  WHERE phone_normalized = public.normalize_phone(p_phone)
+    AND name_normalized = public.normalize_person_name(p_name)
+  ORDER BY last_seen_at DESC
+  LIMIT 1;
+
+  IF v_visitor_id IS NULL THEN
+    INSERT INTO public.visitors (user_id, name, phone, email)
+    VALUES (v_uid, btrim(p_name), btrim(p_phone), NULLIF(btrim(p_email), ''));
+    RETURN FALSE;
+  END IF;
+
+  IF v_old_user IS NOT NULL THEN
+    UPDATE public.saved_posts SET user_id = v_uid WHERE user_id = v_old_user;
+    UPDATE public.saved_listings SET user_id = v_uid WHERE user_id = v_old_user;
+    UPDATE public.saved_reels SET user_id = v_uid WHERE user_id = v_old_user;
+    UPDATE public.follows SET follower_id = v_uid WHERE follower_id = v_old_user;
+  END IF;
+
+  UPDATE public.visitors
+  SET user_id = v_uid,
+      email = COALESCE(NULLIF(btrim(p_email), ''), email),
+      last_seen_at = NOW(),
+      login_count = login_count + 1
+  WHERE id = v_visitor_id;
+
+  -- The old anonymous account is now empty; remove it if we're allowed to.
+  IF v_old_user IS NOT NULL THEN
+    BEGIN
+      DELETE FROM auth.users WHERE id = v_old_user AND is_anonymous;
+    EXCEPTION WHEN insufficient_privilege THEN
+      NULL;
+    END;
+  END IF;
+
+  RETURN TRUE;
+END;
+$$;
+
+-- Called on each visit: renews the 30-day window, or returns FALSE if it already lapsed.
+CREATE OR REPLACE FUNCTION public.touch_visitor()
+RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.visitors
+  SET last_seen_at = NOW()
+  WHERE user_id = auth.uid()
+    AND last_seen_at > NOW() - INTERVAL '30 days';
+  RETURN FOUND;
+END;
+$$;
+
+-- Visitor edits their own profile (the only things a visitor profile holds).
+CREATE OR REPLACE FUNCTION public.update_visitor_profile(
+  p_name TEXT,
+  p_phone TEXT,
+  p_email TEXT DEFAULT NULL,
+  p_bio TEXT DEFAULT NULL,
+  p_avatar_url TEXT DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL OR NOT EXISTS (SELECT 1 FROM public.visitors WHERE user_id = auth.uid()) THEN
+    RAISE EXCEPTION 'update_visitor_profile requires a particulier profile';
+  END IF;
+  IF COALESCE(btrim(p_name), '') = '' OR public.normalize_phone(p_phone) = '' THEN
+    RAISE EXCEPTION 'name and phone are required';
+  END IF;
+
+  UPDATE public.visitors
+  SET name = btrim(p_name),
+      phone = btrim(p_phone),
+      email = NULLIF(btrim(p_email), ''),
+      bio = NULLIF(btrim(p_bio), ''),
+      avatar_url = NULLIF(btrim(p_avatar_url), '')
+  WHERE user_id = auth.uid();
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.register_visitor(TEXT, TEXT, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.touch_visitor() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.update_visitor_profile(TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.register_visitor(TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.touch_visitor() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_visitor_profile(TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+-- Link each information request to the visitor (lead) who sent it.
+ALTER TABLE public.inquiries
+  ADD COLUMN IF NOT EXISTS visitor_id UUID REFERENCES public.visitors(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS inquiries_visitor_idx ON public.inquiries (visitor_id);
+
+CREATE OR REPLACE FUNCTION public.set_inquiry_visitor()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.visitor_id := NULL;
+  IF auth.uid() IS NOT NULL THEN
+    SELECT id INTO NEW.visitor_id FROM public.visitors WHERE user_id = auth.uid();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_inquiry_visitor_trigger ON public.inquiries;
+CREATE TRIGGER set_inquiry_visitor_trigger
+  BEFORE INSERT ON public.inquiries
+  FOR EACH ROW EXECUTE FUNCTION public.set_inquiry_visitor();
+
+-- Visitors can't create an agency / professional profile.
+DROP POLICY IF EXISTS "Visitors cannot create profiles" ON public.profiles;
+CREATE POLICY "Visitors cannot create profiles"
+  ON public.profiles AS RESTRICTIVE FOR INSERT
+  WITH CHECK (NOT public.is_anonymous_session());
+
+-- Saved posts / listings / reels belong to any auth user (member or visitor), not only profiles.
+ALTER TABLE public.saved_posts DROP CONSTRAINT IF EXISTS saved_posts_user_id_fkey;
+ALTER TABLE public.saved_posts
+  ADD CONSTRAINT saved_posts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.saved_listings DROP CONSTRAINT IF EXISTS saved_listings_user_id_fkey;
+ALTER TABLE public.saved_listings
+  ADD CONSTRAINT saved_listings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.saved_reels DROP CONSTRAINT IF EXISTS saved_reels_user_id_fkey;
+ALTER TABLE public.saved_reels
+  ADD CONSTRAINT saved_reels_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+DROP POLICY IF EXISTS "Users can view their own saved reels" ON public.saved_reels;
+CREATE POLICY "Users can view their own saved reels"
+  ON public.saved_reels FOR SELECT
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can save reels" ON public.saved_reels;
+CREATE POLICY "Users can save reels"
+  ON public.saved_reels FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can unsave reels" ON public.saved_reels;
+CREATE POLICY "Users can unsave reels"
+  ON public.saved_reels FOR DELETE
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can view their own saved posts" ON public.saved_posts;
+CREATE POLICY "Users can view their own saved posts"
+  ON public.saved_posts FOR SELECT
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can save posts" ON public.saved_posts;
+CREATE POLICY "Users can save posts"
+  ON public.saved_posts FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can unsave posts" ON public.saved_posts;
+CREATE POLICY "Users can unsave posts"
+  ON public.saved_posts FOR DELETE
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can view their own saved listings" ON public.saved_listings;
+CREATE POLICY "Users can view their own saved listings"
+  ON public.saved_listings FOR SELECT
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can save listings" ON public.saved_listings;
+CREATE POLICY "Users can save listings"
+  ON public.saved_listings FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can unsave listings" ON public.saved_listings;
+CREATE POLICY "Users can unsave listings"
+  ON public.saved_listings FOR DELETE
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+-- 3 private messages per person per post/listing, then a 24h cooldown.
+ALTER TABLE public.inquiries
+  ADD COLUMN IF NOT EXISTS sender_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+UPDATE public.inquiries i
+SET sender_id = v.user_id
+FROM public.visitors v
+WHERE i.sender_id IS NULL AND i.visitor_id = v.id;
+
+CREATE INDEX IF NOT EXISTS inquiries_rate_post_idx
+  ON public.inquiries (post_id, created_at DESC) WHERE post_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS inquiries_rate_listing_idx
+  ON public.inquiries (listing_id, created_at DESC) WHERE listing_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS inquiries_sender_created_idx
+  ON public.inquiries (sender_id, created_at DESC);
+
+CREATE OR REPLACE FUNCTION public.inquiry_rate_retry_at(
+  p_sender UUID,
+  p_visitor UUID,
+  p_phone TEXT,
+  p_post UUID,
+  p_listing UUID
+)
+RETURNS TIMESTAMPTZ
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT MIN(created_at) + INTERVAL '24 hours'
+  FROM (
+    SELECT i.created_at
+    FROM public.inquiries i
+    WHERE i.created_at > NOW() - INTERVAL '24 hours'
+      AND (
+        (p_post IS NOT NULL AND i.post_id = p_post)
+        OR (p_listing IS NOT NULL AND i.listing_id = p_listing)
+      )
+      AND (
+        (p_sender IS NOT NULL AND i.sender_id = p_sender)
+        OR (p_visitor IS NOT NULL AND i.visitor_id = p_visitor)
+        OR (COALESCE(public.normalize_phone(p_phone), '') <> '' AND public.normalize_phone(i.phone) = public.normalize_phone(p_phone))
+      )
+    ORDER BY i.created_at DESC
+    LIMIT 3
+  ) recent;
+$$;
+
+CREATE OR REPLACE FUNCTION public.inquiry_rate_count(
+  p_sender UUID,
+  p_visitor UUID,
+  p_phone TEXT,
+  p_post UUID,
+  p_listing UUID
+)
+RETURNS INTEGER
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COUNT(*)::INTEGER
+  FROM public.inquiries i
+  WHERE i.created_at > NOW() - INTERVAL '24 hours'
+    AND (
+      (p_post IS NOT NULL AND i.post_id = p_post)
+      OR (p_listing IS NOT NULL AND i.listing_id = p_listing)
+    )
+    AND (
+      (p_sender IS NOT NULL AND i.sender_id = p_sender)
+      OR (p_visitor IS NOT NULL AND i.visitor_id = p_visitor)
+      OR (COALESCE(public.normalize_phone(p_phone), '') <> '' AND public.normalize_phone(i.phone) = public.normalize_phone(p_phone))
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.inquiry_rate_status(
+  p_post_id UUID DEFAULT NULL,
+  p_listing_id UUID DEFAULT NULL,
+  p_phone TEXT DEFAULT NULL
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_visitor UUID;
+  v_phone TEXT := NULLIF(btrim(COALESCE(p_phone, '')), '');
+  v_count INTEGER;
+  v_retry TIMESTAMPTZ;
+BEGIN
+  IF v_uid IS NOT NULL THEN
+    SELECT id INTO v_visitor FROM public.visitors WHERE user_id = v_uid;
+    IF v_phone IS NULL THEN
+      SELECT NULLIF(btrim(phone), '') INTO v_phone FROM public.visitors WHERE user_id = v_uid;
+    END IF;
+    IF v_phone IS NULL THEN
+      SELECT NULLIF(btrim(phone), '') INTO v_phone FROM public.profiles WHERE id = v_uid;
+    END IF;
+  END IF;
+
+  v_count := public.inquiry_rate_count(v_uid, v_visitor, v_phone, p_post_id, p_listing_id);
+  IF v_count >= 3 THEN
+    v_retry := public.inquiry_rate_retry_at(v_uid, v_visitor, v_phone, p_post_id, p_listing_id);
+    RETURN json_build_object('allowed', false, 'remaining', 0, 'retry_at', v_retry);
+  END IF;
+  RETURN json_build_object('allowed', true, 'remaining', 3 - v_count, 'retry_at', NULL);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.set_inquiry_visitor()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_count INTEGER;
+  v_retry TIMESTAMPTZ;
+BEGIN
+  NEW.sender_id := auth.uid();
+  NEW.visitor_id := NULL;
+  IF auth.uid() IS NOT NULL THEN
+    SELECT id INTO NEW.visitor_id FROM public.visitors WHERE user_id = auth.uid();
+  END IF;
+
+  v_count := public.inquiry_rate_count(NEW.sender_id, NEW.visitor_id, NEW.phone, NEW.post_id, NEW.listing_id);
+  IF v_count >= 3 THEN
+    v_retry := public.inquiry_rate_retry_at(NEW.sender_id, NEW.visitor_id, NEW.phone, NEW.post_id, NEW.listing_id);
+    RAISE EXCEPTION 'INQUIRY_RATE_LIMIT:%', COALESCE(v_retry::TEXT, '')
+      USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_inquiry_visitor_trigger ON public.inquiries;
+CREATE TRIGGER set_inquiry_visitor_trigger
+  BEFORE INSERT ON public.inquiries
+  FOR EACH ROW EXECUTE FUNCTION public.set_inquiry_visitor();
+
+REVOKE ALL ON FUNCTION public.inquiry_rate_count(UUID, UUID, TEXT, UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inquiry_rate_retry_at(UUID, UUID, TEXT, UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inquiry_rate_status(UUID, UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.inquiry_rate_status(UUID, UUID, TEXT) TO authenticated, anon;
+
+-- Biens and projets live in their own tables so they can sit in the portfolio
+-- without a row in `posts`. A feed copy is optional (posts.property_id / project_id).
+CREATE TABLE IF NOT EXISTS public.properties (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  description TEXT,
+  city TEXT,
+  region TEXT,
+  price TEXT,
+  surface TEXT,
+  beds INTEGER,
+  baths INTEGER,
+  images JSONB DEFAULT '[]'::jsonb,
+  details JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.projects (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  description TEXT,
+  city TEXT,
+  region TEXT,
+  price TEXT,
+  surface TEXT,
+  beds INTEGER,
+  baths INTEGER,
+  images JSONB DEFAULT '[]'::jsonb,
+  details JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS properties_user_created_idx
+  ON public.properties (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS properties_city_idx
+  ON public.properties (city);
+CREATE INDEX IF NOT EXISTS projects_user_created_idx
+  ON public.projects (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS projects_city_idx
+  ON public.projects (city);
+
+ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Properties are viewable by everyone" ON public.properties;
+CREATE POLICY "Properties are viewable by everyone"
+  ON public.properties FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own properties" ON public.properties;
+CREATE POLICY "Users can create their own properties"
+  ON public.properties FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own properties" ON public.properties;
+CREATE POLICY "Users can update their own properties"
+  ON public.properties FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own properties" ON public.properties;
+CREATE POLICY "Users can delete their own properties"
+  ON public.properties FOR DELETE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Projects are viewable by everyone" ON public.projects;
+CREATE POLICY "Projects are viewable by everyone"
+  ON public.projects FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own projects" ON public.projects;
+CREATE POLICY "Users can create their own projects"
+  ON public.projects FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own projects" ON public.projects;
+CREATE POLICY "Users can update their own projects"
+  ON public.projects FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own projects" ON public.projects;
+CREATE POLICY "Users can delete their own projects"
+  ON public.projects FOR DELETE
+  USING (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS update_properties_updated_at ON public.properties;
+CREATE TRIGGER update_properties_updated_at
+  BEFORE UPDATE ON public.properties
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_projects_updated_at ON public.projects;
+CREATE TRIGGER update_projects_updated_at
+  BEFORE UPDATE ON public.projects
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+GRANT SELECT ON public.properties TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.properties TO authenticated;
+GRANT SELECT ON public.projects TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.projects TO authenticated;
+
+ALTER TABLE public.posts
+  ADD COLUMN IF NOT EXISTS city TEXT,
+  ADD COLUMN IF NOT EXISTS property_id UUID,
+  ADD COLUMN IF NOT EXISTS project_id UUID;
+
+ALTER TABLE public.posts DROP CONSTRAINT IF EXISTS posts_property_id_fkey;
+ALTER TABLE public.posts
+  ADD CONSTRAINT posts_property_id_fkey
+  FOREIGN KEY (property_id) REFERENCES public.properties(id) ON DELETE CASCADE;
+
+ALTER TABLE public.posts DROP CONSTRAINT IF EXISTS posts_project_id_fkey;
+ALTER TABLE public.posts
+  ADD CONSTRAINT posts_project_id_fkey
+  FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+ALTER TABLE public.posts DROP CONSTRAINT IF EXISTS posts_catalog_link_check;
+ALTER TABLE public.posts
+  ADD CONSTRAINT posts_catalog_link_check
+  CHECK (property_id IS NULL OR project_id IS NULL);
+
+CREATE INDEX IF NOT EXISTS posts_city_idx ON public.posts (city);
+CREATE INDEX IF NOT EXISTS posts_property_id_idx ON public.posts (property_id);
+CREATE INDEX IF NOT EXISTS posts_project_id_idx ON public.posts (project_id);
+
+UPDATE public.posts
+SET city = NULLIF(btrim(property_details->>'city'), '')
+WHERE city IS NULL
+  AND NULLIF(btrim(property_details->>'city'), '') IS NOT NULL;
+
+INSERT INTO public.properties (
+  id, user_id, title, description, city, region, price, surface, beds, baths, images, details, created_at, updated_at
+)
+SELECT
+  p.id,
+  p.user_id,
+  COALESCE(NULLIF(btrim(p.title), ''), 'Bien'),
+  p.description,
+  COALESCE(NULLIF(btrim(p.city), ''), NULLIF(btrim(p.property_details->>'city'), '')),
+  NULLIF(btrim(p.property_details->>'region'), ''),
+  p.price,
+  p.surface,
+  p.beds,
+  p.baths,
+  COALESCE(p.images, '[]'::jsonb),
+  COALESCE(p.property_details, '{}'::jsonb),
+  p.created_at,
+  p.updated_at
+FROM public.posts p
+WHERE p.post_type = 'property'
+  AND NOT EXISTS (SELECT 1 FROM public.properties x WHERE x.id = p.id);
+
+INSERT INTO public.projects (
+  id, user_id, title, description, city, region, price, surface, beds, baths, images, details, created_at, updated_at
+)
+SELECT
+  p.id,
+  p.user_id,
+  COALESCE(NULLIF(btrim(p.title), ''), 'Projet'),
+  p.description,
+  COALESCE(NULLIF(btrim(p.city), ''), NULLIF(btrim(p.property_details->>'city'), '')),
+  NULLIF(btrim(p.property_details->>'region'), ''),
+  p.price,
+  p.surface,
+  p.beds,
+  p.baths,
+  COALESCE(p.images, '[]'::jsonb),
+  COALESCE(p.property_details, '{}'::jsonb),
+  p.created_at,
+  p.updated_at
+FROM public.posts p
+WHERE p.post_type = 'project'
+  AND NOT EXISTS (SELECT 1 FROM public.projects x WHERE x.id = p.id);
+
+UPDATE public.posts
+SET property_id = id
+WHERE post_type = 'property' AND property_id IS NULL;
+
+UPDATE public.posts
+SET project_id = id
+WHERE post_type = 'project' AND project_id IS NULL;
+
+ALTER TABLE public.inquiries
+  ADD COLUMN IF NOT EXISTS property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS inquiries_rate_property_idx
+  ON public.inquiries (property_id, created_at DESC) WHERE property_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS inquiries_rate_project_idx
+  ON public.inquiries (project_id, created_at DESC) WHERE project_id IS NOT NULL;
+
+ALTER TABLE public.inquiries DROP CONSTRAINT IF EXISTS inquiries_target_check;
+ALTER TABLE public.inquiries ADD CONSTRAINT inquiries_target_check
+  CHECK (
+    (
+      (CASE WHEN post_id IS NOT NULL THEN 1 ELSE 0 END) +
+      (CASE WHEN listing_id IS NOT NULL THEN 1 ELSE 0 END) +
+      (CASE WHEN property_id IS NOT NULL THEN 1 ELSE 0 END) +
+      (CASE WHEN project_id IS NOT NULL THEN 1 ELSE 0 END)
+    ) = 1
+  ) NOT VALID;
+
+DROP FUNCTION IF EXISTS public.inquiry_rate_retry_at(UUID, UUID, TEXT, UUID, UUID);
+DROP FUNCTION IF EXISTS public.inquiry_rate_count(UUID, UUID, TEXT, UUID, UUID);
+DROP FUNCTION IF EXISTS public.inquiry_rate_status(UUID, UUID, TEXT);
+
+CREATE OR REPLACE FUNCTION public.inquiry_rate_retry_at(
+  p_sender UUID,
+  p_visitor UUID,
+  p_phone TEXT,
+  p_post UUID,
+  p_listing UUID,
+  p_property UUID DEFAULT NULL,
+  p_project UUID DEFAULT NULL
+)
+RETURNS TIMESTAMPTZ
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT MIN(created_at) + INTERVAL '24 hours'
+  FROM (
+    SELECT i.created_at
+    FROM public.inquiries i
+    WHERE i.created_at > NOW() - INTERVAL '24 hours'
+      AND (
+        (p_post IS NOT NULL AND i.post_id = p_post)
+        OR (p_listing IS NOT NULL AND i.listing_id = p_listing)
+        OR (p_property IS NOT NULL AND i.property_id = p_property)
+        OR (p_project IS NOT NULL AND i.project_id = p_project)
+      )
+      AND (
+        (p_sender IS NOT NULL AND i.sender_id = p_sender)
+        OR (p_visitor IS NOT NULL AND i.visitor_id = p_visitor)
+        OR (COALESCE(public.normalize_phone(p_phone), '') <> '' AND public.normalize_phone(i.phone) = public.normalize_phone(p_phone))
+      )
+    ORDER BY i.created_at DESC
+    LIMIT 3
+  ) recent;
+$$;
+
+CREATE OR REPLACE FUNCTION public.inquiry_rate_count(
+  p_sender UUID,
+  p_visitor UUID,
+  p_phone TEXT,
+  p_post UUID,
+  p_listing UUID,
+  p_property UUID DEFAULT NULL,
+  p_project UUID DEFAULT NULL
+)
+RETURNS INTEGER
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COUNT(*)::INTEGER
+  FROM public.inquiries i
+  WHERE i.created_at > NOW() - INTERVAL '24 hours'
+    AND (
+      (p_post IS NOT NULL AND i.post_id = p_post)
+      OR (p_listing IS NOT NULL AND i.listing_id = p_listing)
+      OR (p_property IS NOT NULL AND i.property_id = p_property)
+      OR (p_project IS NOT NULL AND i.project_id = p_project)
+    )
+    AND (
+      (p_sender IS NOT NULL AND i.sender_id = p_sender)
+      OR (p_visitor IS NOT NULL AND i.visitor_id = p_visitor)
+      OR (COALESCE(public.normalize_phone(p_phone), '') <> '' AND public.normalize_phone(i.phone) = public.normalize_phone(p_phone))
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.inquiry_rate_status(
+  p_post_id UUID DEFAULT NULL,
+  p_listing_id UUID DEFAULT NULL,
+  p_phone TEXT DEFAULT NULL,
+  p_property_id UUID DEFAULT NULL,
+  p_project_id UUID DEFAULT NULL
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_visitor UUID;
+  v_phone TEXT := NULLIF(btrim(COALESCE(p_phone, '')), '');
+  v_count INTEGER;
+  v_retry TIMESTAMPTZ;
+BEGIN
+  IF v_uid IS NOT NULL THEN
+    SELECT id INTO v_visitor FROM public.visitors WHERE user_id = v_uid;
+    IF v_phone IS NULL THEN
+      SELECT NULLIF(btrim(phone), '') INTO v_phone FROM public.visitors WHERE user_id = v_uid;
+    END IF;
+    IF v_phone IS NULL THEN
+      SELECT NULLIF(btrim(phone), '') INTO v_phone FROM public.profiles WHERE id = v_uid;
+    END IF;
+  END IF;
+
+  v_count := public.inquiry_rate_count(
+    v_uid, v_visitor, v_phone, p_post_id, p_listing_id, p_property_id, p_project_id
+  );
+  IF v_count >= 3 THEN
+    v_retry := public.inquiry_rate_retry_at(
+      v_uid, v_visitor, v_phone, p_post_id, p_listing_id, p_property_id, p_project_id
+    );
+    RETURN json_build_object('allowed', false, 'remaining', 0, 'retry_at', v_retry);
+  END IF;
+  RETURN json_build_object('allowed', true, 'remaining', 3 - v_count, 'retry_at', NULL);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.set_inquiry_visitor()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_count INTEGER;
+  v_retry TIMESTAMPTZ;
+BEGIN
+  NEW.sender_id := auth.uid();
+  NEW.visitor_id := NULL;
+  IF auth.uid() IS NOT NULL THEN
+    SELECT id INTO NEW.visitor_id FROM public.visitors WHERE user_id = auth.uid();
+  END IF;
+
+  v_count := public.inquiry_rate_count(
+    NEW.sender_id, NEW.visitor_id, NEW.phone, NEW.post_id, NEW.listing_id, NEW.property_id, NEW.project_id
+  );
+  IF v_count >= 3 THEN
+    v_retry := public.inquiry_rate_retry_at(
+      NEW.sender_id, NEW.visitor_id, NEW.phone, NEW.post_id, NEW.listing_id, NEW.property_id, NEW.project_id
+    );
+    RAISE EXCEPTION 'INQUIRY_RATE_LIMIT:%', COALESCE(v_retry::TEXT, '')
+      USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_inquiry_visitor_trigger ON public.inquiries;
+CREATE TRIGGER set_inquiry_visitor_trigger
+  BEFORE INSERT ON public.inquiries
+  FOR EACH ROW EXECUTE FUNCTION public.set_inquiry_visitor();
+
+REVOKE ALL ON FUNCTION public.inquiry_rate_count(UUID, UUID, TEXT, UUID, UUID, UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inquiry_rate_retry_at(UUID, UUID, TEXT, UUID, UUID, UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.inquiry_rate_status(UUID, UUID, TEXT, UUID, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.inquiry_rate_status(UUID, UUID, TEXT, UUID, UUID) TO authenticated, anon;
+
+-- Feed reads this instead of loading every post, then discarding blocked and muted authors in the browser.
+CREATE INDEX IF NOT EXISTS posts_feed_order_idx ON public.posts (created_at DESC, id DESC);
+
+CREATE OR REPLACE VIEW public.visible_feed_posts
+WITH (security_invoker = true) AS
+SELECT
+  p.id,
+  p.user_id,
+  p.description,
+  p.before_image_url,
+  p.after_image_url,
+  p.single_image_url,
+  p.images,
+  p.likes_count,
+  p.comments_count,
+  p.shares_count,
+  p.is_sponsored,
+  p.created_at,
+  p.post_type,
+  p.price,
+  p.surface,
+  p.beds,
+  p.baths,
+  COALESCE(NULLIF(btrim(p.city), ''), NULLIF(btrim(p.property_details->>'city'), '')) AS city,
+  COALESCE(
+    (
+      SELECT btrim(item)
+      FROM jsonb_array_elements_text(
+        CASE
+          WHEN jsonb_typeof(p.property_details->'phones') = 'array' THEN p.property_details->'phones'
+          ELSE '[]'::jsonb
+        END
+      ) AS item
+      WHERE length(regexp_replace(item, '\D', '', 'g')) >= 6
+      LIMIT 1
+    ),
+    NULLIF(btrim(pr.phone), '')
+  ) AS phone,
+  pr.username,
+  pr.full_name,
+  pr.avatar_url,
+  pr.location,
+  pr.profession,
+  pr.is_verified,
+  EXISTS (
+    SELECT 1
+    FROM public.follows f
+    WHERE f.follower_id = auth.uid()
+      AND f.following_id = p.user_id
+  ) AS from_following
+FROM public.posts p
+JOIN public.profiles pr ON pr.id = p.user_id
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.blocked_users b
+  WHERE b.blocker_id = auth.uid()
+    AND b.blocked_id = p.user_id
+)
+AND NOT EXISTS (
+  SELECT 1
+  FROM public.muted_accounts m
+  WHERE m.muter_id = auth.uid()
+    AND m.muted_id = p.user_id
+    AND m.mute_posts
+);
+
+COMMENT ON VIEW public.visible_feed_posts IS
+  'Posts the current viewer can see. Blocked authors and accounts muted for posts are excluded in SQL.';
+
+GRANT SELECT ON public.visible_feed_posts TO anon, authenticated;
+
+-- One page of the feed. Every 4th slot is the next post from someone the viewer follows.
+-- Anonymous viewers, and viewers who follow nobody, get a plain newest-first page.
+CREATE OR REPLACE FUNCTION public.feed_page(p_limit integer DEFAULT 8, p_offset integer DEFAULT 0)
+RETURNS TABLE (
+  id uuid,
+  user_id uuid,
+  description text,
+  before_image_url text,
+  after_image_url text,
+  single_image_url text,
+  images jsonb,
+  likes_count integer,
+  comments_count integer,
+  shares_count integer,
+  is_sponsored boolean,
+  created_at timestamptz,
+  post_type text,
+  price text,
+  surface text,
+  beds integer,
+  baths integer,
+  city text,
+  phone text,
+  username text,
+  full_name text,
+  avatar_url text,
+  location text,
+  profession text,
+  is_verified boolean,
+  has_more boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $feed$
+  WITH args AS (
+    SELECT
+      GREATEST(COALESCE(p_limit, 8), 0) AS lim,
+      GREATEST(COALESCE(p_offset, 0), 0) AS off,
+      auth.uid() AS uid
+  ),
+  mode AS (
+    SELECT
+      a.lim,
+      a.off,
+      a.uid,
+      (
+        a.uid IS NOT NULL
+        AND EXISTS (SELECT 1 FROM public.follows f WHERE f.follower_id = a.uid)
+        AND EXISTS (SELECT 1 FROM public.visible_feed_posts v WHERE NOT v.from_following)
+      ) AS mix
+    FROM args a
+  ),
+  counts AS (
+    SELECT
+      m.lim,
+      m.off,
+      m.uid,
+      m.mix,
+      CASE WHEN m.mix THEN m.off / 4 ELSE 0 END AS follow_before,
+      CASE WHEN m.mix THEN m.off - (m.off / 4) ELSE m.off END AS general_before,
+      CASE
+        WHEN m.mix THEN (
+          SELECT count(*)::integer
+          FROM generate_series(m.off, m.off + m.lim - 1) AS s(slot)
+          WHERE s.slot % 4 = 3
+        )
+        ELSE 0
+      END AS follow_count
+    FROM mode m
+  ),
+  sized AS (
+    SELECT
+      c.*,
+      CASE WHEN c.mix THEN c.lim - c.follow_count ELSE c.lim END AS general_count
+    FROM counts c
+  ),
+  general_slice AS (
+    SELECT q.*, row_number() OVER (ORDER BY q.created_at DESC, q.id DESC) - 1 AS local_index
+    FROM (
+      SELECT v.*
+      FROM public.visible_feed_posts v
+      CROSS JOIN sized s
+      WHERE s.general_count > 0
+        AND (NOT s.mix OR NOT v.from_following)
+      ORDER BY v.created_at DESC, v.id DESC
+      OFFSET (SELECT general_before FROM sized)
+      LIMIT (SELECT general_count FROM sized)
+    ) q
+  ),
+  follow_slice AS (
+    SELECT q.*, row_number() OVER (ORDER BY q.created_at DESC, q.id DESC) - 1 AS local_index
+    FROM (
+      SELECT v.*
+      FROM public.visible_feed_posts v
+      CROSS JOIN sized s
+      WHERE s.mix
+        AND s.follow_count > 0
+        AND v.from_following
+      ORDER BY v.created_at DESC, v.id DESC
+      OFFSET (SELECT follow_before FROM sized)
+      LIMIT (SELECT follow_count FROM sized)
+    ) q
+  ),
+  slots AS (
+    SELECT
+      s.slot,
+      CASE WHEN z.mix AND s.slot % 4 = 3 THEN 'follow' ELSE 'general' END AS kind,
+      CASE
+        WHEN z.mix AND s.slot % 4 = 3 THEN (s.slot / 4) - z.follow_before
+        WHEN z.mix THEN (s.slot - (s.slot / 4)) - z.general_before
+        ELSE s.slot - z.off
+      END AS local_index
+    FROM sized z
+    CROSS JOIN LATERAL generate_series(z.off, z.off + z.lim - 1) AS s(slot)
+    WHERE z.lim > 0
+  ),
+  picked AS (
+    SELECT sl.slot, sl.kind, g.id, g.user_id, g.description, g.before_image_url, g.after_image_url,
+      g.single_image_url, g.images, g.likes_count, g.comments_count, g.shares_count, g.is_sponsored,
+      g.created_at, g.post_type, g.price, g.surface, g.beds, g.baths, g.city, g.phone,
+      g.username, g.full_name, g.avatar_url, g.location, g.profession, g.is_verified
+    FROM slots sl
+    JOIN general_slice g ON sl.kind = 'general' AND g.local_index = sl.local_index
+    UNION ALL
+    SELECT sl.slot, sl.kind, f.id, f.user_id, f.description, f.before_image_url, f.after_image_url,
+      f.single_image_url, f.images, f.likes_count, f.comments_count, f.shares_count, f.is_sponsored,
+      f.created_at, f.post_type, f.price, f.surface, f.beds, f.baths, f.city, f.phone,
+      f.username, f.full_name, f.avatar_url, f.location, f.profession, f.is_verified
+    FROM slots sl
+    JOIN follow_slice f ON sl.kind = 'follow' AND f.local_index = sl.local_index
+  ),
+  more AS (
+    SELECT
+      EXISTS (
+        SELECT 1
+        FROM public.visible_feed_posts v
+        CROSS JOIN sized s
+        WHERE NOT s.mix OR NOT v.from_following
+        ORDER BY v.created_at DESC, v.id DESC
+        OFFSET (
+          SELECT s.general_before + (SELECT count(*)::integer FROM picked pk WHERE pk.kind = 'general')
+          FROM sized s
+        )
+        LIMIT 1
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.visible_feed_posts v
+        CROSS JOIN sized s
+        WHERE s.mix AND v.from_following
+        ORDER BY v.created_at DESC, v.id DESC
+        OFFSET (
+          SELECT s.follow_before + (SELECT count(*)::integer FROM picked pk WHERE pk.kind = 'follow')
+          FROM sized s
+        )
+        LIMIT 1
+      ) AS has_more
+  )
+  SELECT
+    pk.id,
+    pk.user_id,
+    pk.description,
+    pk.before_image_url,
+    pk.after_image_url,
+    pk.single_image_url,
+    pk.images,
+    pk.likes_count,
+    pk.comments_count,
+    pk.shares_count,
+    pk.is_sponsored,
+    pk.created_at,
+    pk.post_type,
+    pk.price,
+    pk.surface,
+    pk.beds,
+    pk.baths,
+    pk.city,
+    pk.phone,
+    pk.username,
+    pk.full_name,
+    pk.avatar_url,
+    pk.location,
+    pk.profession,
+    pk.is_verified,
+    more.has_more
+  FROM picked pk
+  CROSS JOIN more
+  ORDER BY pk.slot;
+$feed$;
+
+COMMENT ON FUNCTION public.feed_page(integer, integer) IS
+  'Newest visible posts, paged. Signed-in viewers who follow people get one followed post after every three others.';
+
+REVOKE ALL ON FUNCTION public.feed_page(integer, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.feed_page(integer, integer) TO anon, authenticated;
+
+-- Visitors have no profile row. Let them follow with their auth user id.
+ALTER TABLE public.follows DROP CONSTRAINT IF EXISTS follows_follower_id_fkey;
+ALTER TABLE public.follows
+  ADD CONSTRAINT follows_follower_id_fkey
+  FOREIGN KEY (follower_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+-- Particuliers (anonymous visitors) can own portfolio biens and mute profiles.
+ALTER TABLE public.properties DROP CONSTRAINT IF EXISTS properties_user_id_fkey;
+ALTER TABLE public.properties
+  ADD CONSTRAINT properties_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+ALTER TABLE public.muted_accounts DROP CONSTRAINT IF EXISTS muted_accounts_muter_id_fkey;
+ALTER TABLE public.muted_accounts
+  ADD CONSTRAINT muted_accounts_muter_id_fkey
+  FOREIGN KEY (muter_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+-- A particulier who set a password is no longer anonymous, and can still edit their visitor row.
+CREATE OR REPLACE FUNCTION public.update_visitor_profile(
+  p_name TEXT,
+  p_phone TEXT,
+  p_email TEXT DEFAULT NULL,
+  p_bio TEXT DEFAULT NULL,
+  p_avatar_url TEXT DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL OR NOT EXISTS (SELECT 1 FROM public.visitors WHERE user_id = auth.uid()) THEN
+    RAISE EXCEPTION 'update_visitor_profile requires a particulier profile';
+  END IF;
+  IF COALESCE(btrim(p_name), '') = '' OR public.normalize_phone(p_phone) = '' THEN
+    RAISE EXCEPTION 'name and phone are required';
+  END IF;
+
+  UPDATE public.visitors
+  SET name = btrim(p_name),
+      phone = btrim(p_phone),
+      email = NULLIF(btrim(p_email), ''),
+      bio = NULLIF(btrim(p_bio), ''),
+      avatar_url = NULLIF(btrim(p_avatar_url), '')
+  WHERE user_id = auth.uid();
+END;
+$$;
+
+-- One private exchange per person per post: their message, then one reply from the business.
+CREATE TABLE IF NOT EXISTS public.post_private_threads (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+  business_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  sender_name TEXT NOT NULL DEFAULT '',
+  sender_phone TEXT,
+  message TEXT NOT NULL,
+  reply TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  replied_at TIMESTAMP WITH TIME ZONE,
+  CONSTRAINT post_private_threads_post_sender_key UNIQUE (post_id, sender_id),
+  CONSTRAINT post_private_threads_not_self CHECK (sender_id <> business_id)
+);
+
+ALTER TABLE public.post_private_threads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Participants can read a private thread" ON public.post_private_threads;
+CREATE POLICY "Participants can read a private thread"
+  ON public.post_private_threads FOR SELECT
+  TO authenticated
+  USING (auth.uid() = sender_id OR auth.uid() = business_id);
+
+REVOKE ALL ON public.post_private_threads FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.post_private_threads TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.send_private_thread(p_post_id UUID, p_message TEXT)
+RETURNS public.post_private_threads
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_business UUID;
+  v_name TEXT;
+  v_phone TEXT;
+  v_row public.post_private_threads;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'send_private_thread requires a session';
+  END IF;
+  IF char_length(btrim(COALESCE(p_message, ''))) = 0 OR char_length(btrim(p_message)) > 700 THEN
+    RAISE EXCEPTION 'message must be between 1 and 700 characters';
+  END IF;
+
+  SELECT user_id INTO v_business FROM public.posts WHERE id = p_post_id;
+  IF v_business IS NULL OR v_business = v_uid THEN
+    RAISE EXCEPTION 'this post cannot receive a private reply';
+  END IF;
+
+  SELECT COALESCE(
+    (SELECT NULLIF(btrim(name), '') FROM public.visitors WHERE user_id = v_uid),
+    (SELECT NULLIF(btrim(full_name), '') FROM public.profiles WHERE id = v_uid),
+    'Quelqu''un'
+  ) INTO v_name;
+
+  SELECT COALESCE(
+    (SELECT NULLIF(btrim(phone), '') FROM public.visitors WHERE user_id = v_uid),
+    (SELECT NULLIF(btrim(phone), '') FROM public.profiles WHERE id = v_uid)
+  ) INTO v_phone;
+
+  INSERT INTO public.post_private_threads (post_id, business_id, sender_id, sender_name, sender_phone, message)
+  VALUES (p_post_id, v_business, v_uid, v_name, v_phone, btrim(p_message))
+  RETURNING * INTO v_row;
+
+  RETURN v_row;
+EXCEPTION
+  WHEN unique_violation THEN
+    RAISE EXCEPTION 'THREAD_EXISTS';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.reply_private_thread(p_thread_id UUID, p_reply TEXT)
+RETURNS public.post_private_threads
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.post_private_threads;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'reply_private_thread requires a session';
+  END IF;
+  IF char_length(btrim(COALESCE(p_reply, ''))) = 0 OR char_length(btrim(p_reply)) > 700 THEN
+    RAISE EXCEPTION 'reply must be between 1 and 700 characters';
+  END IF;
+
+  UPDATE public.post_private_threads
+  SET reply = btrim(p_reply),
+      replied_at = NOW()
+  WHERE id = p_thread_id
+    AND business_id = auth.uid()
+    AND reply IS NULL
+  RETURNING * INTO v_row;
+
+  IF v_row.id IS NULL THEN
+    RAISE EXCEPTION 'private thread not found or already answered';
+  END IF;
+  RETURN v_row;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.send_private_thread(UUID, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.reply_private_thread(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.send_private_thread(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reply_private_thread(UUID, TEXT) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
 

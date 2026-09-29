@@ -20,7 +20,7 @@ const HomeNavIcon = ({ className, active }: { className?: string; active?: boole
 const TabNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, visitorUser } = useAuth();
   const path = location.pathname;
 
   if (
@@ -37,7 +37,7 @@ const TabNav = () => {
   const creating = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
 
   const goCreate = () => {
-    if (!user) {
+    if (!user && !visitorUser) {
       navigate("/login");
       return;
     }
@@ -92,7 +92,7 @@ const TabNav = () => {
         </button>
         <button
           type="button"
-          onClick={() => navigate(user ? "/profile" : "/login")}
+          onClick={() => navigate("/profile")}
           className={itemClass(path.startsWith("/profile"))}
         >
           <span className="flex h-8 items-center justify-center">

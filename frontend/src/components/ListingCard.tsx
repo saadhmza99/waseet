@@ -5,15 +5,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { savedService } from "@/services/savedService";
 import { notificationService } from "@/services/notificationService";
 import { toast } from "@/components/ui/use-toast";
+import { savedToast } from "@/lib/savedToast";
 import { listingBudgetLabel } from "@/lib/utils";
 import { RetryImage } from "@/components/RetryImage";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import InquiryDialog from "@/components/InquiryDialog";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
 
 interface ListingCardProps {
   id?: string;
   userId?: string;
   avatar: string;
   username: string;
+  fullName?: string;
   isVerified?: boolean;
   timeAgo: string;
   image: string;
@@ -39,6 +43,7 @@ const ListingCard = ({
   userId,
   avatar,
   username,
+  fullName,
   isVerified = false,
   timeAgo,
   image,
@@ -56,22 +61,35 @@ const ListingCard = ({
 }: ListingCardProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { requestVisitor } = useVisitorGate();
   const [isSaved, setIsSaved] = useState(initialSaved);
+  const [inquiryOpen, setInquiryOpen] = useState(false);
+
+  const handleContact = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setInquiryOpen(true);
+  };
 
   const handleSaveListing = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!user || !id) return;
+    if (!id) return;
+
+    const saver = await requestVisitor();
+    if (!saver) return;
 
     try {
       if (isSaved) {
-        await savedService.unsaveListing(user.id, id);
+        await savedService.unsaveListing(saver.id, id);
         setIsSaved(false);
       } else {
-        await savedService.saveListing(user.id, id);
+        await savedService.saveListing(saver.id, id);
         setIsSaved(true);
-        if (userId && userId !== user.id) {
+        if (!user) {
+          savedToast();
+        } else if (userId && userId !== user.id) {
           await notificationService.createNotification({
             actorUserId: user.id,
             targetUserId: userId,
@@ -102,6 +120,22 @@ const ListingCard = ({
     navigate(`/profile/${username}`);
   };
 
+  const stopBubbling = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  // React bubbles portal events through the component tree, so keep them from reaching the card.
+  const inquiryDialog = (
+    <div className="contents" onClick={stopBubbling} onKeyDown={stopBubbling}>
+      <InquiryDialog
+        open={inquiryOpen}
+        onOpenChange={setInquiryOpen}
+        type="service"
+        sellerId={userId}
+        sellerName={(fullName || "").trim() || username}
+        listingId={id}
+      />
+    </div>
+  );
+
   if (compact) {
     return (
       <article
@@ -130,7 +164,7 @@ const ListingCard = ({
           <div className="mt-1.5 flex items-center justify-between gap-2">
             <button
               type="button"
-              onClick={handleViewJob}
+              onClick={handleContact}
               className="shrink-0 rounded-md bg-[#174f43] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#123d34]"
             >
               Contacter
@@ -157,6 +191,7 @@ const ListingCard = ({
           wrapClassName="h-24 w-24 shrink-0 overflow-hidden rounded-md bg-muted"
           className="h-full w-full object-cover"
         />
+        {inquiryDialog}
       </article>
     );
   }
@@ -274,7 +309,7 @@ const ListingCard = ({
               <Bookmark className={`${isLarge ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-4 h-4'} ${isSaved ? 'fill-current' : ''}`} />
             </button>
             <button
-              onClick={handleViewJob}
+              onClick={handleContact}
               onMouseDown={(e) => e.preventDefault()}
               className={`bg-[#174f43] text-white font-semibold rounded-md hover:bg-[#123d34] transition-colors ${isLarge ? 'text-xs sm:text-sm md:text-base px-3 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-2.5' : 'text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2'}`}
             >
@@ -283,6 +318,7 @@ const ListingCard = ({
           </div>
         </div>
       </div>
+      {inquiryDialog}
     </article>
   );
 };

@@ -39,6 +39,7 @@ export const listingService = {
         profiles:user_id (
           id,
           username,
+          full_name,
           avatar_url,
           is_verified
         )
@@ -65,6 +66,7 @@ export const listingService = {
         profiles:user_id (
           id,
           username,
+          full_name,
           avatar_url,
           location,
           profession,

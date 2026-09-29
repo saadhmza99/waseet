@@ -72,7 +72,7 @@ const CommentSection = ({ comments, onAddComment }: CommentSectionProps) => {
               className="flex-shrink-0 mt-0.5 hover:opacity-80 transition-opacity cursor-pointer"
             >
               <img 
-                src={c.avatar || getDefaultAvatar("craftsman")} 
+                src={c.avatar || getDefaultAvatar("individual")} 
                 alt={c.username} 
                 className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" 
               />

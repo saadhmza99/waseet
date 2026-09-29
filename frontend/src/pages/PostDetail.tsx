@@ -6,6 +6,8 @@ import { fr } from "date-fns/locale";
 import FeedPost from "@/components/FeedPost";
 import { postService } from "@/services/postService";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { cityFromPost } from "@/lib/feedLocation";
+import { contactPhone } from "@/lib/propertyListing";
 import { Button } from "@/components/ui/button";
 
 const PostDetail = () => {
@@ -88,10 +90,12 @@ const PostDetail = () => {
           <FeedPost
             postId={post.id}
             postUserId={post.user_id}
-            avatar={post.profiles?.avatar_url || getDefaultAvatar("craftsman")}
+            avatar={post.profiles?.avatar_url || getDefaultAvatar("individual")}
             username={post.profiles?.username || "Utilisateur"}
+            fullName={post.profiles?.full_name || ""}
             isVerified={Boolean(post.profiles?.is_verified)}
             location={post.profiles?.location || ""}
+            city={cityFromPost(post)}
             profession={post.profiles?.profession || ""}
             timeAgo={formatTimeAgo(post.created_at)}
             description={post.description}
@@ -108,6 +112,7 @@ const PostDetail = () => {
             surface={post.surface}
             beds={post.beds}
             baths={post.baths}
+            phone={contactPhone(post.property_details, post.profiles?.phone)}
           />
         )}
       </div>

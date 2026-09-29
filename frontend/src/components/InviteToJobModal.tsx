@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService } from "@/services/notificationService";
+import { CityPicker } from "@/components/CityPicker";
 
 interface InviteToJobModalProps {
   isOpen: boolean;
@@ -286,18 +287,13 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
             <label htmlFor="location" className="block text-sm font-medium text-card-foreground mb-2">
               Localisation *
             </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="location"
-                type="text"
-                placeholder="Ex: Marrakech, Sidi Ghanem"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full pl-10"
-                required
-              />
-            </div>
+            <CityPicker
+              id="location"
+              required
+              value={location}
+              onChange={setLocation}
+              placeholder="Ville"
+            />
           </div>
 
           {/* Budget */}

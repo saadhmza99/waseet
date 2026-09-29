@@ -82,9 +82,11 @@ export const savedService = {
             profiles:user_id (
               id,
               username,
+              full_name,
               avatar_url,
               location,
-              is_verified
+              is_verified,
+              phone
             )
           )
         `)
@@ -99,6 +101,7 @@ export const savedService = {
             profiles:user_id (
               id,
               username,
+              full_name,
               avatar_url,
               is_verified
             )
@@ -115,6 +118,7 @@ export const savedService = {
             profiles:user_id (
               id,
               username,
+              full_name,
               avatar_url,
               is_verified
             )
@@ -178,7 +182,8 @@ export const savedService = {
             username,
             avatar_url,
             location,
-            is_verified
+            is_verified,
+            phone
           )
         )
       `)
