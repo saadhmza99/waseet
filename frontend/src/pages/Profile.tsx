@@ -101,6 +101,9 @@ const takePage = <T,>(rows: T[] | null | undefined, limit: number) => {
   return { items: list.slice(0, limit), hasMore: list.length > limit };
 };
 
+const totalCountOf = (rows: { totalCount?: number } | null | undefined) =>
+  typeof rows?.totalCount === "number" ? rows.totalCount : 0;
+
 const emptyEditForm = {
   fullName: "",
   username: "",
@@ -321,11 +324,14 @@ const Profile = () => {
   const [projectItems, setProjectItems] = useState<any[]>(bootBundle?.projectItems ?? []);
   const [projectsHasMore, setProjectsHasMore] = useState(Boolean(bootBundle?.projectsHasMore));
   const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
-  const [postsCount, setPostsCount] = useState(bootBundle?.postsCount ?? 0);
-  const [portfolioCount, setPortfolioCount] = useState(bootBundle?.portfolioCount ?? 0);
-  const [listingsCount, setListingsCount] = useState(bootBundle?.listingsCount ?? 0);
+  const [postsCount, setPostsCount] = useState<number | null>(bootBundle ? bootBundle.postsCount : null);
+  const [portfolioCount, setPortfolioCount] = useState<number | null>(bootBundle ? bootBundle.portfolioCount : null);
+  const [listingsCount, setListingsCount] = useState<number | null>(bootBundle ? bootBundle.listingsCount : null);
   const [loading, setLoading] = useState(!bootBundle);
-  const [contentLoading, setContentLoading] = useState(!bootBundle);
+  const [postsReady, setPostsReady] = useState(Boolean(bootBundle));
+  const [reelsReady, setReelsReady] = useState(Boolean(bootBundle));
+  const [portfolioReady, setPortfolioReady] = useState(Boolean(bootBundle));
+  const [servicesReady, setServicesReady] = useState(Boolean(bootBundle));
   const [isBlockedProfile, setIsBlockedProfile] = useState(Boolean(bootBundle?.isBlockedProfile));
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -475,7 +481,10 @@ const Profile = () => {
       setIsBlockedProfile(bundle.isBlockedProfile);
       setIsFollowing(bundle.isFollowing);
       setLoading(false);
-      setContentLoading(false);
+      setPostsReady(true);
+      setReelsReady(true);
+      setPortfolioReady(true);
+      setServicesReady(true);
     },
     [user?.id, user?.email]
   );
@@ -494,11 +503,28 @@ const Profile = () => {
     if (lastProfileSlug.current !== slug) {
       lastProfileSlug.current = slug;
       setLoading(true);
-      setContentLoading(true);
+      setPostsReady(false);
+      setReelsReady(false);
+      setPortfolioReady(false);
+      setServicesReady(false);
+      setPostsCount(null);
+      setPortfolioCount(null);
+      setListingsCount(null);
     }
   }, [id, applyBundle]);
 
   useEffect(() => {
+    let cancelled = false;
+    const alive = () => !cancelled;
+    const settle = async <T,>(work: Promise<T>, fallback: T): Promise<T> => {
+      try {
+        return await work;
+      } catch (error) {
+        console.error(error);
+        return fallback;
+      }
+    };
+
     const loadProfileData = async () => {
       if (authLoading) return;
 
@@ -511,16 +537,21 @@ const Profile = () => {
 
       try {
         setLoading(true);
-        setContentLoading(true);
+        setPostsReady(false);
+        setReelsReady(false);
+        setPortfolioReady(false);
+        setServicesReady(false);
         setProfile(null);
         setPosts([]);
         setPropertyItems([]);
         setProjectItems([]);
         setListings([]);
         setReels([]);
-        setPostsCount(0);
-        setPortfolioCount(0);
-        setListingsCount(0);
+        setReviews([]);
+        setFollowers([]);
+        setPostsCount(null);
+        setPortfolioCount(null);
+        setListingsCount(null);
 
         let profileData = null;
         if (slug) {
@@ -531,12 +562,17 @@ const Profile = () => {
             profileData = await profileService.getProfileByUsername(slug).catch(() => null);
           }
         }
+        if (!alive()) return;
         if (!profileData && user?.id) {
           profileData = await profileService.getProfile(user.id).catch(() => null);
         }
+        if (!alive()) return;
         if (!profileData) {
           setProfile(null);
-          setContentLoading(false);
+          setPostsReady(true);
+          setReelsReady(true);
+          setPortfolioReady(true);
+          setServicesReady(true);
           return;
         }
 
@@ -545,68 +581,149 @@ const Profile = () => {
         setEditingAbout(false);
         setLoading(false);
 
-        const [postsData, listingsData, reviewsData, reelsData, propertiesData, projectsData, blockedIds, followersData, postsTotal, propertiesTotal, projectsTotal, listingsTotal] = await Promise.all([
-          postService.getPostsByUser(profileData.id, PAGE.posts, 0),
-          listingService.getListingsByUser(profileData.id, PAGE.listings, 0),
-          reviewService.getReviewsByUser(profileData.id),
-          reelService.getReelsByUser(profileData.id, PAGE.reels, 0),
-          catalogService.getPropertiesByUser(profileData.id, PAGE.properties, 0),
-          catalogService.getProjectsByUser(profileData.id, PAGE.projects, 0),
-          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
-          followService.getFollowers(profileData.id),
-          postService.countPostsByUser(profileData.id),
-          catalogService.countPropertiesByUser(profileData.id),
-          catalogService.countProjectsByUser(profileData.id),
-          listingService.countListingsByUser(profileData.id),
-        ]);
-        const blockedSet = new Set(blockedIds || []);
-        const isBlocked = blockedSet.has(profileData.id);
-        setIsBlockedProfile(isBlocked);
+        let propertiesTotal = 0;
+        let projectsTotal = 0;
+        let propertiesDone = false;
+        let projectsDone = false;
+        const finishPortfolio = () => {
+          if (!alive() || !propertiesDone || !projectsDone) return;
+          setPortfolioCount(propertiesTotal + projectsTotal);
+          setPortfolioReady(true);
+        };
 
-        const postsPage = takePage(postsData, PAGE.posts);
-        const listingsPage = takePage(listingsData, PAGE.listings);
-        const reelsPage = takePage(reelsData, PAGE.reels);
-        const propertiesPage = takePage(propertiesData, PAGE.properties);
-        const projectsPage = takePage(projectsData, PAGE.projects);
-        const following =
-          user && user.id !== profileData.id
-            ? await followService.isFollowing(user.id, profileData.id)
-            : false;
+        const postsTask = settle(postService.getPostsByUser(profileData.id, PAGE.posts, 0), Object.assign([], { totalCount: 0 })).then((postsData) => {
+          const page = takePage(postsData, PAGE.posts);
+          const count = totalCountOf(postsData);
+          if (alive()) {
+            setPosts(page.items);
+            setPostsHasMore(page.hasMore);
+            setPostsCount(count);
+            setPostsReady(true);
+          }
+          return { page, count };
+        });
+        const listingsTask = settle(listingService.getListingsByUser(profileData.id, PAGE.listings, 0), Object.assign([], { totalCount: 0 })).then((listingsData) => {
+          const page = takePage(listingsData, PAGE.listings);
+          const count = totalCountOf(listingsData);
+          if (alive()) {
+            setListings(page.items);
+            setListingsHasMore(page.hasMore);
+            setListingsCount(count);
+            setServicesReady(true);
+          }
+          return { page, count };
+        });
+        const reelsTask = settle(reelService.getReelsByUser(profileData.id, PAGE.reels, 0), []).then((reelsData) => {
+          const page = takePage(reelsData, PAGE.reels);
+          if (alive()) {
+            setReels(page.items);
+            setReelsHasMore(page.hasMore);
+            setReelsReady(true);
+          }
+          return page;
+        });
+        const propertiesTask = settle(catalogService.getPropertiesByUser(profileData.id, PAGE.properties, 0), Object.assign([], { totalCount: 0 })).then((propertiesData) => {
+          const page = takePage(propertiesData, PAGE.properties);
+          propertiesTotal = totalCountOf(propertiesData);
+          propertiesDone = true;
+          if (alive()) {
+            setPropertyItems(page.items);
+            setPropertiesHasMore(page.hasMore);
+          }
+          finishPortfolio();
+          return page;
+        });
+        const projectsTask = settle(catalogService.getProjectsByUser(profileData.id, PAGE.projects, 0), Object.assign([], { totalCount: 0 })).then((projectsData) => {
+          const page = takePage(projectsData, PAGE.projects);
+          projectsTotal = totalCountOf(projectsData);
+          projectsDone = true;
+          if (alive()) {
+            setProjectItems(page.items);
+            setProjectsHasMore(page.hasMore);
+          }
+          finishPortfolio();
+          return page;
+        });
+        const reviewsTask = settle(reviewService.getReviewsByUser(profileData.id), []).then((reviewsData) => {
+          const reviews = reviewsData || [];
+          if (alive()) setReviews(reviews);
+          return reviews;
+        });
+        const followersTask = settle(followService.getFollowers(profileData.id), []).then((followersData) => {
+          const followers = followersData || [];
+          if (alive()) setFollowers(followers);
+          return followers;
+        });
+        const blockedTask = settle(
+          user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([] as string[]),
+          [] as string[]
+        ).then((blockedIds) => {
+          const isBlocked = new Set(blockedIds || []).has(profileData.id);
+          if (alive()) setIsBlockedProfile(isBlocked);
+          return isBlocked;
+        });
+        const followingTask = settle(
+          user && user.id !== profileData.id ? followService.isFollowing(user.id, profileData.id) : Promise.resolve(false),
+          false
+        ).then((following) => {
+          if (alive()) setIsFollowing(following);
+          return following;
+        });
 
-        const bundle: ProfileBufferBundle = {
+        const [postsResult, listingsResult, reelsPage, propertiesPage, projectsPage, reviews, followers, isBlocked, following] =
+          await Promise.all([
+            postsTask,
+            listingsTask,
+            reelsTask,
+            propertiesTask,
+            projectsTask,
+            reviewsTask,
+            followersTask,
+            blockedTask,
+            followingTask,
+          ]);
+        if (!alive()) return;
+
+        profileBuffer.write([slug, profileData.id, profileData.username], {
           profile: profileData,
-          posts: postsPage.items,
-          postsHasMore: postsPage.hasMore,
-          listings: listingsPage.items,
-          listingsHasMore: listingsPage.hasMore,
-          reviews: reviewsData || [],
+          posts: postsResult.page.items,
+          postsHasMore: postsResult.page.hasMore,
+          listings: listingsResult.page.items,
+          listingsHasMore: listingsResult.page.hasMore,
+          reviews,
           reels: reelsPage.items,
           reelsHasMore: reelsPage.hasMore,
           propertyItems: propertiesPage.items,
           propertiesHasMore: propertiesPage.hasMore,
           projectItems: projectsPage.items,
           projectsHasMore: projectsPage.hasMore,
-          postsCount: postsTotal || 0,
-          portfolioCount: (propertiesTotal || 0) + (projectsTotal || 0),
-          listingsCount: listingsTotal || 0,
-          followers: followersData || [],
+          postsCount: postsResult.count,
+          portfolioCount: propertiesTotal + projectsTotal,
+          listingsCount: listingsResult.count,
+          followers,
           isBlockedProfile: isBlocked,
           isFollowing: following,
-        };
-        applyBundle(bundle);
-        profileBuffer.write([slug, profileData.id, profileData.username], bundle);
+        });
       } catch (error) {
         console.error("Error loading profile:", error);
+        if (!alive()) return;
         setProfile(null);
         setIsBlockedProfile(false);
         setFollowers([]);
       } finally {
+        if (!alive()) return;
         setLoading(false);
-        setContentLoading(false);
+        setPostsReady(true);
+        setReelsReady(true);
+        setPortfolioReady(true);
+        setServicesReady(true);
       }
     };
 
-    loadProfileData();
+    void loadProfileData();
+    return () => {
+      cancelled = true;
+    };
   }, [id, user?.id, authLoading, applyBundle]);
 
   const rating = useMemo(() => {
@@ -1177,7 +1294,7 @@ const Profile = () => {
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {contentLoading ? (
+                  {count == null ? (
                     <span className="inline-block h-4 w-6 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
                   ) : (
                     <span className="text-sm font-medium tabular-nums">{count}</span>
@@ -1299,7 +1416,7 @@ const Profile = () => {
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
-              {contentLoading ? (
+              {!portfolioReady ? (
                 <ProfileMediaGridSkeleton />
               ) : portfolioItems.length === 0 ? (
                 <p className="py-12 text-center text-sm text-muted-foreground">
@@ -1408,7 +1525,7 @@ const Profile = () => {
 
               {postsView === "grid" ? (
                 <>
-                  {contentLoading ? (
+                  {!postsReady ? (
                     <ProfileMediaGridSkeleton />
                   ) : posts.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">Aucun post publié.</div>
@@ -1565,7 +1682,7 @@ const Profile = () => {
                       </Collapsible>
                     </div>
                   )}
-                  {contentLoading ? (
+                  {!reelsReady ? (
                     <ProfileMediaGridSkeleton />
                   ) : reels.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">Aucun reel publie.</div>
@@ -1629,7 +1746,7 @@ const Profile = () => {
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
-              {contentLoading ? (
+              {!servicesReady ? (
                 <ProfileMediaGridSkeleton />
               ) : listings.length === 0 ? (
                 <div className="py-6 text-center text-muted-foreground">Aucun service publié.</div>

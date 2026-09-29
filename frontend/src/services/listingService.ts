@@ -84,14 +84,15 @@ export const listingService = {
   async getListingsByUser(userId: string, limit?: number, offset = 0) {
     let query = supabase
       .from('listings')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (limit != null) query = query.range(offset, offset + limit);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw error;
-    return data;
+    const rows = data || [];
+    return Object.assign(rows, { totalCount: count ?? rows.length });
   },
 
   async countListingsByUser(userId: string) {

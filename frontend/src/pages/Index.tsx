@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
-import { Building2, LayoutGrid } from "lucide-react";
+import { Building2, Ellipsis, LayoutGrid } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
@@ -77,7 +77,7 @@ const Index = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
-  const [feedCategory, setFeedCategory] = useState<"all" | "immobilier" | "construction">("all");
+  const [feedCategory, setFeedCategory] = useState<"all" | "immobilier" | "construction" | "autres">("all");
   const [immobilierFilter, setImmobilierFilter] = useState<ImmobilierFilter>("all");
   const [allPosts, setAllPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
@@ -366,6 +366,11 @@ const Index = () => {
       const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
       if (feedCategory === "immobilier") return true;
       if (feedCategory === "construction") return /construct|bâtiment|batiment|chantier/.test(hay);
+      if (feedCategory === "autres") {
+        const construction = /construct|bâtiment|batiment|chantier/.test(hay);
+        const immobilier = post.post_type === "property" || /immobilier|appartement|villa|location|à louer|a louer|à vendre|a vendre/.test(hay);
+        return !construction && !immobilier;
+      }
       return true;
     });
     let bannerIndex = 0;
@@ -452,12 +457,14 @@ const Index = () => {
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
       <div className="mx-auto w-full max-w-2xl">
-        <div className="mb-2 grid grid-cols-4 border-b border-neutral-200 bg-white px-2 pb-4 pt-3">
+        <div className="mb-2 overflow-x-auto overscroll-x-contain border-b border-neutral-200 bg-white [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max items-start gap-x-6 px-4 pb-4 pt-3">
           {[
             { id: "all" as const, label: "Tout", Icon: LayoutGrid, tone: "bg-[#174f43]" },
             { id: "immobilier" as const, label: "Immobilier", Icon: Building2, tone: "bg-[#eee9ec]" },
             { id: "construction" as const, label: "Construction", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
             { id: "services" as const, label: "Services", Icon: HandGearIcon, tone: "bg-[#eee9ec]" },
+            { id: "autres" as const, label: "Autres", Icon: Ellipsis, tone: "bg-[#eee9ec]" },
           ].map((item) => (
             <button
               key={item.id}
@@ -478,10 +485,10 @@ const Index = () => {
                   return next;
                 });
               }}
-              className="group flex min-w-0 flex-col items-center gap-2"
+              className="group flex shrink-0 flex-col items-center gap-2"
             >
               <span
-                className={`inline-flex h-[52px] w-[52px] items-center justify-center rounded-full transition ${
+                className={`inline-flex h-12 w-12 items-center justify-center rounded-full transition ${
                   item.id === "all"
                     ? `${item.tone} text-white ${feedCategory === "all" ? "scale-105 shadow-md" : "group-hover:shadow-sm"}`
                     : feedCategory === item.id
@@ -489,13 +496,14 @@ const Index = () => {
                     : `${item.tone} text-neutral-800 group-hover:shadow-sm`
                 }`}
               >
-                <item.Icon className="h-6 w-6" />
+                <item.Icon className="h-5 w-5" />
               </span>
-              <span className="w-full text-center text-base font-semibold leading-normal text-neutral-800">
+              <span className="whitespace-nowrap text-center text-sm font-semibold leading-normal text-neutral-800">
                 {item.label}
               </span>
             </button>
           ))}
+        </div>
         </div>
 
         {feedCategory === "immobilier" ? (
