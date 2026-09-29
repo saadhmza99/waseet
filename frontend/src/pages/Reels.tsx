@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Heart,
-  Bookmark,
   Pause,
   Play,
   ChevronLeft,
@@ -293,16 +292,16 @@ const Reels = () => {
           next.delete(reelId);
           return next;
         });
-        savedToast("Retiré", "Reel retiré des enregistrements.");
+        savedToast("Retiré des favoris", "Reel retiré des favoris.");
       } else {
         await savedService.saveReel(saver.id, reelId);
         localSaveTogglesRef.current.set(reelId, true);
         setSavedReels((prev) => new Set(prev).add(reelId));
-        savedToast("Enregistré", "Reel ajouté à tes enregistrements.");
+        savedToast("Ajouté aux favoris", "Reel ajouté aux favoris.");
       }
     } catch (error) {
       console.error("Error toggling save:", error);
-      toast({ title: "Erreur", description: "Impossible d'enregistrer ce reel." });
+      toast({ title: "Erreur", description: "Impossible d'ajouter ce reel aux favoris." });
     }
   };
 
@@ -468,7 +467,7 @@ const Reels = () => {
 
   const subFeedTitle =
     feedFrom === "saved"
-      ? "Reels enregistrés"
+      ? "Reels favoris"
       : feedFrom === "profile"
       ? `Reels de ${playableReels[0]?.profiles?.username ? `@${playableReels[0].profiles.username}` : "ce profil"}`
       : "";
@@ -778,12 +777,13 @@ const Reels = () => {
                   <div className="flex flex-col items-center gap-1 sm:gap-2">
                     <button
                       type="button"
+                      aria-label="Favoris"
                       onClick={() => handleSave(reel.id)}
                       className="flex items-center justify-center p-1 text-white transition-transform active:scale-90"
                     >
-                      <Bookmark
+                      <Heart
                         className={`h-7 w-7 sm:h-8 sm:w-8 ${
-                          reelSaved ? "text-primary fill-primary" : "text-white"
+                          reelSaved ? "fill-[#174f43] text-[#174f43]" : "text-white"
                         }`}
                         strokeWidth={1.8}
                       />

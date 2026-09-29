@@ -13,7 +13,7 @@ const translations: Record<string, TranslationDict> = {
     feed: "Feed",
     explore: "Explore",
     reels: "Reels",
-    saved: "Saved",
+    saved: "Favorites",
   },
   Francais: {
     profile: "Profil",
@@ -25,7 +25,7 @@ const translations: Record<string, TranslationDict> = {
     feed: "Fil d'actualite",
     explore: "Explorer",
     reels: "Reels",
-    saved: "Enregistres",
+    saved: "Favoris",
   },
   Arabic: {
     profile: "الملف الشخصي",
@@ -37,7 +37,7 @@ const translations: Record<string, TranslationDict> = {
     feed: "المنشورات",
     explore: "استكشاف",
     reels: "ريلز",
-    saved: "المحفوظات",
+    saved: "المفضلة",
   },
 };
 

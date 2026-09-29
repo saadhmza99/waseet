@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
 /** Small light confirmation. Sits at the top so it does not cover the bottom of the feed. */
-export const savedToast = (title = "Enregistré", description = "Retrouvez-le dans Enregistrés.") => {
+export const savedToast = (title = "Ajouté aux favoris", description = "Retrouvez-le dans Favoris.") => {
   toast(title, {
     description,
     position: "top-center",

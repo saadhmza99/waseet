@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Bookmark, LayoutGrid, Video } from "lucide-react";
+import { Heart, LayoutGrid, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
@@ -221,11 +221,11 @@ const Saved = () => {
     return (
       <div className="mx-auto flex max-w-sm flex-col items-center px-6 py-16 text-center">
         <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#174f43]/10">
-          <Bookmark className="h-8 w-8 fill-[#174f43] text-[#174f43]" />
+          <Heart className="h-8 w-8 fill-[#174f43] text-[#174f43]" />
         </span>
-        <h1 className="text-xl font-semibold">Vos enregistrements</h1>
+        <h1 className="text-xl font-semibold">Vos favoris</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Laissez vos coordonnées pour enregistrer des biens, projets et services et les retrouver ici.
+          Laissez vos coordonnées pour ajouter des biens, projets et services à vos favoris et les retrouver ici.
         </p>
         <button
           type="button"
@@ -301,7 +301,7 @@ const Saved = () => {
               {activeTab === "posts" && postsView === "grid" && (
                 <div className="space-y-4">
                   {regularPosts.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">Aucun post enregistré</div>
+                    <div className="py-8 text-center text-muted-foreground">Aucun post dans vos favoris</div>
                   ) : (
                     regularPosts.slice(0, visibleCount).map(renderFeedPost)
                   )}
@@ -311,7 +311,7 @@ const Saved = () => {
               {activeTab === "posts" && postsView === "reels" && (
                 <div>
                   {savedReels.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">Aucun reel enregistré</div>
+                    <div className="py-8 text-center text-muted-foreground">Aucun reel dans vos favoris</div>
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
                       {savedReels
@@ -357,7 +357,7 @@ const Saved = () => {
               {activeTab === "biens" && (
                 <div className="space-y-4">
                   {bienPosts.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">Aucun bien enregistré</div>
+                    <div className="py-8 text-center text-muted-foreground">Aucun bien dans vos favoris</div>
                   ) : (
                     bienPosts.slice(0, visibleCount).map(renderFeedPost)
                   )}
@@ -366,7 +366,7 @@ const Saved = () => {
 
               {activeTab === "services" && (
                 savedListings.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground">Aucun service enregistré</div>
+                  <div className="py-8 text-center text-muted-foreground">Aucun service dans vos favoris</div>
                 ) : (
                   <>
                     <div className="mx-auto flex w-[92%] max-w-[22rem] flex-col gap-2 sm:hidden">

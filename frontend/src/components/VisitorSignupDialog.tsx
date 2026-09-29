@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bookmark, Info, Loader2, Mail, User as UserIcon, UserRound } from "lucide-react";
+import { Heart, Info, Loader2, Mail, MessageCircle, User as UserIcon, UserRound } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,26 +8,37 @@ import { isCompletePhone } from "@/lib/phone";
 import { isValidEmail } from "@/lib/visitorContact";
 
 export type VisitorFormValues = { name: string; phone: string; email: string };
-export type VisitorFormReason = "save" | "profile";
+export type VisitorFormReason = "save" | "profile" | "comment";
 
 const COPY: Record<VisitorFormReason, { title: string; description: string; submit: string }> = {
   save: {
-    title: "Enregistrez vos favoris",
-    description: "Une seule fois, sans mot de passe : retrouvez ensuite vos enregistrements à tout moment.",
-    submit: "Enregistrer",
+    title: "Ajoutez à vos favoris",
+    description: "Une seule fois, sans mot de passe : retrouvez ensuite vos favoris à tout moment.",
+    submit: "Favoris",
+  },
+  comment: {
+    title: "Écrivez votre commentaire",
+    description: "Une seule fois : votre message sera visible uniquement par vous et l'entreprise.",
+    submit: "Commenter",
   },
   profile: {
     title: "Créez votre profil particulier",
-    description: "Une seule fois, sans mot de passe : enregistrez des annonces, suivez des profils et publiez jusqu'à 3 biens.",
+    description: "Une seule fois, sans mot de passe : ajoutez des annonces à vos favoris, suivez des profils et publiez jusqu'à 3 biens.",
     submit: "Créer mon profil",
   },
 };
+
+const headerIcon = {
+  save: Heart,
+  comment: MessageCircle,
+  profile: UserRound,
+} as const;
 
 export const VisitorDetailsNote = () => (
   <p className="flex gap-2 rounded-xl bg-[#174f43]/5 px-3 py-2.5 text-left text-xs leading-snug text-[#174f43]">
     <Info className="mt-px h-4 w-4 shrink-0" />
     <span>
-      Ces coordonnées seront utilisées pour toutes vos prochaines interactions (enregistrements, demandes d'infos).
+      Ces coordonnées seront utilisées pour toutes vos prochaines interactions (favoris, demandes d'infos).
       Vous pourrez les modifier à tout moment dans votre profil.
     </span>
   </p>
@@ -45,7 +56,7 @@ const fieldClass = "h-11 rounded-xl border-neutral-200 bg-neutral-50 pl-10 focus
 
 const VisitorSignupDialog = ({ open, reason, initialValues, onOpenChange, onSubmit }: VisitorSignupDialogProps) => {
   const copy = COPY[reason];
-  const HeaderIcon = reason === "profile" ? UserRound : Bookmark;
+  const HeaderIcon = headerIcon[reason];
   const [values, setValues] = useState(initialValues);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Clock, Phone, Shield, AlertTriangle, Share2, Bookmark, Banknote } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Phone, Shield, AlertTriangle, Share2, Heart, Banknote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import { listingBudgetLabel } from "@/lib/utils";
@@ -81,7 +81,7 @@ const JobDetail = () => {
               onClick={() => setIsSaved(!isSaved)}
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/90 hover:bg-white flex items-center justify-center transition-colors shadow-lg"
             >
-              <Bookmark className={`w-5 h-5 sm:w-6 sm:h-6 ${isSaved ? 'fill-primary text-primary' : 'text-card-foreground'}`} />
+              <Heart className={`w-5 h-5 sm:w-6 sm:h-6 ${isSaved ? 'fill-[#174f43] text-[#174f43]' : 'text-card-foreground'}`} />
             </button>
           </div>
         </div>

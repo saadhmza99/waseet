@@ -1,4 +1,4 @@
-import { MapPin, User, MoreHorizontal, Sparkles, Bookmark, Banknote } from "lucide-react";
+import { MapPin, User, MoreHorizontal, Sparkles, Heart, Banknote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -96,13 +96,13 @@ const ListingCard = ({
             type: "listing_save",
             entityType: "listing",
             entityId: id,
-            message: "a enregistré votre service.",
+            message: "a ajouté votre service aux favoris.",
           });
         }
       }
     } catch (error) {
       console.error("Error toggling listing save:", error);
-      toast({ title: "Erreur", description: "Impossible d'enregistrer cette service." });
+      toast({ title: "Erreur", description: "Impossible d'ajouter ce service aux favoris." });
     }
   };
 
@@ -173,10 +173,10 @@ const ListingCard = ({
               <button
                 type="button"
                 onClick={handleSaveListing}
-                aria-label="Enregistrer"
-                className={`shrink-0 rounded-md p-1.5 transition-colors ${isSaved ? "text-accent" : "text-muted-foreground hover:text-accent"}`}
+                aria-label="Favoris"
+                className={`shrink-0 rounded-md p-1.5 transition-colors ${isSaved ? "text-[#174f43]" : "text-muted-foreground hover:text-accent"}`}
               >
-                <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+                <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
               </button>
               <span className="flex min-w-0 items-center gap-1 text-xs font-medium text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -302,11 +302,11 @@ const ListingCard = ({
               onClick={handleSaveListing}
               className={`p-1.5 sm:p-2 rounded-md transition-colors ${
                 isSaved 
-                  ? 'bg-accent/10 text-accent' 
+                  ? 'bg-[#174f43]/10 text-[#174f43]' 
                   : 'text-muted-foreground hover:text-accent hover:bg-accent/5'
               }`}
             >
-              <Bookmark className={`${isLarge ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-4 h-4'} ${isSaved ? 'fill-current' : ''}`} />
+              <Heart className={`${isLarge ? 'w-4 h-4 sm:w-5 sm:h-5' : 'w-4 h-4'} ${isSaved ? 'fill-current' : ''}`} />
             </button>
             <button
               onClick={handleContact}

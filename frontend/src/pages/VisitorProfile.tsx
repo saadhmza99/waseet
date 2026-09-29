@@ -96,7 +96,7 @@ export const JoinChoice = () => {
             primary
             icon={UserRound}
             title="Particulier"
-            description="Enregistrez des annonces, suivez des profils et publiez jusqu'à 3 biens."
+            description="Ajoutez des annonces à vos favoris, suivez des profils et publiez jusqu'à 3 biens."
             onClick={async () => {
               if (await requestVisitor("profile")) navigate("/profile");
             }}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Ban, Bookmark, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreVertical, Pencil, Settings2, Sparkles, Trash2, UserCheck, UserPlus, Users, X, XCircle } from "lucide-react";
+import { Ban, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreVertical, Pencil, Settings2, Sparkles, Trash2, UserCheck, UserPlus, Users, X, XCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import CommentSection from "./CommentSection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -174,7 +174,7 @@ const FeedPost = ({
   const viewerId = user?.id ?? visitorUser?.id ?? null;
   const openReply = async () => {
     if (!viewerId) {
-      const actor = await requestVisitor();
+      const actor = await requestVisitor("comment");
       if (!actor) return;
     }
     setReplyOpen(true);
@@ -382,13 +382,13 @@ const FeedPost = ({
             type: "post_save",
             entityType: "post",
             entityId: postId,
-            message: "a enregistré votre post.",
+            message: "a ajouté votre post aux favoris.",
           });
         }
       }
     } catch (error) {
       console.error("Error toggling save:", error);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer ce post." });
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter ce post aux favoris." });
     }
   };
 
@@ -963,9 +963,9 @@ const FeedPost = ({
                 type="button"
                 onClick={handleSave}
                 className="transition-transform active:scale-90"
-                aria-label="Enregistrer"
+                aria-label="Favoris"
               >
-                <Bookmark className={`h-8 w-8 ${isSaved ? "fill-accent text-accent" : "text-white"}`} strokeWidth={1.8} />
+                <Heart className={`h-8 w-8 ${isSaved ? "fill-[#174f43] text-[#174f43]" : "text-white"}`} strokeWidth={1.8} />
               </button>
             </div>
           </div>
@@ -997,11 +997,11 @@ const FeedPost = ({
         <button
           onClick={handleSave}
           className={`flex items-center text-base font-medium transition-colors active:scale-90 ${
-            isSaved ? "text-accent" : "text-neutral-900"
+            isSaved ? "text-[#174f43]" : "text-neutral-900"
           }`}
-          aria-label="Enregistrer"
+          aria-label="Favoris"
         >
-          <Bookmark className={`h-7 w-7 ${isSaved ? "fill-accent" : ""}`} strokeWidth={1.8} />
+          <Heart className={`h-7 w-7 ${isSaved ? "fill-[#174f43] text-[#174f43]" : ""}`} strokeWidth={1.8} />
         </button>
         {postUserId ? (
           <button

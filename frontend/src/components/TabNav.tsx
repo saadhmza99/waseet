@@ -1,4 +1,4 @@
-import { Bookmark, Plus, Search, User } from "lucide-react";
+import { Heart, Plus, Search, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -83,12 +83,12 @@ const TabNav = () => {
         </button>
         <button type="button" onClick={() => navigate("/saved")} className={itemClass(path.startsWith("/saved"))}>
           <span className="flex h-8 items-center justify-center">
-            <Bookmark
+            <Heart
               className={`h-7 w-7 ${path.startsWith("/saved") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
               strokeWidth={path.startsWith("/saved") ? 1.8 : 2}
             />
           </span>
-          Enregistrés
+          Favoris
         </button>
         <button
           type="button"

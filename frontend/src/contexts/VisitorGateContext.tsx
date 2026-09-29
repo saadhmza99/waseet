@@ -83,7 +83,7 @@ export const VisitorGateProvider = ({ children }: { children: ReactNode }) => {
       const { user: newVisitor, restored } = await startVisitorSession(values);
       storeVisitorContact(values);
       if (restored) {
-        savedToast(`Bon retour, ${values.name.trim()} !`, "Vos enregistrements ont été restaurés.");
+        savedToast(`Bon retour, ${values.name.trim()} !`, "Vos favoris ont été restaurés.");
       }
       return newVisitor;
     } catch (error) {

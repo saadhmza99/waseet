@@ -63,12 +63,22 @@ const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
   { id: "riad-patio", image_url: "/feed-banners/riad-patio.jpg", alt: "Patio de riad avec piscine" },
 ];
 
+type ImmobilierFilter = "all" | "sale" | "rent" | "agencies";
+
+const IMMOBILIER_FILTERS: { id: ImmobilierFilter; label: string }[] = [
+  { id: "all", label: "Tout" },
+  { id: "sale", label: "Vente" },
+  { id: "rent", label: "Location" },
+  { id: "agencies", label: "Agences" },
+];
+
 const Index = () => {
   const { user, visitorUser, loading: authLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
   const [feedCategory, setFeedCategory] = useState<"all" | "immobilier" | "construction">("all");
+  const [immobilierFilter, setImmobilierFilter] = useState<ImmobilierFilter>("all");
   const [allPosts, setAllPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -354,7 +364,7 @@ const Index = () => {
     const posts = allPosts.filter((post) => {
       if (feedCategory === "all") return true;
       const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
-      if (feedCategory === "immobilier") return post.post_type === "property";
+      if (feedCategory === "immobilier") return true;
       if (feedCategory === "construction") return /construct|bâtiment|batiment|chantier/.test(hay);
       return true;
     });
@@ -459,9 +469,14 @@ const Index = () => {
                 }
                 if (item.id === "all") {
                   setFeedCategory("all");
+                  setImmobilierFilter("all");
                   return;
                 }
-                setFeedCategory((prev) => (prev === item.id ? "all" : item.id));
+                setFeedCategory((prev) => {
+                  const next = prev === item.id ? "all" : item.id;
+                  if (next !== "immobilier") setImmobilierFilter("all");
+                  return next;
+                });
               }}
               className="group flex min-w-0 flex-col items-center gap-2"
             >
@@ -483,6 +498,25 @@ const Index = () => {
           ))}
         </div>
 
+        {feedCategory === "immobilier" ? (
+          <div className="mb-3 grid grid-cols-4 gap-2 px-3">
+            {IMMOBILIER_FILTERS.map((item) => {
+              const active = immobilierFilter === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setImmobilierFilter(item.id)}
+                  className={`h-9 rounded-full px-1 text-[13px] font-semibold transition ${
+                    active ? "bg-[#174f43] text-white" : "bg-neutral-100 text-neutral-800"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <section className="relative mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white">
           <img
             key={bannerImage?.image_url || "fallback"}
@@ -499,8 +533,9 @@ const Index = () => {
             </p>
           </div>
         </section>
+        )}
 
-        {sponsoredListings.length >= 2 && (
+        {sponsoredListings.length >= 2 && feedCategory !== "immobilier" && (
           <div className="my-4 sm:my-6 space-y-3 sm:space-y-4">
             {sponsoredListings.slice(0, 2).map((listing) => {
               const profile = listing.profiles || {};
@@ -535,7 +570,7 @@ const Index = () => {
             if (openCreate) navigate("/", { replace: true, state: {} });
           }}
         />
-        
+
         {/* Feed with posts and sponsored banners */}
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">Chargement...</div>
