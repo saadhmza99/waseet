@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { VisitorGateProvider } from "@/contexts/VisitorGateContext";
@@ -33,6 +33,14 @@ import Welcome, { hasSeenWelcome } from "./pages/Welcome";
 const queryClient = new QueryClient();
 
 // Agencies / professionals get their profile; visitors (or nobody yet) get the visitor page.
+const SignedIn = ({ children }: { children: ReactNode }) => {
+  const { user, visitorUser, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <div className="py-8 text-center text-muted-foreground">Chargement...</div>;
+  if (!user && !visitorUser) return <Navigate to="/login" replace state={{ from: location }} />;
+  return <>{children}</>;
+};
+
 const OwnProfileRoute = () => {
   const { user, loading } = useAuth();
   if (loading) return <div className="py-8 text-center text-muted-foreground">Chargement...</div>;
@@ -80,10 +88,10 @@ const AppLayout = () => {
             <Route path="/profile/:id" element={<Profile />} />
             <Route path="/profile" element={<OwnProfileRoute />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
-              <Route path="/settings/blocked" element={<RequireAuth><BlockedAccounts /></RequireAuth>} />
+              <Route path="/settings" element={<SignedIn><Settings /></SignedIn>} />
+              <Route path="/settings/blocked" element={<SignedIn><BlockedAccounts /></SignedIn>} />
               <Route path="/change-password" element={<ChangePassword />} />
-              <Route path="/privacy-settings" element={<RequireAuth><PrivacySettings /></RequireAuth>} />
+              <Route path="/privacy-settings" element={<SignedIn><PrivacySettings /></SignedIn>} />
               <Route path="/admin/moderation" element={<RequireAuth><AdminModeration /></RequireAuth>} />
               <Route path="/create-profile" element={<CreateProfile />} />
               <Route path="/join" element={<JoinChoice />} />

@@ -7,8 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { useProfile } from "@/hooks/useProfile";
 import { profileService } from "@/services/profileService";
+import { visitorService } from "@/services/visitorService";
+import { supabase } from "@/lib/supabase";
 import { storageService } from "@/services/storageService";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
@@ -20,8 +23,11 @@ import { useAppLanguage } from "@/contexts/AppLanguageContext";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, visitorUser } = useAuth();
+  const { visitorProfile, refreshVisitorProfile } = useVisitorGate();
   const { profile, loading: profileLoading } = useProfile();
+  const isParticulier = Boolean(visitorUser && !user);
+  const accountId = user?.id || visitorUser?.id || null;
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
@@ -84,19 +90,27 @@ const Settings = () => {
   ];
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || isParticulier) return;
     setUsername(profile.username || "");
     setFullName(profile.full_name || "");
     setLoginEmail(user?.email || "");
     setBio(profile.bio || "");
     setWebsiteUrl(preferredWebsiteFrom(profile.website_url));
-  }, [profile, user?.email]);
+  }, [profile, user?.email, isParticulier]);
+
+  useEffect(() => {
+    if (!isParticulier || !visitorProfile || !visitorUser) return;
+    setUsername(String(visitorUser.user_metadata?.username || ""));
+    setFullName(visitorProfile.name || "");
+    setLoginEmail(visitorProfile.email || visitorUser.email || "");
+    setBio(visitorProfile.bio || "");
+  }, [isParticulier, visitorProfile, visitorUser]);
 
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!user) return;
+      if (!accountId) return;
       try {
-        const settings = await userSettingsService.getSettings(user.id);
+        const settings = await userSettingsService.loadForAccount(accountId, isParticulier);
         setNotifications(settings.notifications_enabled);
         setEmailNotifications(settings.email_notifications_enabled);
         setDarkMode(settings.dark_mode_enabled);
@@ -108,7 +122,7 @@ const Settings = () => {
         setCommentPermission(settings.comment_permission);
         setTagPermission(settings.tag_permission);
         setAppLanguage(settings.language);
-        const muted = await muteService.getMutedAccounts(user.id);
+        const muted = await muteService.getMutedAccounts(accountId);
         setMutedAccounts(muted);
       } catch (error) {
         console.error("Error loading user settings:", error);
@@ -116,7 +130,7 @@ const Settings = () => {
     };
 
     loadPreferences();
-  }, [user?.id, setAppLanguage]);
+  }, [accountId, isParticulier, setAppLanguage]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -124,7 +138,7 @@ const Settings = () => {
 
   const avatarPreview = avatarFile
     ? URL.createObjectURL(avatarFile)
-    : profile?.avatar_url || getDefaultAvatar(profile?.profile_type);
+    : (isParticulier ? visitorProfile?.avatar_url : profile?.avatar_url) || getDefaultAvatar(isParticulier ? "individual" : profile?.profile_type);
 
   const normalizeWebsiteUrl = (raw: string) => {
     const trimmed = raw.trim();
@@ -138,6 +152,41 @@ const Settings = () => {
   };
 
   const persistProfile = async (alsoChangeLoginEmail = false) => {
+    if (isParticulier) {
+      if (!visitorUser || !visitorProfile) return;
+      setIsSaving(true);
+      try {
+        const avatarUrl = avatarFile
+          ? await storageService.uploadImage(avatarFile, `visitors/${visitorUser.id}`)
+          : visitorProfile.avatar_url;
+        await visitorService.updateMine({
+          name: fullName.trim() || visitorProfile.name,
+          phone: visitorProfile.phone,
+          email: loginEmail.trim(),
+          bio: bio.slice(0, MAX_BIO_LENGTH),
+          avatarUrl,
+        });
+        await supabase.auth.updateUser({
+          data: { username: username.trim() },
+          ...(alsoChangeLoginEmail ? { email: loginEmail.trim() } : {}),
+        });
+        await refreshVisitorProfile();
+        setAvatarFile(null);
+        setConfirmLoginEmail(null);
+        toast({
+          title: alsoChangeLoginEmail ? "Email de connexion mis à jour" : "Profil mis à jour",
+          description: alsoChangeLoginEmail
+            ? `Vous vous connecterez avec ${loginEmail.trim()}. Si un message de confirmation arrive, ouvrez-le pour valider le changement.`
+            : "Vos informations ont bien été enregistrées.",
+        });
+      } catch (error) {
+        console.error("Error updating particulier settings:", error);
+        toast({ title: "Erreur", description: "Impossible de sauvegarder le profil." });
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
     if (!user || !profile) return;
     setIsSaving(true);
     try {
@@ -195,9 +244,9 @@ const Settings = () => {
   };
 
   const handleSaveProfile = async () => {
-    if (!user || !profile) return;
+    if (!accountId || (!isParticulier && !profile)) return;
     const next = loginEmail.trim();
-    const current = (user.email || "").trim();
+    const current = (isParticulier ? visitorProfile?.email || visitorUser?.email || "" : user?.email || "").trim();
     if (next && next.toLowerCase() !== current.toLowerCase()) {
       setConfirmLoginEmail(next);
       return;
@@ -206,10 +255,10 @@ const Settings = () => {
   };
 
   const handleSavePreferences = async () => {
-    if (!user) return;
+    if (!accountId) return;
     setIsSavingPreferences(true);
     try {
-      await userSettingsService.saveSettings(user.id, {
+      await userSettingsService.saveForAccount(accountId, isParticulier, {
         notifications_enabled: notifications,
         email_notifications_enabled: emailNotifications,
         dark_mode_enabled: darkMode,
@@ -247,7 +296,7 @@ const Settings = () => {
     });
   };
 
-  if (profileLoading) {
+  if ((user && profileLoading) || (isParticulier && !visitorProfile)) {
     return <div className="py-10 text-center text-muted-foreground">Chargement des paramètres...</div>;
   }
 
@@ -384,6 +433,7 @@ const Settings = () => {
               </div>
             ) : null}
 
+            {isParticulier ? null : (
             <div>
               <Label htmlFor="website" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
                 Site web préféré (bouton Website)
@@ -399,6 +449,7 @@ const Settings = () => {
                 If set, a Website button appears on your public profile.
               </p>
             </div>
+            )}
 
             <div>
               <Label htmlFor="bio" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
@@ -425,7 +476,7 @@ const Settings = () => {
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleSaveProfile} disabled={isSaving || !user}>
+              <Button onClick={handleSaveProfile} disabled={isSaving || !accountId}>
                 {isSaving ? "Enregistrement..." : "Enregistrer le profil"}
               </Button>
             </div>
@@ -470,13 +521,14 @@ const Settings = () => {
               />
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !user}>
+              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !accountId}>
                 {isSavingPreferences ? "Enregistrement..." : "Enregistrer préférences"}
               </Button>
             </div>
           </div>
         </div>
 
+        {isParticulier ? null : (
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <Users className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
@@ -514,12 +566,13 @@ const Settings = () => {
               </select>
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !user}>
+              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !accountId}>
                 {isSavingPreferences ? "Enregistrement..." : "Enregistrer"}
               </Button>
             </div>
           </div>
         </div>
+        )}
 
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
@@ -552,9 +605,9 @@ const Settings = () => {
                     variant="outline"
                     size="sm"
                     onClick={async () => {
-                      if (!user) return;
+                      if (!accountId) return;
                       try {
-                        await muteService.unmuteAccount(user.id, row.mutedId);
+                        await muteService.unmuteAccount(accountId, row.mutedId);
                         setMutedAccounts((prev) => prev.filter((item) => item.mutedId !== row.mutedId));
                       } catch (error) {
                         console.error(error);
@@ -657,7 +710,7 @@ const Settings = () => {
               </select>
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !user}>
+              <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !accountId}>
                 {isSavingPreferences ? "Enregistrement..." : "Appliquer langue et region"}
               </Button>
             </div>

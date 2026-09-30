@@ -1,10 +1,19 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Building2, ChevronLeft, Cpu, Ellipsis, FileText, Hammer, HardHat, List, Map as MapIcon, Scale, Search, Users } from "lucide-react";
+import { Building2, ChevronLeft, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, List, Map as MapIcon, PenTool, Search } from "lucide-react";
 import MapView from "@/components/MapView";
 
 type DiscoverKind = "actualite" | "biens-projets" | "annonces";
-type CategoryId = "immobilier" | "renovation" | "construction" | "autres" | "avocats" | "notaires" | "agents" | "tech";
+type CategoryId =
+  | "foncier"
+  | "gestion"
+  | "biens"
+  | "construction"
+  | "renovation"
+  | "architecture"
+  | "notaires"
+  | "immotech"
+  | "autres";
 type Deal = "all" | "sale" | "rent";
 type ItemKind = "actualite" | "bien" | "projet" | "annonce" | "agence";
 
@@ -27,21 +36,22 @@ type MockItem = {
 const KINDS: { id: DiscoverKind; label: string }[] = [
   { id: "actualite", label: "Actualité" },
   { id: "biens-projets", label: "Biens projets" },
-  { id: "annonces", label: "Annonces" },
+  { id: "annonces", label: "Services" },
 ];
 
 const CATEGORIES: { id: CategoryId; label: string; Icon: typeof Building2 }[] = [
-  { id: "immobilier", label: "Immobilier", Icon: Building2 },
-  { id: "renovation", label: "Rénovations", Icon: Hammer },
+  { id: "foncier", label: "Foncier & Conseil", Icon: Landmark },
+  { id: "gestion", label: "Gestion Immobilière", Icon: Building2 },
+  { id: "biens", label: "Biens & Projets", Icon: Home },
   { id: "construction", label: "Construction", Icon: HardHat },
+  { id: "renovation", label: "Rénovation & Aménagement", Icon: Hammer },
+  { id: "architecture", label: "Architecture", Icon: PenTool },
+  { id: "notaires", label: "Notaires & Juridiques", Icon: FileText },
+  { id: "immotech", label: "Immotech", Icon: Cpu },
   { id: "autres", label: "Autres", Icon: Ellipsis },
-  { id: "avocats", label: "Avocats", Icon: Scale },
-  { id: "notaires", label: "Notaires", Icon: FileText },
-  { id: "agents", label: "Agents immobilier", Icon: Users },
-  { id: "tech", label: "Tech", Icon: Cpu },
 ];
 
-const WITH_BIENS = new Set<CategoryId>(["immobilier", "agents"]);
+const WITH_BIENS = new Set<CategoryId>(["biens", "gestion"]);
 
 type SearchType = "biens" | "services" | "projets" | "comptes";
 
@@ -61,7 +71,7 @@ const DEALS: { id: Deal; label: string }[] = [
 const ITEMS: MockItem[] = [
   {
     id: "villa-agadir",
-    category: "immobilier",
+    category: "biens",
     kind: "bien",
     profileName: "Rahma Aamrani",
     image: "/feed-banners/villa-jardin.webp",
@@ -74,9 +84,9 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "appart-plage",
-    category: "immobilier",
+    category: "biens",
     kind: "bien",
-    profileName: "Dakimmo",
+    profileName: "Nour Immobilier",
     image: "/feed-banners/agadir-plage.png",
     title: "Appartement vue mer",
     city: "Agadir",
@@ -87,7 +97,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "riad-location",
-    category: "immobilier",
+    category: "biens",
     kind: "bien",
     profileName: "Rahma Aamrani",
     image: "/feed-banners/riad-patio.jpg",
@@ -100,9 +110,9 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "residence-marina",
-    category: "immobilier",
+    category: "biens",
     kind: "projet",
-    profileName: "Dakimmo",
+    profileName: "Nour Immobilier",
     image: "/feed-banners/palais-piscine.webp",
     title: "Résidence Marina",
     city: "Casablanca",
@@ -113,7 +123,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "agence-rahma",
-    category: "immobilier",
+    category: "gestion",
     kind: "agence",
     profileName: "Rahma Aamrani",
     image: "/feed-banners/villa-jardin.webp",
@@ -121,12 +131,12 @@ const ITEMS: MockItem[] = [
     city: "Agadir",
   },
   {
-    id: "agence-dakimmo",
-    category: "immobilier",
+    id: "agence-nour",
+    category: "gestion",
     kind: "agence",
-    profileName: "Dakimmo",
+    profileName: "Nour Immobilier",
     image: "/feed-banners/palais-piscine.webp",
-    title: "Dakimmo",
+    title: "Agence Nour Immobilier",
     city: "Casablanca",
   },
   {
@@ -168,7 +178,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "cuisine",
-    category: "autres",
+    category: "renovation",
     kind: "projet",
     profileName: "Atelier Bois",
     image: "/welcome-morocco.jpg",
@@ -192,7 +202,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "agent-villa",
-    category: "agents",
+    category: "biens",
     kind: "bien",
     profileName: "Sara Bennani",
     image: "/feed-banners/villa-jardin.webp",
@@ -205,7 +215,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "agent-projet",
-    category: "agents",
+    category: "biens",
     kind: "projet",
     profileName: "Sara Bennani",
     image: "/feed-banners/riad-patio.jpg",
@@ -218,7 +228,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "agent-agence",
-    category: "agents",
+    category: "gestion",
     kind: "agence",
     profileName: "Sara Bennani",
     image: "/feed-banners/palais-piscine.webp",
@@ -227,7 +237,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "avocat-dossier",
-    category: "avocats",
+    category: "notaires",
     kind: "projet",
     profileName: "Maître El Fassi",
     image: "/welcome-morocco.jpg",
@@ -249,9 +259,9 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "tech-app",
-    category: "tech",
+    category: "immotech",
     kind: "projet",
-    profileName: "Dakimmo",
+    profileName: "Lina Digital",
     image: "/feed-banners/agadir-plage.png",
     title: "Plateforme de gestion",
     city: "Casablanca",
@@ -260,7 +270,7 @@ const ITEMS: MockItem[] = [
   },
   {
     id: "actu-rahma",
-    category: "immobilier",
+    category: "biens",
     kind: "actualite",
     profileName: "Rahma Aamrani",
     image: "/feed-banners/riad-patio.jpg",
@@ -297,6 +307,29 @@ const ITEMS: MockItem[] = [
     title: "Menuiserie sur mesure",
     city: "Agadir",
     price: "À partir de 3 000 DH",
+  },
+  {
+    id: "foncier-conseil",
+    category: "foncier",
+    kind: "projet",
+    profileName: "Cabinet Idrissi",
+    image: "/welcome-morocco.jpg",
+    title: "Conseil en foncier",
+    city: "Casablanca",
+    price: "Sur devis",
+    progress: 45,
+  },
+  {
+    id: "archi-villa",
+    category: "architecture",
+    kind: "projet",
+    profileName: "Atelier Ligne",
+    image: "/feed-banners/villa-jardin.webp",
+    title: "Villa contemporaine",
+    city: "Rabat",
+    price: "Sur devis",
+    surface: "240 m²",
+    progress: 30,
   },
 ];
 

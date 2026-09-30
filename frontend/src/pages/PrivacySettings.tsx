@@ -10,7 +10,9 @@ import { userSettingsService } from "@/services/userSettingsService";
 
 const PrivacySettings = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, visitorUser } = useAuth();
+  const account = user || visitorUser;
+  const isParticulier = Boolean(visitorUser && !user);
   const [showPhone, setShowPhone] = useState(false);
   const [allowDm, setAllowDm] = useState(true);
   const [showActivity, setShowActivity] = useState(true);
@@ -18,9 +20,9 @@ const PrivacySettings = () => {
 
   useEffect(() => {
     const load = async () => {
-      if (!user) return;
+      if (!account) return;
       try {
-        const settings = await userSettingsService.getSettings(user.id);
+        const settings = await userSettingsService.loadForAccount(account.id, isParticulier);
         setShowPhone(settings.show_phone);
         setAllowDm(settings.allow_direct_messages);
         setShowActivity(settings.show_activity_status);
@@ -29,14 +31,14 @@ const PrivacySettings = () => {
       }
     };
     load();
-  }, [user?.id]);
+  }, [account?.id, isParticulier]);
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!account) return;
     setSaving(true);
     try {
-      const current = await userSettingsService.getSettings(user.id);
-      await userSettingsService.saveSettings(user.id, {
+      const current = await userSettingsService.loadForAccount(account.id, isParticulier);
+      await userSettingsService.saveForAccount(account.id, isParticulier, {
         ...current,
         show_phone: showPhone,
         allow_direct_messages: allowDm,
@@ -75,7 +77,7 @@ const PrivacySettings = () => {
             <Switch id="show-activity" checked={showActivity} onCheckedChange={setShowActivity} />
           </div>
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving || !user}>
+            <Button onClick={handleSave} disabled={saving || !account}>
               {saving ? "Saving..." : "Save privacy settings"}
             </Button>
           </div>

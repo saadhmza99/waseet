@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Briefcase, Building2, Camera, ChevronRight, Loader2, Lock, LogOut, Mail, MoreVertical, Pencil, Phone, UserRound, Users, VolumeX, UserMinus } from "lucide-react";
+import { Briefcase, Building2, Camera, ChevronRight, Loader2, Lock, LogOut, Mail, MoreVertical, Pencil, Phone, Settings, UserRound, Users, VolumeX, UserMinus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { visitorService } from "@/services/visitorService";
@@ -338,7 +338,17 @@ const VisitorProfile = () => {
       <div className="h-28 bg-white sm:h-36" />
       <div className="-mt-12 flex flex-col items-center px-5 text-center">
         <img src={avatar} alt={visitorProfile.name} className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-sm" />
-        <h1 className="mt-3 text-xl font-bold">{visitorProfile.name}</h1>
+        <div className="relative mt-3 w-full">
+          <h1 className="px-10 text-center text-xl font-bold">{visitorProfile.name}</h1>
+          <button
+            type="button"
+            aria-label="Paramètres"
+            onClick={() => navigate("/settings")}
+            className="absolute right-0 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-neutral-800 hover:bg-neutral-100"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        </div>
         <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Particulier</p>
         {visitorProfile.bio ? (
           <p className="mt-3 max-w-sm whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">{visitorProfile.bio}</p>

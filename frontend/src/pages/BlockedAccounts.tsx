@@ -22,17 +22,18 @@ type BlockedRow = {
 
 const BlockedAccounts = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, visitorUser } = useAuth();
+  const account = user || visitorUser;
   const [rows, setRows] = useState<BlockedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingUnblock, setPendingUnblock] = useState<BlockedRow | null>(null);
   const [unblocking, setUnblocking] = useState(false);
 
   const load = async () => {
-    if (!user) return;
+    if (!account) return;
     setLoading(true);
     try {
-      setRows(await moderationService.getBlockedAccounts(user.id));
+      setRows(await moderationService.getBlockedAccounts(account.id));
     } catch (error) {
       console.error("Error loading blocked accounts:", error);
       toast({ title: "Erreur", description: "Impossible de charger les comptes bloqués." });
@@ -43,13 +44,13 @@ const BlockedAccounts = () => {
 
   useEffect(() => {
     void load();
-  }, [user?.id]);
+  }, [account?.id]);
 
   const confirmUnblock = async () => {
-    if (!user || !pendingUnblock) return;
+    if (!account || !pendingUnblock) return;
     setUnblocking(true);
     try {
-      await moderationService.unblockUser(user.id, pendingUnblock.blockedId);
+      await moderationService.unblockUser(account.id, pendingUnblock.blockedId);
       setRows((prev) => prev.filter((row) => row.blockedId !== pendingUnblock.blockedId));
       setPendingUnblock(null);
       toast({ title: "Compte débloqué" });

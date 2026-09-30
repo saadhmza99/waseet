@@ -49,22 +49,20 @@ const Welcome = ({ onDone }: { onDone?: () => void }) => {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/55 md:bg-gradient-to-r md:from-black/50 md:via-black/15 md:to-black/50" />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-6 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(3.5rem,env(safe-area-inset-top))] md:flex-row md:items-center md:justify-between md:gap-12 md:px-8 md:py-12 lg:px-10">
-        <div className="flex flex-1 flex-col items-center pt-[12vh] text-center md:flex-none md:self-start md:items-start md:pt-[6vh] md:text-left">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-6 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] md:flex-row md:items-center md:justify-between md:gap-12 md:px-8 md:py-12 lg:px-10">
+        <div className="flex flex-1 flex-col items-center pt-12 text-center md:flex-none md:self-start md:items-start md:pt-[6vh] md:text-left">
           <div className="flex -translate-x-3.5 items-center justify-center gap-2 md:translate-x-0 md:gap-3">
             <Wrench className="h-12 w-12 shrink-0 text-orange-500 md:h-16 md:w-16" strokeWidth={2.2} />
             <h1 className="text-5xl font-semibold tracking-tight drop-shadow-sm sm:text-6xl lg:text-7xl">Sifarah</h1>
           </div>
           <p className="mt-4 text-xl font-normal text-white/95 drop-shadow sm:text-2xl lg:text-3xl">
-            Découvrir. Suivre. Soutenir.
+            Découvrez. Suivez. Échangez.
           </p>
         </div>
 
         <div className="mx-auto w-full max-w-sm pb-8 text-center md:mx-0 md:max-w-[26rem] md:pb-0 md:text-left lg:max-w-lg md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2">
           <p className="mb-12 text-xl font-medium leading-snug text-white drop-shadow sm:text-2xl md:mb-8 lg:text-3xl">
-            Explorez les meilleures entreprises
-            <br />
-            du Maroc
+            Tout l'écosystème immobilier de votre région.
           </p>
           <div className="flex flex-col items-center md:flex-row md:gap-4">
             <button

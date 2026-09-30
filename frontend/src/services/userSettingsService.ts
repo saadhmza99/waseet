@@ -57,6 +57,29 @@ export const userSettingsService = {
     };
   },
 
+  async loadForAccount(userId: string, visitor: boolean): Promise<UserSettingsData> {
+    const remote = await this.getSettings(userId).catch(() => defaultUserSettings);
+    if (!visitor) return remote;
+    try {
+      const raw = localStorage.getItem(`sifarah.visitor-settings.${userId}`);
+      if (!raw) return remote;
+      return { ...defaultUserSettings, ...remote, ...JSON.parse(raw) };
+    } catch {
+      return remote;
+    }
+  },
+
+  async saveForAccount(userId: string, visitor: boolean, settings: UserSettingsData) {
+    if (visitor) {
+      localStorage.setItem(`sifarah.visitor-settings.${userId}`, JSON.stringify(settings));
+    }
+    try {
+      await this.saveSettings(userId, settings);
+    } catch (error) {
+      if (!visitor) throw error;
+    }
+  },
+
   async saveSettings(userId: string, settings: UserSettingsData) {
     const { data, error } = await supabase
       .from("user_settings")

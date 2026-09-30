@@ -10,10 +10,9 @@ import { isValidEmail } from "@/lib/visitorContact";
 export type VisitorFormValues = { name: string; phone: string; email: string };
 export type VisitorFormReason = "save" | "profile" | "comment";
 
-const COPY: Record<VisitorFormReason, { title: string; description: string; submit: string }> = {
+const COPY: Record<VisitorFormReason, { title: string; description?: string; submit: string }> = {
   save: {
     title: "Ajoutez à vos favoris",
-    description: "Une seule fois, sans mot de passe : retrouvez ensuite vos favoris à tout moment.",
     submit: "Favoris",
   },
   comment: {
@@ -96,7 +95,9 @@ const VisitorSignupDialog = ({ open, reason, initialValues, onOpenChange, onSubm
             <HeaderIcon className={`h-7 w-7 text-[#174f43] ${reason === "save" ? "fill-[#174f43]" : ""}`} />
           </span>
           <DialogTitle className="text-xl">{copy.title}</DialogTitle>
-          <DialogDescription className="text-[13px] leading-relaxed">{copy.description}</DialogDescription>
+          {copy.description ? (
+            <DialogDescription className="text-[13px] leading-relaxed">{copy.description}</DialogDescription>
+          ) : null}
         </DialogHeader>
 
         <form onSubmit={submit} className="mt-1 space-y-3">

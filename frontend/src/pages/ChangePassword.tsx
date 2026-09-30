@@ -10,13 +10,14 @@ import { toast } from "@/components/ui/use-toast";
 
 const ChangePassword = () => {
   const navigate = useNavigate();
-  const { user, loading, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const { user, visitorUser, loading, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const account = user || visitorUser;
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!account) return;
     if (newPassword.length < 8) {
       toast({ title: "Erreur", description: "Le mot de passe doit avoir au moins 8 caracteres." });
       return;
@@ -44,11 +45,11 @@ const ChangePassword = () => {
     }
   };
 
-  if (loading || (isPasswordRecovery && !user)) {
+  if (loading || (isPasswordRecovery && !account)) {
     return <div className="py-10 text-center text-muted-foreground">Chargement...</div>;
   }
 
-  if (!user) {
+  if (!account) {
     return <Navigate to="/login" replace />;
   }
 

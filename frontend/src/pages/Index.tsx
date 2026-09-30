@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
-import { Building2, Ellipsis, LayoutGrid } from "lucide-react";
+import { Building2, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, LayoutGrid, PenTool } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
@@ -64,49 +64,57 @@ const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
   { id: "riad-patio", image_url: "/feed-banners/riad-patio.jpg", alt: "Patio de riad avec piscine" },
 ];
 
-type ImmobilierFilter = "all" | "sale" | "rent" | "agencies";
-type FeedKind = "all" | "biens-projets" | "annonces";
+type FeedView = "all" | "projets" | "biens" | "services";
+type ProfessionId =
+  | "foncier"
+  | "gestion"
+  | "biens"
+  | "construction"
+  | "renovation"
+  | "architecture"
+  | "notaires"
+  | "immotech"
+  | "autres";
 
-const FEED_KINDS: { id: FeedKind; label: string }[] = [
-  { id: "all", label: "Actualité" },
-  { id: "biens-projets", label: "Biens projets" },
-  { id: "annonces", label: "Annonces" },
+const PROFESSION_CATEGORIES: { id: ProfessionId; label: string; Icon: typeof Building2; pattern: RegExp }[] = [
+  { id: "foncier", label: "Foncier & Conseil", Icon: Landmark, pattern: /foncier|terrain|lotissement|titre foncier/ },
+  { id: "gestion", label: "Gestion Immobilière", Icon: Building2, pattern: /gestion|syndic|locative/ },
+  { id: "biens", label: "Biens & Projets", Icon: Home, pattern: /bien|propri[eé]t[eé]|immobilier|villa|appartement/ },
+  { id: "construction", label: "Construction", Icon: HardHat, pattern: /construct|b[aâ]timent|batiment|chantier/ },
+  { id: "renovation", label: "Rénovation & Aménagement", Icon: Hammer, pattern: /r[eé]nov|renov|am[eé]nagement|amenagement/ },
+  { id: "architecture", label: "Architecture", Icon: PenTool, pattern: /architect/ },
+  { id: "notaires", label: "Notaires & Juridiques", Icon: FileText, pattern: /notaire|juridique|avocat/ },
+  { id: "immotech", label: "Immotech", Icon: Cpu, pattern: /immotech|logiciel|digital|proptech/ },
+  { id: "autres", label: "Autres", Icon: Ellipsis, pattern: /$^/ },
 ];
 
-const isBienPost = (post: { post_type?: string | null }) =>
-  ["property", "bien", "propriete", "propriété"].includes(post.post_type || "");
-const isProjetPost = (post: { post_type?: string | null }) => post.post_type === "project";
-const isPortfolioBienProjet = (post: { post_type?: string | null; property_id?: string | null; project_id?: string | null }) =>
-  (isBienPost(post) || isProjetPost(post)) && Boolean(post.property_id || post.project_id);
+const isBienPost = (post: { post_type?: string | null; property_id?: string | null }) =>
+  ["property", "bien", "propriete", "propriété"].includes(post.post_type || "") || Boolean(post.property_id);
+const isProjetPost = (post: { post_type?: string | null; project_id?: string | null }) =>
+  post.post_type === "project" || Boolean(post.project_id);
 
-const IMMOBILIER_FILTERS: { id: ImmobilierFilter; label: string }[] = [
-  { id: "all", label: "Tout" },
-  { id: "sale", label: "Vente" },
-  { id: "rent", label: "Location" },
-  { id: "agencies", label: "Agences" },
-];
+const matchesProfession = (category: ProfessionId | "tout" | null, hay: string) => {
+  if (!category || category === "tout") return true;
+  if (category === "autres") {
+    return !PROFESSION_CATEGORIES.some((item) => item.id !== "autres" && item.pattern.test(hay));
+  }
+  return PROFESSION_CATEGORIES.find((item) => item.id === category)?.pattern.test(hay) ?? true;
+};
+
+const matchesFeedView = (view: FeedView, post: { post_type?: string | null; property_id?: string | null; project_id?: string | null }) => {
+  if (view === "projets") return isProjetPost(post);
+  if (view === "biens") return isBienPost(post) && !isProjetPost(post);
+  return true;
+};
 
 const Index = () => {
   const { user, visitorUser, loading: authLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
-  const [feedCategory, setFeedCategory] = useState<"all" | "immobilier" | "construction" | "autres">("all");
-  const [immobilierFilter, setImmobilierFilter] = useState<ImmobilierFilter>("all");
-  const [feedKind, setFeedKind] = useState<FeedKind>("all");
-  const [kindSlide, setKindSlide] = useState<"left" | "right">("right");
-  const kindDrag = useRef<number | null>(null);
-  const kindIndex = Math.max(0, FEED_KINDS.findIndex((item) => item.id === feedKind));
-
-  const moveFeedKind = (nextIndex: number) => {
-    const count = FEED_KINDS.length;
-    const wrapped = (nextIndex + count) % count;
-    if (wrapped === kindIndex) return;
-    const forward = (wrapped - kindIndex + count) % count;
-    const backward = (kindIndex - wrapped + count) % count;
-    setKindSlide(forward <= backward ? "right" : "left");
-    setFeedKind(FEED_KINDS[wrapped].id);
-  };
+  const [feedView, setFeedView] = useState<FeedView>("all");
+  const [profession, setProfession] = useState<ProfessionId | "tout" | null>(null);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [allPosts, setAllPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
   const [feedListings, setFeedListings] = useState<any[]>([]);
@@ -218,10 +226,14 @@ const Index = () => {
   }, [user, authLoading]);
 
   useEffect(() => {
-    if (feedKind !== "biens-projets" || loading || !hasMorePosts) return;
-    const matches = allPosts.some((post) => isPortfolioBienProjet(post));
+    if (feedView === "services" || loading || !hasMorePosts) return;
+    if (feedView === "all" && !profession) return;
+    const matches = allPosts.some((post) => {
+      const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
+      return matchesProfession(profession, hay) && matchesFeedView(feedView, post);
+    });
     if (!matches) void loadMorePosts();
-  }, [feedKind, allPosts, hasMorePosts, loading]);
+  }, [feedView, profession, allPosts, hasMorePosts, loading]);
 
   // Format time ago
   const formatTimeAgo = (date: string) => {
@@ -397,36 +409,18 @@ const Index = () => {
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
     const posts = allPosts.filter((post) => {
-      if (feedCategory === "all") return true;
       const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
-      if (feedCategory === "immobilier") return true;
-      if (feedCategory === "construction") return /construct|bâtiment|batiment|chantier/.test(hay);
-      if (feedCategory === "autres") {
-        const construction = /construct|bâtiment|batiment|chantier/.test(hay);
-        const immobilier = post.post_type === "property" || /immobilier|appartement|villa|location|à louer|a louer|à vendre|a vendre/.test(hay);
-        return !construction && !immobilier;
-      }
-      return true;
-    }).filter((post) => {
-      if (feedKind === "biens-projets") return isPortfolioBienProjet(post);
-      return true;
+      return matchesProfession(profession, hay) && matchesFeedView(feedView, post);
     });
-    if (feedKind === "annonces") {
+    if (feedView === "services") {
       const annonces = feedListings.filter((listing) => {
-        if (feedCategory === "all" || feedCategory === "immobilier") return true;
         const hay = `${listing.title || ""} ${listing.profession || ""} ${listing.description || ""} ${listing.location || ""}`.toLowerCase();
-        if (feedCategory === "construction") return /construct|bâtiment|batiment|chantier/.test(hay);
-        if (feedCategory === "autres") {
-          const construction = /construct|bâtiment|batiment|chantier/.test(hay);
-          const immobilier = /immobilier|appartement|villa|location|à louer|a louer|à vendre|a vendre/.test(hay);
-          return !construction && !immobilier;
-        }
-        return true;
+        return matchesProfession(profession, hay);
       });
       if (!annonces.length) {
         return [
           <div key="kind-empty" className="py-8 text-center text-muted-foreground">
-            Aucune annonce pour le moment
+            Aucun service pour le moment
           </div>,
         ];
       }
@@ -553,74 +547,50 @@ const Index = () => {
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
       <div className="mx-auto w-full max-w-2xl">
-        <div className="mb-2 overflow-x-auto overscroll-x-contain border-b border-neutral-200 bg-white [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
-        <div className="flex w-max items-start gap-x-6 px-4 pb-4 pt-3">
+        {categoriesOpen ? null : (
+        <div className="mb-2 border-b border-neutral-200 bg-white">
+        <div className="flex w-full pb-4 pt-3">
           {[
             { id: "all" as const, label: "Accueil", Icon: LayoutGrid, tone: "bg-[#174f43]" },
-            { id: "immobilier" as const, label: "Immobilier", Icon: Building2, tone: "bg-[#eee9ec]" },
-            { id: "construction" as const, label: "Construction", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
+            { id: "projets" as const, label: "Projets", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
+            { id: "biens" as const, label: "Biens", Icon: Building2, tone: "bg-[#eee9ec]" },
             { id: "services" as const, label: "Services", Icon: HandGearIcon, tone: "bg-[#eee9ec]" },
-            { id: "autres" as const, label: "Autres", Icon: Ellipsis, tone: "bg-[#eee9ec]" },
           ].map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => {
-                if (item.id === "services") {
-                  navigate("/explore");
-                  return;
-                }
+                setCategoriesOpen(false);
                 if (item.id === "all") {
-                  setFeedCategory("all");
-                  setImmobilierFilter("all");
+                  setFeedView("all");
+                  setProfession(null);
                   return;
                 }
-                setFeedCategory((prev) => {
-                  const next = prev === item.id ? "all" : item.id;
-                  if (next !== "immobilier") setImmobilierFilter("all");
-                  return next;
-                });
+                setFeedView((prev) => (prev === item.id ? "all" : item.id));
               }}
-              className="group flex shrink-0 flex-col items-center gap-2"
+              className="group flex min-w-0 flex-1 flex-col items-center gap-2"
             >
               <span
                 className={`inline-flex h-12 w-12 items-center justify-center rounded-full transition ${
                   item.id === "all"
-                    ? `${item.tone} text-white ${feedCategory === "all" ? "scale-105 shadow-md" : "group-hover:shadow-sm"}`
-                    : feedCategory === item.id
+                    ? `${item.tone} text-white ${feedView === "all" ? "scale-105 shadow-md" : "group-hover:shadow-sm"}`
+                    : feedView === item.id
                     ? `${item.tone} scale-105 text-orange-600 shadow-md`
                     : `${item.tone} text-neutral-800 group-hover:shadow-sm`
                 }`}
               >
                 <item.Icon className="h-5 w-5" />
               </span>
-              <span className="whitespace-nowrap text-center text-sm font-semibold leading-normal text-neutral-800">
+              <span className="whitespace-nowrap text-center text-xs font-semibold leading-normal text-neutral-800">
                 {item.label}
               </span>
             </button>
           ))}
         </div>
         </div>
+        )}
 
-        {feedCategory === "immobilier" ? (
-          <div className="mb-3 grid grid-cols-4 gap-2 px-3">
-            {IMMOBILIER_FILTERS.map((item) => {
-              const active = immobilierFilter === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setImmobilierFilter(item.id)}
-                  className={`h-9 rounded-full px-1 text-[13px] font-semibold transition ${
-                    active ? "bg-[#174f43] text-white" : "bg-neutral-100 text-neutral-800"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
+        {categoriesOpen ? null : (
         <section className="relative mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white">
           <img
             key={bannerImage?.image_url || "fallback"}
@@ -632,75 +602,58 @@ const Index = () => {
           <div className="relative flex min-h-[175px] max-w-full translate-y-4 flex-col justify-center px-4 py-4">
             <p className="relative -top-1 mt-1 text-2xl font-medium">Bonjour!</p>
             <p className="mt-2 text-base font-normal leading-relaxed text-white/95">
-              <span className="block font-light">Découvrez les entreprises locales.</span>
+              <span className="block font-light">Découvrez l'écosystème immobilier de votre région.</span>
               <span className="block font-medium sm:whitespace-nowrap">Suivez vos préférées et rejoignez la communauté.</span>
             </p>
           </div>
         </section>
         )}
 
-        <div
-          className="mb-4 flex touch-pan-y select-none flex-col items-center"
-          onPointerDown={(event) => {
-            kindDrag.current = event.clientX;
-          }}
-          onPointerUp={(event) => {
-            if (kindDrag.current == null) return;
-            const delta = event.clientX - kindDrag.current;
-            kindDrag.current = null;
-            if (delta <= -36) {
-              moveFeedKind(kindIndex + 1);
-              return;
-            }
-            if (delta >= 36) {
-              moveFeedKind(kindIndex - 1);
-              return;
-            }
-            if ((event.target as HTMLElement).closest("button")) return;
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            moveFeedKind(x < rect.width * 0.32 ? kindIndex - 1 : kindIndex + 1);
-          }}
-        >
-          <div className="flex h-8 items-center gap-6 text-[#174f43]">
-            <span className="text-xl font-light leading-none text-neutral-400" aria-hidden>
-              ‹
-            </span>
-            <span
-              key={feedKind}
-              className={`inline-block min-w-[8.5rem] text-center text-[17px] font-medium ${
-                kindSlide === "right"
-                  ? "animate-in fade-in slide-in-from-right-4 duration-300"
-                  : "animate-in fade-in slide-in-from-left-4 duration-300"
-              }`}
-            >
-              {FEED_KINDS[kindIndex].label}
-            </span>
-            <span className="text-xl font-light leading-none text-neutral-400" aria-hidden>
-              ›
-            </span>
-          </div>
-          <div className="mt-1.5 flex items-center gap-1.5" role="radiogroup" aria-label="Filtre du fil">
-            {FEED_KINDS.map((item, index) => {
-              const active = item.id === feedKind;
-              return (
+        <div className={categoriesOpen ? "flex min-h-[calc(100dvh-9.5rem)] items-center justify-center px-3" : "px-3"}>
+          <div className="w-full">
+          <button
+            type="button"
+            onClick={() => setCategoriesOpen((open) => !open)}
+            className="flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
+          >
+            {profession
+              ? `Catégorie : ${profession === "tout" ? "Tout" : PROFESSION_CATEGORIES.find((item) => item.id === profession)?.label}`
+              : "Catégories"}
+          </button>
+          {categoriesOpen ? (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setProfession("tout");
+                  setCategoriesOpen(false);
+                }}
+                className="flex h-16 animate-category-pop items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
+              >
+                <LayoutGrid className="h-5 w-5 shrink-0" />
+                <span className="text-left leading-tight">Tout</span>
+              </button>
+              {PROFESSION_CATEGORIES.map((item, index) => (
                 <button
                   key={item.id}
                   type="button"
-                  role="radio"
-                  aria-checked={active}
-                  aria-label={item.label}
-                  onClick={() => moveFeedKind(index)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    active ? "w-5 bg-[#174f43]" : "w-1.5 bg-neutral-300"
-                  }`}
-                />
-              );
-            })}
+                  onClick={() => {
+                    setProfession(item.id);
+                    setCategoriesOpen(false);
+                  }}
+                  style={{ animationDelay: `${(index + 1) * 45}ms` }}
+                  className="flex h-16 animate-category-pop items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
+                >
+                  <item.Icon className="h-5 w-5 shrink-0" />
+                  <span className="text-left leading-tight">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           </div>
         </div>
 
-        {sponsoredListings.length >= 2 && feedCategory !== "immobilier" && feedKind !== "annonces" && (
+        {categoriesOpen ? null : sponsoredListings.length >= 2 && feedView !== "services" && (
           <div className="my-4 sm:my-6 space-y-3 sm:space-y-4">
             {sponsoredListings.slice(0, 2).map((listing) => {
               const profile = listing.profiles || {};
@@ -723,6 +676,8 @@ const Index = () => {
           </div>
         )}
 
+        {categoriesOpen ? null : (
+        <>
         {/* Create Post */}
         <CreatePost
           hideLauncher
@@ -739,14 +694,16 @@ const Index = () => {
         {/* Feed with posts and sponsored banners */}
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-        ) : feedKind !== "annonces" && allPosts.length === 0 ? (
+        ) : feedView !== "services" && allPosts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">Aucun post pour le moment</div>
         ) : (
           buildFeed()
         )}
-        {!loading && feedKind !== "annonces" ? (
+        {!loading && feedView !== "services" ? (
           <InfiniteScrollSentinel hasMore={hasMorePosts} loading={loadingMore} onLoadMore={loadMorePosts} />
         ) : null}
+        </>
+        )}
       </div>
     </div>
   );
