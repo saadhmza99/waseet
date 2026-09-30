@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { ArrowLeft, Ban, Edit, Flag, Globe, Info, LogOut, MapPin, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, UserPlus, UserCheck, VolumeX, Wrench } from "lucide-react";
+import { ArrowLeft, Ban, Briefcase, Edit, Flag, Globe, Info, LogOut, MapPin, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -381,7 +381,7 @@ const ProfileHeader = ({
         <div className="mt-4 flex w-full min-w-0 items-start gap-1.5 pb-4 sm:gap-3">
           {!isOwnProfile ? (
             <CircleAction featured label="Services" onClick={onOpenServices}>
-              <Wrench className="h-5 w-5" />
+              <Briefcase className="h-5 w-5" />
             </CircleAction>
           ) : null}
           {!isOwnProfile ? (

@@ -71,19 +71,22 @@ import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
 
-const tabs = ["Posts", "Portfolio", "Services"] as const;
+const tabs = ["Posts", "Projets", "Biens", "Services"] as const;
 type PostsView = "grid" | "reels";
 const MAX_ABOUT_LENGTH = 50000;
 const ABOUT_QUERY_TABS = new Set(["about", "details", "apropos"]);
 const tabToQuery: Record<(typeof tabs)[number], string> = {
   Posts: "posts",
-  Portfolio: "portfolio",
+  Projets: "projets",
+  Biens: "biens",
   Services: "services",
 };
 
 const queryToTab: Record<string, (typeof tabs)[number]> = {
   posts: "Posts",
-  portfolio: "Portfolio",
+  portfolio: "Projets",
+  projets: "Projets",
+  biens: "Biens",
   services: "Services",
   reels: "Posts",
 };
@@ -325,7 +328,8 @@ const Profile = () => {
   const [projectsHasMore, setProjectsHasMore] = useState(Boolean(bootBundle?.projectsHasMore));
   const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
   const [postsCount, setPostsCount] = useState<number | null>(bootBundle ? bootBundle.postsCount : null);
-  const [portfolioCount, setPortfolioCount] = useState<number | null>(bootBundle ? bootBundle.portfolioCount : null);
+  const [propertiesCount, setPropertiesCount] = useState<number | null>(bootBundle?.propertiesCount ?? null);
+  const [projectsCount, setProjectsCount] = useState<number | null>(bootBundle?.projectsCount ?? null);
   const [listingsCount, setListingsCount] = useState<number | null>(bootBundle ? bootBundle.listingsCount : null);
   const [loading, setLoading] = useState(!bootBundle);
   const [postsReady, setPostsReady] = useState(Boolean(bootBundle));
@@ -475,7 +479,8 @@ const Profile = () => {
       setProjectItems(bundle.projectItems);
       setProjectsHasMore(bundle.projectsHasMore);
       setPostsCount(bundle.postsCount);
-      setPortfolioCount(bundle.portfolioCount);
+      setPropertiesCount(bundle.propertiesCount ?? bundle.propertyItems.length);
+      setProjectsCount(bundle.projectsCount ?? bundle.projectItems.length);
       setListingsCount(bundle.listingsCount);
       setFollowers(bundle.followers);
       setIsBlockedProfile(bundle.isBlockedProfile);
@@ -508,7 +513,8 @@ const Profile = () => {
       setPortfolioReady(false);
       setServicesReady(false);
       setPostsCount(null);
-      setPortfolioCount(null);
+      setPropertiesCount(null);
+      setProjectsCount(null);
       setListingsCount(null);
     }
   }, [id, applyBundle]);
@@ -550,7 +556,8 @@ const Profile = () => {
         setReviews([]);
         setFollowers([]);
         setPostsCount(null);
-        setPortfolioCount(null);
+        setPropertiesCount(null);
+        setProjectsCount(null);
         setListingsCount(null);
 
         let profileData = null;
@@ -587,7 +594,8 @@ const Profile = () => {
         let projectsDone = false;
         const finishPortfolio = () => {
           if (!alive() || !propertiesDone || !projectsDone) return;
-          setPortfolioCount(propertiesTotal + projectsTotal);
+          setPropertiesCount(propertiesTotal);
+          setProjectsCount(projectsTotal);
           setPortfolioReady(true);
         };
 
@@ -699,6 +707,8 @@ const Profile = () => {
           projectsHasMore: projectsPage.hasMore,
           postsCount: postsResult.count,
           portfolioCount: propertiesTotal + projectsTotal,
+          propertiesCount: propertiesTotal,
+          projectsCount: projectsTotal,
           listingsCount: listingsResult.count,
           followers,
           isBlockedProfile: isBlocked,
@@ -740,13 +750,26 @@ const Profile = () => {
     }
   };
 
-  const portfolioItems = useMemo(
-    () =>
-      [...propertyItems, ...projectItems].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      ),
-    [propertyItems, projectItems]
-  );
+  const catalogCards = (items: any[], kind: "property" | "project") =>
+    items.map((item) => {
+      const images = Array.isArray(item.images) ? item.images : [];
+      const image = images[0] || item.single_image_url || item.after_image_url || item.before_image_url || "";
+      return {
+        id: item.id,
+        postType: kind,
+        image,
+        images,
+        title: item.title || (kind === "property" ? "Bien" : "Projet"),
+        description: item.description,
+        price: item.price,
+        surface: item.surface,
+        beds: item.beds,
+        baths: item.baths,
+        details: item.details || item.property_details || null,
+        sellerId: item.user_id,
+        sellerPhone: profile?.phone,
+      };
+    });
 
   const isOwnProfile = Boolean(
     user &&
@@ -1284,7 +1307,7 @@ const Profile = () => {
             <div className="flex min-w-0 flex-1 border-b border-border">
               {tabs.map((tab) => {
                 const count =
-                  tab === "Posts" ? postsCount : tab === "Portfolio" ? portfolioCount : listingsCount;
+                  tab === "Posts" ? postsCount : tab === "Projets" ? projectsCount : tab === "Biens" ? propertiesCount : listingsCount;
                 return (
                 <button
                   key={tab}
@@ -1403,13 +1426,13 @@ const Profile = () => {
             </div>
           )}
 
-          {!showReviews && !showAbout && activeTab === "Portfolio" && (
+          {!showReviews && !showAbout && activeTab === "Projets" && (
             <div className="px-4 sm:px-6 md:px-8 py-6">
               <div className="mb-3 flex justify-end">
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => copySectionLink("Portfolio", "Portfolio")}
+                  onClick={() => copySectionLink("Projets", "Projets")}
                   className="h-9 w-9"
                   aria-label="Partager la section"
                   title="Partager la section"
@@ -1419,57 +1442,49 @@ const Profile = () => {
               </div>
               {!portfolioReady ? (
                 <ProfileMediaGridSkeleton />
-              ) : portfolioItems.length === 0 ? (
-                <p className="py-12 text-center text-sm text-muted-foreground">
-                  Aucun bien ni projet dans le portfolio...
-                </p>
+              ) : projectItems.length === 0 ? (
+                <p className="py-12 text-center text-sm text-muted-foreground">Aucun projet pour le moment.</p>
               ) : (
                 <>
-                <PortfolioGrid
-                  items={portfolioItems.map((item) => {
-                    const images = Array.isArray(item.images) ? item.images : [];
-                    const image =
-                      images[0] ||
-                      item.single_image_url ||
-                      item.after_image_url ||
-                      item.before_image_url ||
-                      "";
-                    const isProperty = item.post_type
-                      ? item.post_type === "property"
-                      : propertyItems.some((row) => row.id === item.id);
-                    return {
-                      id: item.id,
-                      postType: isProperty ? "property" : "project",
-                      image,
-                      images,
-                      title: item.title || (isProperty ? "Bien" : "Projet"),
-                      description: item.description,
-                      price: item.price,
-                      surface: item.surface,
-                      beds: item.beds,
-                      baths: item.baths,
-                      details: item.details || item.property_details || null,
-                      sellerId: item.user_id,
-                      sellerPhone: profile.phone,
-                    };
-                  })}
-                />
-                {(propertiesHasMore || projectsHasMore) ? (
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <LoadMoreButton
-                      hasMore={propertiesHasMore}
-                      loading={loadingMoreProperties}
-                      onClick={loadMoreProperties}
-                      label="Charger plus de biens"
-                    />
-                    <LoadMoreButton
-                      hasMore={projectsHasMore}
-                      loading={loadingMoreProjects}
-                      onClick={loadMoreProjects}
-                      label="Charger plus de projets"
-                    />
-                  </div>
-                ) : null}
+                  <PortfolioGrid items={catalogCards(projectItems, "project")} />
+                  <LoadMoreButton
+                    hasMore={projectsHasMore}
+                    loading={loadingMoreProjects}
+                    onClick={loadMoreProjects}
+                    label="Charger plus de projets"
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {!showReviews && !showAbout && activeTab === "Biens" && (
+            <div className="px-4 sm:px-6 md:px-8 py-6">
+              <div className="mb-3 flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copySectionLink("Biens", "Biens")}
+                  className="h-9 w-9"
+                  aria-label="Partager la section"
+                  title="Partager la section"
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
+              {!portfolioReady ? (
+                <ProfileMediaGridSkeleton />
+              ) : propertyItems.length === 0 ? (
+                <p className="py-12 text-center text-sm text-muted-foreground">Aucun bien pour le moment.</p>
+              ) : (
+                <>
+                  <PortfolioGrid items={catalogCards(propertyItems, "property")} />
+                  <LoadMoreButton
+                    hasMore={propertiesHasMore}
+                    loading={loadingMoreProperties}
+                    onClick={loadMoreProperties}
+                    label="Charger plus de biens"
+                  />
                 </>
               )}
             </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
-import { Building2, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, LayoutGrid, PenTool } from "lucide-react";
+import { Briefcase, Building2, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, LayoutGrid, PenTool } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
@@ -39,22 +39,6 @@ const RenovationIcon = ({ className }: { className?: string }) => (
     <path d="M15.4 5.8V3.2h2.7v4.9" />
     <path d="M7.3 14.6c1.1-.1 1.6-.5 1.9-1.3.4-1.1 1.4-1.8 2.5-1.8h2.5l.8.8-2.9 1.1-2.2 2.3-1 1z" />
     <path d="m11.9 14.1 1.5-1.5 7.2 7.2a1.05 1.05 0 0 1-1.5 1.5z" />
-  </svg>
-);
-
-const HandGearIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-    aria-hidden
-  >
-    <path
-      transform="translate(7 -1) scale(.64)"
-      d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.08-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.3 7.3 0 0 0-1.69-.98L14.5 2.42A.49.49 0 0 0 14 2h-4a.49.49 0 0 0-.49.42L9.13 5.07c-.61.25-1.17.59-1.69.98l-2.49-1a.49.49 0 0 0-.61.22l-2 3.46a.49.49 0 0 0 .12.64l2.11 1.65c-.04.32-.08.66-.08.98s.03.66.08.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46c.12.22.38.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.04.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.08.49 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5"
-    />
-    <rect x="1.25" y="12.1" width="3.6" height="9.2" rx=".65" />
-    <path d="M5.5 13.5h2.8c.8 0 1.5.2 2.2.6l2.1 1.2h3.2c1.1 0 2 .8 2.1 1.9h-6.2a.7.7 0 1 0 0 1.4h6.5l3.5-1.7c.8-.4 1.7-.1 2.1.7.4.8.1 1.7-.7 2.1l-7.5 3.7a2.8 2.8 0 0 1-2.5 0l-7.6-3.8z" />
   </svg>
 );
 
@@ -555,7 +539,7 @@ const Index = () => {
             { id: "all" as const, label: "Accueil", Icon: LayoutGrid, tone: "bg-[#174f43]" },
             { id: "projets" as const, label: "Projets", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
             { id: "biens" as const, label: "Biens", Icon: Building2, tone: "bg-[#eee9ec]" },
-            { id: "services" as const, label: "Services", Icon: HandGearIcon, tone: "bg-[#eee9ec]" },
+            { id: "services" as const, label: "Services", Icon: Briefcase, tone: "bg-[#eee9ec]" },
           ].map((item) => (
             <button
               key={item.id}
@@ -604,7 +588,7 @@ const Index = () => {
             <p className="relative -top-1 mt-1 whitespace-nowrap text-2xl font-medium">Bonjour!</p>
             <p className="mt-2 font-normal leading-snug text-white/95">
               <span className="block whitespace-nowrap text-[clamp(0.7rem,3.7vw,1.0625rem)] font-light">Découvrez l'écosystème immobilier de votre région.</span>
-              <span className="block whitespace-nowrap text-[clamp(0.7rem,3.7vw,1.0625rem)] font-medium">Suivez vos préférées et rejoignez la communauté.</span>
+              <span className="mt-1 block text-base font-medium leading-snug">Agences, professionnels, projets, biens et services autour de vous.</span>
             </p>
           </div>
         </section>

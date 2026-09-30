@@ -90,7 +90,7 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
   if (!items.length) {
     return (
       <p className="py-12 text-center text-sm text-muted-foreground">
-        Aucun bien ni projet dans le portfolio...
+        Aucun projet pour le moment.
       </p>
     );
   }
