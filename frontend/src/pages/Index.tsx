@@ -601,10 +601,10 @@ const Index = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
           <div className="relative flex min-h-[175px] max-w-full translate-y-4 flex-col justify-center px-4 py-4">
-            <p className="relative -top-1 mt-1 text-2xl font-medium">Bonjour!</p>
-            <p className="mt-2 text-base font-normal leading-relaxed text-white/95">
-              <span className="block font-light">Découvrez l'écosystème immobilier de votre région.</span>
-              <span className="block font-medium sm:whitespace-nowrap">Suivez vos préférées et rejoignez la communauté.</span>
+            <p className="relative -top-1 mt-1 whitespace-nowrap text-2xl font-medium">Bonjour!</p>
+            <p className="mt-2 font-normal leading-snug text-white/95">
+              <span className="block whitespace-nowrap text-[clamp(0.7rem,3.7vw,1.0625rem)] font-light">Découvrez l'écosystème immobilier de votre région.</span>
+              <span className="block whitespace-nowrap text-[clamp(0.7rem,3.7vw,1.0625rem)] font-medium">Suivez vos préférées et rejoignez la communauté.</span>
             </p>
           </div>
         </section>
