@@ -21,6 +21,7 @@ import { cityFromPost } from "@/lib/feedLocation";
 import { contactPhone } from "@/lib/propertyListing";
 import { catalogService } from "@/services/catalogService";
 import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
+import { CategoryPicker } from "@/components/CategoryPicker";
 
 const RenovationIcon = ({ className }: { className?: string }) => (
   <svg
@@ -609,48 +610,21 @@ const Index = () => {
         </section>
         )}
 
-        <div className={categoriesOpen ? "flex min-h-[calc(100dvh-9.5rem)] items-center justify-center px-3" : "px-3"}>
-          <div className="w-full">
-          <button
-            type="button"
-            onClick={() => setCategoriesOpen((open) => !open)}
-            className="flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
-          >
-            {profession
-              ? `Catégorie : ${profession === "tout" ? "Tout" : PROFESSION_CATEGORIES.find((item) => item.id === profession)?.label}`
-              : "Catégories"}
-          </button>
-          {categoriesOpen ? (
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setProfession("tout");
-                  setCategoriesOpen(false);
-                }}
-                className="flex h-16 animate-category-pop items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
-              >
-                <LayoutGrid className="h-5 w-5 shrink-0" />
-                <span className="text-left leading-tight">Tout</span>
-              </button>
-              {PROFESSION_CATEGORIES.map((item, index) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setProfession(item.id);
-                    setCategoriesOpen(false);
-                  }}
-                  style={{ animationDelay: `${(index + 1) * 45}ms` }}
-                  className="flex h-16 animate-category-pop items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
-                >
-                  <item.Icon className="h-5 w-5 shrink-0" />
-                  <span className="text-left leading-tight">{item.label}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-          </div>
+        <div className="px-3">
+          <CategoryPicker
+            open={categoriesOpen}
+            onToggle={() => setCategoriesOpen((open) => !open)}
+            selectedLabel={
+              profession === "tout"
+                ? "Tout"
+                : PROFESSION_CATEGORIES.find((item) => item.id === profession)?.label || null
+            }
+            categories={PROFESSION_CATEGORIES}
+            onSelect={(id) => {
+              setProfession(id as ProfessionId | "tout");
+              setCategoriesOpen(false);
+            }}
+          />
         </div>
 
         {categoriesOpen ? null : sponsoredListings.length >= 2 && feedView !== "services" && (

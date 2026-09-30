@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Building2, ChevronLeft, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, List, Map as MapIcon, PenTool, Search } from "lucide-react";
 import MapView from "@/components/MapView";
+import { CategoryPicker } from "@/components/CategoryPicker";
 
 type DiscoverKind = "actualite" | "biens-projets" | "annonces";
 type CategoryId =
@@ -452,7 +453,7 @@ const Explore = () => {
   const [draft, setDraft] = useState(params.get("q") || "");
   const [searchType, setSearchType] = useState<SearchType>("comptes");
   const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "tout" | null>(null);
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [kind, setKind] = useState<DiscoverKind>("actualite");
   const [kindSlide, setKindSlide] = useState<"left" | "right">("right");
@@ -478,7 +479,7 @@ const Explore = () => {
   const searched = useMemo(
     () =>
       ITEMS.filter((item) => {
-        if (selectedCategory && item.category !== selectedCategory) return false;
+        if (selectedCategory && selectedCategory !== "tout" && item.category !== selectedCategory) return false;
         return matchesQuery(item, typedQuery);
       }),
     [typedQuery, selectedCategory]
@@ -496,7 +497,8 @@ const Explore = () => {
     });
     return [...seen.values()];
   }, [searched]);
-  const selectedLabel = CATEGORIES.find((item) => item.id === selectedCategory)?.label;
+  const selectedLabel =
+    selectedCategory === "tout" ? "Tout" : CATEGORIES.find((item) => item.id === selectedCategory)?.label || null;
 
   const categoryItems = searched.filter((item) => item.category === category);
   const biens = categoryItems.filter(
@@ -532,31 +534,15 @@ const Explore = () => {
           />
         </div>
       </form>
-      <button
-        type="button"
-        onClick={() => setCategoriesOpen((open) => !open)}
-        className="mt-3 flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
-      >
-        {selectedLabel ? `Catégorie : ${selectedLabel}` : "Parcourir les catégories"}
-      </button>
-      {categoriesOpen ? (
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          {CATEGORIES.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setSelectedCategory(item.id);
-                setCategoriesOpen(false);
-              }}
-              className="flex h-16 items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
-            >
-              <item.Icon className="h-5 w-5 shrink-0" />
-              <span className="text-left leading-tight">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div className="mt-3">
+        <CategoryPicker
+          open={false}
+          onToggle={() => setCategoriesOpen(true)}
+          selectedLabel={selectedLabel}
+          categories={CATEGORIES}
+          onSelect={() => {}}
+        />
+      </div>
       <div className="mt-4 flex border-b border-neutral-200">
         {SEARCH_TYPES.map((item) => {
           const active = searchType === item.id;
@@ -576,6 +562,25 @@ const Explore = () => {
       </div>
     </div>
   );
+
+  if (categoriesOpen) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="mx-auto w-full max-w-2xl px-3">
+          <CategoryPicker
+            open
+            onToggle={() => setCategoriesOpen(false)}
+            selectedLabel={selectedLabel}
+            categories={CATEGORIES}
+            onSelect={(id) => {
+              setSelectedCategory(id as CategoryId | "tout");
+              setCategoriesOpen(false);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white pb-20">
