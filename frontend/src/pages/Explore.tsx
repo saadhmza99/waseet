@@ -32,6 +32,9 @@ type MockItem = {
   deal?: "sale" | "rent";
   blurb?: string;
   progress?: number;
+  baths?: number;
+  description?: string;
+  highlights?: string[];
 };
 
 const KINDS: { id: DiscoverKind; label: string }[] = [
@@ -81,7 +84,11 @@ const ITEMS: MockItem[] = [
     price: "2 400 000 DH",
     surface: "180 m²",
     beds: 4,
+    baths: 3,
     deal: "sale",
+    description:
+      "Villa contemporaine sur un terrain arboré de 400 m², à dix minutes de la corniche d'Agadir. Le séjour ouvre sur une terrasse couverte et une piscine de 8 m, avec un jardin planté d'orangers et d'un gazon déjà en place.\n\nAu rez-de-chaussée : salon double, cuisine équipée, suite parentale et un bureau. À l'étage, trois chambres, deux salles d'eau et une buanderie. Titre foncier disponible, construction de 2019, chauffage solaire et climatisation dans les pièces de vie. Idéale en résidence principale ou en location saisonnière haut de gamme.",
+    highlights: ["Piscine et jardin clos", "Titre foncier", "Suite parentale", "Cuisine équipée", "Climatisation"],
   },
   {
     id: "appart-plage",
@@ -94,7 +101,11 @@ const ITEMS: MockItem[] = [
     price: "890 000 DH",
     surface: "72 m²",
     beds: 2,
+    baths: 1,
     deal: "sale",
+    description:
+      "Appartement traversant au 6e étage d'une résidence gardée face à la baie d'Agadir. Le séjour et la chambre principale donnent sur un balcon de 8 m², avec vue mer dégagée du lever au coucher du soleil.\n\nRésidence de 2016 avec ascenseur, parking en sous-sol et gardien 24h/24. Cuisine ouverte aménagée, salle de bain avec douche à l'italienne, dressing. Charges de copropriété d'environ 350 DH par mois. Convient à un premier achat ou à un investissement locatif meublé, à deux pas de la promenade.",
+    highlights: ["Vue mer", "Résidence gardée", "Parking sous-sol", "Ascenseur", "Balcon"],
   },
   {
     id: "riad-location",
@@ -107,7 +118,11 @@ const ITEMS: MockItem[] = [
     price: "8 000 DH / mois",
     surface: "140 m²",
     beds: 3,
+    baths: 2,
     deal: "rent",
+    description:
+      "Riad restauré dans la médina, proposé en location longue durée. Patio central avec bassin, salon marocain, cuisine fermée et trois chambres réparties sur deux niveaux. Le toit-terrasse est aménagé pour les soirées, avec un coin repas ombragé.\n\nMeublé avec soin, linge et vaisselle compris. Eau chaude solaire, fibre optique déjà tirée. Le bail est d'un an renouvelable, dépôt de deux mois. Quartier calme, accessible à pied aux commerces, tout en restant à l'écart du passage touristique.",
+    highlights: ["Patio et toit-terrasse", "Meublé", "Bail 12 mois", "Fibre", "Trois chambres"],
   },
   {
     id: "residence-marina",
@@ -120,7 +135,11 @@ const ITEMS: MockItem[] = [
     price: "1 200 000 DH",
     surface: "95 m²",
     beds: 3,
+    baths: 2,
     progress: 60,
+    description:
+      "Résidence de 48 appartements en bord de marina, livrée en deux tranches. Le gros œuvre est terminé, les façades et les menuiseries extérieures sont posées. Il reste les finitions intérieures, les parties communes et la piscine du jardin.\n\nChaque logement dispose d'un séjour ouvert, de trois chambres et d'une loggia. Parkings en sous-sol, local vélos et gardiennage prévus au règlement. Les prix indiqués correspondent au T3 de 95 m², avec choix des revêtements encore ouvert pour les acquéreurs de cette tranche. Livraison estimée dans huit mois.",
+    highlights: ["Gros œuvre terminé", "Livraison dans 8 mois", "Parking inclus", "Piscine en parties communes", "Choix des finitions"],
   },
   {
     id: "agence-rahma",
@@ -130,6 +149,9 @@ const ITEMS: MockItem[] = [
     image: "/feed-banners/villa-jardin.webp",
     title: "Agence Rahma Aamrani",
     city: "Agadir",
+    description:
+      "Agence indépendante installée à Agadir depuis 2012. Rahma Aamrani accompagne les ventes de villas et d'appartements, ainsi que la gestion locative de riads et de résidences secondaires.\n\nL'équipe de quatre personnes prend en charge les visites, la rédaction des mandats, le suivi chez le notaire et la remise des clés. Les biens sont photographiés et décrits avant mise en ligne, avec un point hebdomadaire pour chaque propriétaire.",
+    highlights: ["Vente et location", "Gestion locative", "Suivi notaire", "Agadir et région"],
   },
   {
     id: "agence-nour",
@@ -139,6 +161,9 @@ const ITEMS: MockItem[] = [
     image: "/feed-banners/palais-piscine.webp",
     title: "Agence Nour Immobilier",
     city: "Casablanca",
+    description:
+      "Promoteur et commercialisateur basé à Casablanca. Nour Immobilier porte des résidences neuves, de la réservation sur plan jusqu'à la livraison, et revend des lots déjà réservés.\n\nLes acquéreurs reçoivent un échéancier, les plans d'exécution et un interlocuteur unique pour les appels de fonds. L'agence suit aussi la gestion des parties communes la première année après la réception.",
+    highlights: ["Vente sur plan", "Résidences neuves", "Échéancier clair", "Casablanca et marina"],
   },
   {
     id: "reno-villa",
@@ -151,6 +176,9 @@ const ITEMS: MockItem[] = [
     price: "180 000 DH",
     surface: "160 m²",
     progress: 100,
+    description:
+      "Reprise complète d'une villa des années 1990 à Agadir : étanchéité de la toiture, réfection des salles d'eau, remplacement des menuiseries et nouvelle cuisine. Les réseaux d'eau et d'électricité ont été repris à neuf, avec un tableau divisionnaire et des prises dédiées à la climatisation.\n\nLe chantier a duré quatorze semaines. Les enduits extérieurs ont été refaits en deux couches, la terrasse carrelée et le jardin remis à niveau. Le client a emménagé à la réception, après un procès-verbal de levée des réserves signé sans retenue.",
+    highlights: ["Toiture et étanchéité", "Salles d'eau neuves", "Électricité reprise", "Réception sans réserve"],
   },
   {
     id: "reno-appt",
@@ -163,7 +191,11 @@ const ITEMS: MockItem[] = [
     price: "65 000 DH",
     surface: "70 m²",
     beds: 2,
+    baths: 1,
     progress: 35,
+    description:
+      "Appartement occupé, rénové pièce par pièce pour limiter le relogement. La dépose des anciens revêtements est faite, les cloisons de la salle d'eau sont ouvertes et le nouveau plan de plomberie est validé.\n\nIl reste la pose du carrelage, la cuisine en kit sur mesure, les peintures et la menuiserie intérieure. Planning tenu : trois semaines pour le second œuvre, une semaine de finitions. Le montant couvre fournitures milieu de gamme et main-d'œuvre, hors électroménager.",
+    highlights: ["Chantier en site occupé", "Salle d'eau en cours", "Cuisine sur mesure à poser", "Finitions dans 4 semaines"],
   },
   {
     id: "immeuble",
@@ -176,6 +208,9 @@ const ITEMS: MockItem[] = [
     price: "4 500 000 DH",
     surface: "900 m²",
     progress: 80,
+    description:
+      "Immeuble R+3 de bureaux en structure béton, en zone d'activité au nord d'Agadir. Les plateaux sont livrés bruts de second œuvre, avec gaines techniques, colonnes montantes et réservations pour la climatisation centralisée.\n\nLe clos et couvert est achevé. Les équipes posent les faux plafonds du hall et les menuiseries aluminium de la façade ouest. Deux niveaux sont déjà réservés par une société de services. Livraison des plateaux restants prévue avant la fin du trimestre, avec dossier de sécurité incendie déposé.",
+    highlights: ["Plateaux bruts aménageables", "R+3", "Deux niveaux déjà réservés", "Climatisation prévue", "Livraison ce trimestre"],
   },
   {
     id: "cuisine",
@@ -188,6 +223,9 @@ const ITEMS: MockItem[] = [
     price: "42 000 DH",
     surface: "18 m²",
     progress: 100,
+    description:
+      "Cuisine en chêne clair réalisée sur mesure pour une villa à Agadir. L'îlot central intègre la plaque et un rangement à casseroles, les colonnes montent jusqu'au plafond et cachent le réfrigérateur.\n\nPlans validés après relevé sur place, façades laquées mates, plan de travail en quartz et crédence en zellige. Pose en cinq jours, électroménager encastré fourni par le client. Le chantier est réceptionné, avec une notice d'entretien et une garantie de deux ans sur les ferrures.",
+    highlights: ["Chêne et quartz", "Îlot central", "Pose en 5 jours", "Garantie ferrures 2 ans"],
   },
   {
     id: "elec",
@@ -200,6 +238,9 @@ const ITEMS: MockItem[] = [
     price: "28 000 DH",
     surface: "110 m²",
     progress: 20,
+    description:
+      "Mise aux normes d'une maison de ville à Marrakech : remplacement du tableau, séparation des circuits prises et éclairage, et tirage d'une ligne dédiée pour la climatisation de chaque chambre.\n\nLe diagnostic est rendu. Les saignées du rez-de-chaussée sont ouvertes, le nouveau tableau est commandé. L'étage sera traité la semaine suivante pour laisser les pièces de vie utilisables. Le devis comprend les appareillages, la terre et le consuel en fin de chantier.",
+    highlights: ["Tableau neuf", "Circuits séparés", "Lignes climatisation", "Mise à la terre"],
   },
   {
     id: "agent-villa",
@@ -212,7 +253,11 @@ const ITEMS: MockItem[] = [
     price: "3 100 000 DH",
     surface: "220 m²",
     beds: 5,
+    baths: 4,
     deal: "sale",
+    description:
+      "Villa d'un seul niveau dans une palmeraie close, sur un hectare planté. Cinq suites ouvrent sur une galerie couverte, le séjour donne sur une piscine longue et un pool house.\n\nLa propriété est livrée meublée. Puits, assainissement autonome et groupe électrogène sont en place. Le gardien loge dans une dépendance indépendante. Titre en cours de morcellement, compromis possible sous condition suspensive de purge. Sara Bennani organise les visites sur rendez-vous, tôt le matin pour éviter la chaleur.",
+    highlights: ["1 hectare planté", "Piscine et pool house", "Meublée", "Dépendance gardien", "Visites sur rendez-vous"],
   },
   {
     id: "agent-projet",
@@ -225,7 +270,11 @@ const ITEMS: MockItem[] = [
     price: "1 450 000 DH",
     surface: "88 m²",
     beds: 2,
+    baths: 2,
     progress: 40,
+    description:
+      "Petite résidence de 18 villas mitoyennes en palmeraie, pensée pour une occupation saisonnière. Les fondations et le rez-de-chaussée de la première rangée sont coulés. La seconde rangée est encore au terrassement.\n\nChaque villa comprendra deux chambres, un patio privé et une place de stationnement. Les parties communes prévoient un bassin partagé et un cheminement piéton sous les palmiers existants, qui sont conservés. Commercialisation ouverte sur les lots de la première rangée, acte chez le notaire à Marrakech.",
+    highlights: ["18 villas mitoyennes", "Patio privé", "Palmiers conservés", "Première rangée en commercialisation"],
   },
   {
     id: "agent-agence",
@@ -235,6 +284,9 @@ const ITEMS: MockItem[] = [
     image: "/feed-banners/palais-piscine.webp",
     title: "Cabinet Bennani",
     city: "Marrakech",
+    description:
+      "Cabinet spécialisé dans les villas de palmeraie et les petites résidences à Marrakech. Sara Bennani travaille en mandat exclusif, avec estimation argumentée et visites accompagnées.\n\nLe cabinet prépare les dossiers pour le notaire, vérifie les titres et suit les conditions suspensives jusqu'à la signature. Une sélection courte de biens est présentée à chaque acquéreur, plutôt qu'un catalogue large.",
+    highlights: ["Mandat exclusif", "Villas et résidences", "Vérification des titres", "Marrakech"],
   },
   {
     id: "avocat-dossier",
@@ -246,6 +298,9 @@ const ITEMS: MockItem[] = [
     city: "Casablanca",
     price: "Sur devis",
     progress: 70,
+    description:
+      "Dossier de contestation d'une vente immobilière à Casablanca : vice caché sur l'état de la structure et désaccord sur le prix de reprise. Les conclusions en demande sont déposées, l'expertise judiciaire est ordonnée.\n\nMaître El Fassi a réuni les rapports de l'architecte et les échanges de mails antérieurs à la signature. L'audience de mise en état est fixée. Le cabinet tient le client informé après chaque dépôt et prépare la transaction si l'expert chiffre un accord acceptable.",
+    highlights: ["Expertise judiciaire en cours", "Conclusions déposées", "Suivi d'audience", "Casablanca"],
   },
   {
     id: "notaire-acte",
@@ -257,6 +312,9 @@ const ITEMS: MockItem[] = [
     city: "Rabat",
     price: "Sur devis",
     progress: 100,
+    description:
+      "Vente d'un appartement à Rabat menée de la promesse jusqu'à l'inscription à la conservation foncière. L'étude a vérifié l'origine de propriété, levé les hypothèques et calculé les droits d'enregistrement.\n\nLes deux parties ont signé le même jour. Les fonds ont transité par le compte de l'étude, les clés ont été remises contre quittance, et l'attestation de propriété a été retirée trois semaines plus tard. Dossier clos et archivé.",
+    highlights: ["Promesse et acte", "Purge des hypothèques", "Conservation foncière", "Dossier clos"],
   },
   {
     id: "tech-app",
@@ -268,6 +326,9 @@ const ITEMS: MockItem[] = [
     city: "Casablanca",
     price: "Sur devis",
     progress: 55,
+    description:
+      "Outil de gestion locative pour une agence de Casablanca : quittances, relances, état des lieux et tableau des impayés. La partie bailleurs est en test avec douze lots réels, l'espace locataire est en cours de branchement sur les paiements.\n\nLina Digital a repris les fichiers Excel existants, dédoublonné les lots et formé deux personnes de l'agence. Prochaine étape : signatures électroniques des baux et export comptable mensuel. Le déploiement complet est prévu sur l'ensemble du parc, soit environ 200 lots.",
+    highlights: ["Quittances et relances", "12 lots en test", "Import des fichiers existants", "Déploiement sur 200 lots"],
   },
   {
     id: "actu-rahma",
@@ -278,6 +339,8 @@ const ITEMS: MockItem[] = [
     title: "Visite de la villa jardin",
     city: "Agadir",
     blurb: "Nouvelle visite ouverte ce weekend à Agadir.",
+    description:
+      "Visite ouverte samedi et dimanche, de 10 h à 13 h, pour la villa jardin d'Agadir. Rahma Aamrani sera sur place avec les plans, le titre et le détail des charges.\n\nLes visiteurs peuvent parcourir le jardin, la piscine et l'étage sans rendez-vous préalable. Une deuxième visite privée reste possible en semaine pour les acquéreurs qui veulent revenir avec un architecte.",
   },
   {
     id: "actu-atlas",
@@ -288,6 +351,8 @@ const ITEMS: MockItem[] = [
     title: "Chantier en cours",
     city: "Agadir",
     blurb: "Fin des travaux de la villa prévue le mois prochain.",
+    description:
+      "Le chantier de la villa rénovée entre dans les finitions. Peintures du séjour terminées, pose des derniers luminaires cette semaine, nettoyage de réception prévu en fin de mois.\n\nAtlas Rénovation publiera les photos avant / après dès la levée des réserves. Les propriétaires qui ont un projet comparable à Agadir peuvent demander le même devis type, adapté à la surface.",
   },
   {
     id: "annonce-reno",
@@ -298,6 +363,9 @@ const ITEMS: MockItem[] = [
     title: "Rénovateur",
     city: "Agadir",
     price: "Prix sur demande",
+    description:
+      "Entreprise générale de rénovation à Agadir. Interventions sur villas et appartements : second œuvre, peinture, plomberie légère et coordination des corps d'état.\n\nDevis après visite, délai annoncé par écrit, un conducteur de travaux comme seul interlocuteur. Les chantiers en cours sont visibles sur rendez-vous pour les clients qui veulent juger le niveau de finition avant de s'engager.",
+    highlights: ["Second œuvre", "Un seul interlocuteur", "Visite de chantier possible"],
   },
   {
     id: "annonce-bois",
@@ -308,6 +376,9 @@ const ITEMS: MockItem[] = [
     title: "Menuiserie sur mesure",
     city: "Agadir",
     price: "À partir de 3 000 DH",
+    description:
+      "Atelier de menuiserie à Agadir : cuisines, dressings, portes intérieures et habillages de murs. Le bois est choisi avec le client à l'atelier, les plans sont dessinés avant toute découpe.\n\nDélai habituel de trois à cinq semaines selon la complexité. Pose comprise dans Agadir, déplacement facturé au-delà. Un acompte de 40 % lance la fabrication, le solde à la pose.",
+    highlights: ["Cuisines et dressings", "Plans avant découpe", "Pose à Agadir", "Délai 3 à 5 semaines"],
   },
   {
     id: "foncier-conseil",
@@ -319,6 +390,9 @@ const ITEMS: MockItem[] = [
     city: "Casablanca",
     price: "Sur devis",
     progress: 45,
+    description:
+      "Étude de faisabilité pour un terrain à lotir en périphérie de Casablanca. Le cabinet vérifie le zonage, les servitudes et la capacité de raccordement avant toute promesse d'achat.\n\nLe relevé topographique est fait. Il reste l'avis de la commune sur la voirie et une note de cubature pour estimer le nombre de lots. Le client reçoit un mémo à chaque étape, avec les pièces à demander au propriétaire actuel.",
+    highlights: ["Zonage et servitudes", "Relevé topo réalisé", "Avis de voirie en attente", "Note de cubature"],
   },
   {
     id: "archi-villa",
@@ -330,13 +404,54 @@ const ITEMS: MockItem[] = [
     city: "Rabat",
     price: "Sur devis",
     surface: "240 m²",
+    beds: 4,
+    baths: 3,
     progress: 30,
+    description:
+      "Maison de plain-pied en cours d'études pour un terrain en pente à Rabat. Le plan organise quatre chambres autour d'un patio, avec un séjour largement vitré vers l'ouest et un garage en contrebas.\n\nL'esquisse est validée. Atelier Ligne prépare le dossier de permis : coupes, façades, note de surface et insertion dans le règlement du lotissement. Le client choisira les matériaux de façade au prochain rendez-vous, entre enduit clair et pierre locale. Le chantier pourra démarrer après l'autorisation, estimée à trois mois.",
+    highlights: ["Plain-pied autour d'un patio", "Dossier de permis en cours", "Terrain en pente", "4 chambres"],
+  },
+  {
+    id: "agence-ligne",
+    category: "architecture",
+    kind: "agence",
+    profileName: "Atelier Ligne",
+    image: "/feed-banners/villa-jardin.webp",
+    title: "Atelier Ligne",
+    city: "Rabat",
+    description:
+      "Agence d'architecture à Rabat. Atelier Ligne conçoit des maisons individuelles et de petites opérations de logements, du premier croquis jusqu'au suivi de chantier.\n\nL'équipe de trois architectes remet une esquisse, un avant-projet chiffré avec un économiste partenaire, puis le dossier de permis. Le suivi d'exécution est proposé à la vacation ou au forfait, avec un compte-rendu photo chaque semaine. Les projets en cours comprennent une villa contemporaine à Rabat et une réhabilitation d'immeuble de rapport.",
+    highlights: ["Maisons et petits collectifs", "Permis de construire", "Suivi de chantier", "Rabat"],
+  },
+  {
+    id: "agence-atlas",
+    category: "renovation",
+    kind: "agence",
+    profileName: "Atlas Rénovation",
+    image: "/agadir-welcome.png",
+    title: "Atlas Rénovation",
+    city: "Agadir",
+    description:
+      "Entreprise de rénovation et d'aménagement à Agadir. Atlas Rénovation reprend des villas et des appartements : étanchéité, second œuvre, cuisines et coordination des artisans.\n\nChaque affaire a un conducteur de travaux, un planning affiché et des avenants écrits si le client change un choix en cours de route. Les chantiers terminés restent visitables quelques jours avant la remise des clés, pour que les nouveaux clients voient le niveau de finition réel.",
+    highlights: ["Villas et appartements", "Conducteur de travaux dédié", "Avenants écrits", "Agadir"],
+  },
+  {
+    id: "agence-lina",
+    category: "immotech",
+    kind: "agence",
+    profileName: "Lina Digital",
+    image: "/feed-banners/agadir-plage.png",
+    title: "Lina Digital",
+    city: "Casablanca",
+    description:
+      "Studio immotech à Casablanca. Lina Digital construit les outils des agences et des syndics : gestion locative, états des lieux, relances et tableaux de bord.\n\nLe studio part des fichiers déjà utilisés par l'agence, les reprend sans tout ressaisir, puis forme les équipes sur place. Les projets se livrent par étapes, avec un lot pilote avant le déploiement sur l'ensemble du parc. Maintenance et petites évolutions sont incluses les trois premiers mois.",
+    highlights: ["Gestion locative", "États des lieux", "Reprise des fichiers existants", "Casablanca"],
   },
 ];
 
 const matchesQuery = (item: MockItem, query: string) => {
   if (!query) return true;
-  const hay = `${item.profileName} ${item.title} ${item.city} ${item.blurb || ""}`.toLowerCase();
+  const hay = `${item.profileName} ${item.title} ${item.city} ${item.blurb || ""} ${item.description || ""} ${(item.highlights || []).join(" ")}`.toLowerCase();
   return hay.includes(query);
 };
 
@@ -404,23 +519,29 @@ const AccountRow = ({
   username,
   image,
   city,
+  typeLabel,
   followed,
   onFollow,
+  onOpen,
 }: {
   name: string;
   username: string;
   image: string;
   city: string;
+  typeLabel: string;
   followed: boolean;
   onFollow: () => void;
+  onOpen: () => void;
 }) => (
   <div className="flex items-center gap-3 border-b border-neutral-100 px-3 py-3">
-    <img src={image} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
-    <div className="min-w-0 flex-1">
-      <p className="truncate text-[15px] font-semibold text-neutral-950">{name}</p>
-      <p className="truncate text-sm text-neutral-500">@{username}</p>
-      <p className="truncate text-xs text-neutral-400">{city}</p>
-    </div>
+    <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+      <img src={image} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+      <span className="min-w-0">
+        <span className="block truncate text-[15px] font-semibold text-neutral-950">{name}</span>
+        <span className="block truncate text-sm text-neutral-500">@{username}</span>
+        <span className="block truncate text-xs text-neutral-400">{typeLabel} · {city}</span>
+      </span>
+    </button>
     <button
       type="button"
       onClick={onFollow}
@@ -493,7 +614,8 @@ const Explore = () => {
   const accounts = useMemo(() => {
     const seen = new Map<string, MockItem>();
     searched.forEach((item) => {
-      if (!seen.has(item.profileName)) seen.set(item.profileName, item);
+      const current = seen.get(item.profileName);
+      if (!current || (item.kind === "agence" && current.kind !== "agence")) seen.set(item.profileName, item);
     });
     return [...seen.values()];
   }, [searched]);
@@ -629,8 +751,10 @@ const Explore = () => {
                       username={username}
                       image={item.image}
                       city={item.city}
+                      typeLabel={CATEGORIES.find((category) => category.id === item.category)?.label || ""}
                       followed={Boolean(followed[username])}
                       onFollow={() => setFollowed((current) => ({ ...current, [username]: !current[username] }))}
+                      onOpen={() => setOpened(item)}
                     />
                   </li>
                 );
@@ -721,17 +845,33 @@ const Explore = () => {
               </button>
               <h1 className="truncate text-lg font-semibold text-neutral-950">{opened.title}</h1>
             </div>
-            <img src={opened.image} alt="" className="h-52 w-full object-cover" />
+            <img src={opened.image} alt="" className="h-56 w-full object-cover" />
             <div className="px-4 py-4">
               <div className="flex items-center gap-2.5">
                 <img src={opened.image} alt="" className="h-10 w-10 rounded-full object-cover" />
                 <div>
                   <p className="text-[15px] font-semibold text-neutral-950">{opened.profileName}</p>
-                  <p className="text-xs text-neutral-500">{opened.city}</p>
+                  <p className="text-xs text-neutral-500">
+                    {CATEGORIES.find((item) => item.id === opened.category)?.label} · {opened.city}
+                  </p>
                 </div>
               </div>
               <p className="mt-4 text-xl font-semibold text-neutral-950">{opened.title}</p>
               {detailLine(opened) ? <p className="mt-1 text-base text-neutral-700">{detailLine(opened)}</p> : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  opened.surface,
+                  opened.beds != null ? `${opened.beds} chambres` : "",
+                  opened.baths != null ? `${opened.baths} sdb` : "",
+                  opened.deal === "sale" ? "Vente" : opened.deal === "rent" ? "Location" : "",
+                ]
+                  .filter(Boolean)
+                  .map((fact) => (
+                    <span key={fact} className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700">
+                      {fact}
+                    </span>
+                  ))}
+              </div>
               {opened.kind === "projet" ? (
                 <div className="mt-4">
                   <p className="mb-1 text-sm font-semibold text-neutral-700">{projectStatus(opened.progress)}</p>
@@ -739,6 +879,18 @@ const Explore = () => {
                     <div className="h-full bg-[#174f43]" style={{ width: `${Math.min(100, opened.progress ?? 0)}%` }} />
                   </div>
                 </div>
+              ) : null}
+              {opened.description ? (
+                <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">{opened.description}</p>
+              ) : null}
+              {opened.highlights?.length ? (
+                <ul className="mt-4 list-disc space-y-2 pl-5">
+                  {opened.highlights.map((item) => (
+                    <li key={item} className="text-sm text-neutral-800">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               ) : null}
             </div>
           </div>
