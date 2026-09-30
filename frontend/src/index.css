@@ -123,13 +123,6 @@
   pointer-events: none;
 }
 
-.about-content > p,
-.about-content > h1,
-.about-content > h2,
-.about-content > h3,
-.about-content > ul,
-.about-content > ol,
-.about-content > div,
 .about-editor .tiptap > p,
 .about-editor .ProseMirror > p,
 .about-editor .tiptap > h1,
@@ -159,13 +152,6 @@
 }
 
 @media (min-width: 640px) {
-  .about-content > p,
-  .about-content > h1,
-  .about-content > h2,
-  .about-content > h3,
-  .about-content > ul,
-  .about-content > ol,
-  .about-content > div,
   .about-editor .tiptap > p,
   .about-editor .ProseMirror > p,
   .about-editor .tiptap > h1,
@@ -212,7 +198,12 @@
   border-radius: 0;
 }
 
-.about-content > img.about-img-natural,
+.about-content > img.about-img-natural {
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
 .about-editor .tiptap > img.about-img-natural,
 .about-editor .ProseMirror > img.about-img-natural {
   max-width: calc(100% - 2rem);
@@ -229,7 +220,6 @@
 }
 
 @media (min-width: 640px) {
-  .about-content > img.about-img-natural,
   .about-editor .tiptap > img.about-img-natural,
   .about-editor .ProseMirror > img.about-img-natural {
     max-width: calc(100% - 3rem);

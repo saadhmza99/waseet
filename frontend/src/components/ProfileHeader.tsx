@@ -1,7 +1,6 @@
-import { useState, type ReactNode } from "react";
-import { ArrowLeft, Ban, Briefcase, ChevronRight, Edit, Flag, Globe, Info, LogOut, MapPin, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, Star, UserPlus, UserCheck, VolumeX } from "lucide-react";
+import { type ReactNode } from "react";
+import { ArrowLeft, Ban, Edit, Flag, Globe, Info, LogOut, MapPin, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, UserPlus, UserCheck, VolumeX, Wrench } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import InviteToJobModal from "./InviteToJobModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +38,7 @@ interface ProfileHeaderProps {
   rating?: number;
   reviewCount?: number;
   onOpenReviews?: () => void;
+  onOpenServices?: () => void;
 }
 
 const cityRegionOf = (line: string) => {
@@ -106,7 +106,6 @@ const CircleAction = ({
 );
 
 const ProfileHeader = ({
-  profileId,
   avatar,
   fullName,
   username,
@@ -127,13 +126,10 @@ const ProfileHeader = ({
   onAboutMember,
   onAboutThisMember,
   onMuteMember,
-  rating = 0,
-  reviewCount = 0,
-  onOpenReviews,
+  onOpenServices,
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
   const preferredWebsite = preferredWebsiteFrom(websiteUrl);
   const hasWebsite = Boolean(preferredWebsite);
@@ -258,17 +254,6 @@ const ProfileHeader = ({
             alt={username}
             className={`${hasCover ? "-mt-14 sm:-mt-16" : "-mt-2"} h-28 w-28 sm:h-36 sm:w-36 flex-shrink-0 rounded-full border-4 border-card bg-muted object-cover relative z-10`}
           />
-          <button
-            type="button"
-            onClick={onOpenReviews}
-            className="relative z-10 mt-1 inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-white px-2.5 py-1.5 text-sm font-semibold leading-none text-card-foreground shadow-sm hover:bg-muted active:scale-[0.98]"
-            aria-label="Voir les avis"
-          >
-            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-            <span>{Number(rating).toFixed(1)}</span>
-            <span className="font-medium text-muted-foreground">({reviewCount})</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
         </div>
 
         <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -394,9 +379,9 @@ const ProfileHeader = ({
         ) : null}
 
         <div className="mt-4 flex w-full min-w-0 items-start gap-1.5 pb-4 sm:gap-3">
-          {!isOwnProfile && authReady ? (
-            <CircleAction featured label="Recruter" onClick={() => setShowInviteModal(true)}>
-              <Briefcase className="h-5 w-5" />
+          {!isOwnProfile ? (
+            <CircleAction featured label="Services" onClick={onOpenServices}>
+              <Wrench className="h-5 w-5" />
             </CircleAction>
           ) : null}
           {!isOwnProfile ? (
@@ -443,12 +428,6 @@ const ProfileHeader = ({
         </div>
       </div>
 
-      <InviteToJobModal
-        isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        professionalName={username}
-        professionalUserId={profileId}
-      />
     </div>
   );
 };

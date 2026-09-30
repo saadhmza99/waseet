@@ -300,7 +300,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>(
     queryToTab[searchParams.get("tab") || ""] || "Posts"
   );
-  const [showReviews, setShowReviews] = useState(searchParams.get("tab") === "avis");
+  const [showReviews, setShowReviews] = useState(false);
   const [showAbout, setShowAbout] = useState(ABOUT_QUERY_TABS.has(searchParams.get("tab") || ""));
   const [feedPostId, setFeedPostId] = useState<string | null>(null);
   const [hoveredPostId, setHoveredPostId] = useState<string | null>(null);
@@ -416,7 +416,7 @@ const Profile = () => {
   useEffect(() => {
     const tabParam = searchParams.get("tab") || "";
     if (tabParam === "avis") {
-      setShowReviews(true);
+      setShowReviews(false);
       setShowAbout(false);
       return;
     }
@@ -1221,6 +1221,7 @@ const Profile = () => {
         rating={rating}
         reviewCount={reviews.length}
         onOpenReviews={openAvis}
+        onOpenServices={() => goToTab("Services")}
       />
 
       <div className="mx-auto max-w-5xl">
@@ -1327,7 +1328,7 @@ const Profile = () => {
                 />
               </div>
 
-              <section className="px-4 sm:px-6 md:px-8">
+              <section>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     Présentation

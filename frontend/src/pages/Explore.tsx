@@ -60,7 +60,7 @@ const WITH_BIENS = new Set<CategoryId>(["biens", "gestion"]);
 type SearchType = "biens" | "services" | "projets" | "comptes";
 
 const SEARCH_TYPES: { id: SearchType; label: string }[] = [
-  { id: "comptes", label: "Comptes" },
+  { id: "comptes", label: "Professionnels" },
   { id: "projets", label: "Projets" },
   { id: "biens", label: "Biens" },
   { id: "services", label: "Services" },
@@ -739,7 +739,7 @@ const Explore = () => {
           </div>
         ) : searchType === "comptes" ? (
           accounts.length === 0 ? (
-            <p className="px-4 py-8 text-center text-muted-foreground">Aucun compte pour cette recherche</p>
+            <p className="px-4 py-8 text-center text-muted-foreground">Aucun professionnel pour cette recherche</p>
           ) : (
             <ul>
               {accounts.map((item) => {
