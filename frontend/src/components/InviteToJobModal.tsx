@@ -7,42 +7,34 @@ import { useAuth } from "@/contexts/AuthContext";
 import { notificationService } from "@/services/notificationService";
 import { CityPicker } from "@/components/CityPicker";
 
+export type RecruitService = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  budget: string;
+};
+
 interface InviteToJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   professionalName: string;
   professionalUserId?: string;
+  phone?: string | null;
+  services?: RecruitService[];
 }
 
-// Mock data for user's job listings
-const mockUserListings = [
-  {
-    id: 1,
-    title: "Rénovation de cuisine complète",
-    location: "Marrakech, Sidi Ghanem",
-    budget: "",
-    description: "Rénovation complète d'une cuisine avec nouveaux équipements et design moderne",
-  },
-  {
-    id: 2,
-    title: "Installation de salle de bain",
-    location: "Casablanca, Maarif",
-    budget: "8000 - 12000 DH",
-    description: "Installation complète d'une nouvelle salle de bain avec carrelage et sanitaires",
-  },
-  {
-    id: 3,
-    title: "Peinture intérieure appartement",
-    location: "Rabat, Agdal",
-    budget: "3000 - 5000 DH",
-    description: "Peinture complète d'un appartement 3 pièces avec finition soignée",
-  },
-];
-
-const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserId }: InviteToJobModalProps) => {
+const InviteToJobModal = ({
+  isOpen,
+  onClose,
+  professionalName,
+  professionalUserId,
+  phone,
+  services = [],
+}: InviteToJobModalProps) => {
   const { user } = useAuth();
   const [mode, setMode] = useState<"listings" | "custom">("listings");
-  const [selectedListing, setSelectedListing] = useState<number | null>(null);
+  const [selectedListing, setSelectedListing] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -77,7 +69,7 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
     message += `Je souhaite vous inviter à un projet :\n\n`;
     
     if (mode === "listings" && selectedListing !== null) {
-      const listing = mockUserListings.find(l => l.id === selectedListing);
+      const listing = services.find((item) => item.id === selectedListing);
       if (listing) {
         message += `*${listing.title}*\n\n`;
         message += `${listing.description}\n\n`;
@@ -108,10 +100,12 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
       return;
     }
 
-    // Open WhatsApp with formatted message
-    const phoneNumber = "212612345678"; // Replace with actual phone number
-    const message = formatWhatsAppMessage();
-    window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+    const digits = (phone || "").replace(/\D/g, "");
+    const phoneNumber = digits.startsWith("0") ? `212${digits.slice(1)}` : digits;
+    if (phoneNumber.length >= 8) {
+      const message = formatWhatsAppMessage();
+      window.open(`https://wa.me/${phoneNumber}?text=${message}`, "_blank", "noopener,noreferrer");
+    }
 
     if (user?.id && professionalUserId && user.id !== professionalUserId) {
       try {
@@ -120,7 +114,7 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
           targetUserId: professionalUserId,
           type: "job_invite",
           entityType: "job_invite",
-          message: "vous a envoyé une invitation de job.",
+          message: "vous a envoyé une invitation à un projet.",
         });
       } catch (error) {
         console.error("Error creating job invite notification:", error);
@@ -162,7 +156,7 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-card-foreground">
-              Inviter {professionalName} à un job
+              Inviter {professionalName} à un projet
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Choisissez un service existant ou créez une invitation personnalisée
@@ -218,7 +212,12 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
                 Sélectionnez un service *
               </label>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {mockUserListings.map((listing) => (
+                {services.length === 0 ? (
+                  <p className="rounded-lg border border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                    Aucun service publié. Envoyez une demande personnalisée.
+                  </p>
+                ) : null}
+                {services.map((listing) => (
                   <button
                     key={listing.id}
                     type="button"
@@ -253,12 +252,12 @@ const InviteToJobModal = ({ isOpen, onClose, professionalName, professionalUserI
           {/* Title */}
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-card-foreground mb-2">
-              Titre du job *
+              Titre du projet *
             </label>
             <Input
               id="title"
               type="text"
-              placeholder="Ex: Rénovation de cuisine"
+              placeholder="Ex: Accompagnement d'une villa"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full"

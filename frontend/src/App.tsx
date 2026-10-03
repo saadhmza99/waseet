@@ -27,6 +27,11 @@ import AdminModeration from "./pages/AdminModeration";
 import BlockedAccounts from "./pages/BlockedAccounts";
 
 import Profile from "./pages/Profile";
+import ProjectPage from "./pages/ProjectPage";
+import ServicePage from "./pages/ServicePage.tsx";
+import PropertyPage from "./pages/PropertyPage";
+import CreateProjectWizard from "./components/project/CreateProjectWizard";
+import CreateServiceForm from "./components/service/CreateServiceForm";
 import VisitorProfile, { JoinChoice } from "./pages/VisitorProfile";
 import Welcome, { hasSeenWelcome } from "./pages/Welcome";
 
@@ -52,6 +57,9 @@ const AppLayout = () => {
   const { user, loading: authLoading, isPasswordRecovery } = useAuth();
   const isProfile = pathname.startsWith("/profile");
   const isReels = pathname.startsWith("/reels");
+  const isProjectDetail = pathname.startsWith("/projet/") && !pathname.startsWith("/projet/nouveau");
+  const isServiceDetail = pathname.startsWith("/service/") && !pathname.startsWith("/service/nouveau");
+  const isPropertyDetail = pathname.startsWith("/bien/");
   const isWelcome = pathname === "/welcome";
   const [welcomeDone, setWelcomeDone] = useState(() => hasSeenWelcome());
   const lockToReset = isPasswordRecovery;
@@ -62,7 +70,9 @@ const AppLayout = () => {
     pathname.startsWith("/create-profile") ||
     pathname.startsWith("/change-password") ||
     pathname.startsWith("/settings") ||
-    pathname.startsWith("/admin");
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/projet/nouveau") ||
+    pathname.startsWith("/service/nouveau");
 
   if (!authLoading && !user && !welcomeDone && !lockToReset && !pathname.startsWith("/login") && !pathname.startsWith("/create-profile") && !pathname.startsWith("/change-password")) {
     return <Welcome onDone={() => setWelcomeDone(true)} />;
@@ -74,7 +84,7 @@ const AppLayout = () => {
 
   return (
         <div className="w-full min-h-screen bg-background flex flex-col">
-          {isProfile || isReels || lockToReset || hideAppChrome ? null : <AppHeader />}
+          {isProfile || isReels || isProjectDetail || isServiceDetail || isPropertyDetail || lockToReset || hideAppChrome ? null : <AppHeader />}
           {lockToReset || hideAppChrome ? null : <TabNav />}
           <div className={`${lockToReset || hideAppChrome ? "" : "pb-20"} flex-1`}>
           <Routes>
@@ -83,6 +93,11 @@ const AppLayout = () => {
             <Route path="/post/:id" element={<PostDetail />} />
             <Route path="/job/:title" element={<JobDetail />} />
             <Route path="/explore" element={<Explore />} />
+            <Route path="/projet/nouveau" element={<CreateProjectWizard />} />
+            <Route path="/service/nouveau" element={<CreateServiceForm />} />
+            <Route path="/service/:id" element={<ServicePage />} />
+            <Route path="/projet/:id" element={<ProjectPage />} />
+            <Route path="/bien/:id" element={<PropertyPage />} />
               <Route path="/reels" element={<Reels />} />
               <Route path="/saved" element={<Saved />} />
             <Route path="/profile/:id" element={<Profile />} />

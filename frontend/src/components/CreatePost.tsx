@@ -320,6 +320,16 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
                         toast({ title: "Compte professionnel requis", description: "Un particulier publie un bien dans son portfolio." });
                         return;
                       }
+                      if (type.id === "project") {
+                        resetForm();
+                        navigate("/projet/nouveau");
+                        return;
+                      }
+                      if (type.id === "service") {
+                        resetForm();
+                        navigate("/service/nouveau");
+                        return;
+                      }
                       setPostType(type.id);
                     }}
                     className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 text-center transition-colors ${

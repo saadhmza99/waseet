@@ -2,16 +2,42 @@ import { FEED_PAGE_SIZE, postService, type FeedPage } from "@/services/postServi
 
 const MAX_AGE_MS = 60 * 1000;
 
-let pending: { page: Promise<FeedPage | null>; at: number } | null = null;
+type Slot = { page: Promise<FeedPage | null>; at: number };
+
+let first: Slot | null = null;
+let next: Slot | null = null;
+
+const fresh = (slot: Slot | null) => (slot && Date.now() - slot.at < MAX_AGE_MS ? slot : null);
 
 export const prefetchFeedFirstPage = () => {
-  if (pending && Date.now() - pending.at < MAX_AGE_MS) return;
-  pending = { page: postService.getFeedPage(FEED_PAGE_SIZE, 0).catch(() => null), at: Date.now() };
+  if (fresh(first)) return;
+  const at = Date.now();
+  const page = postService.getFeedPage(FEED_PAGE_SIZE, 0).catch(() => null);
+  first = { page, at };
+  next = {
+    at,
+    page: page.then((result) =>
+      result?.hasMore ? postService.getFeedPage(FEED_PAGE_SIZE, FEED_PAGE_SIZE).catch(() => null) : null
+    ),
+  };
 };
 
-export const takeFeedFirstPage = async () => {
-  const entry = pending;
-  pending = null;
-  if (!entry || Date.now() - entry.at > MAX_AGE_MS) return null;
-  return entry.page;
+export const takeFeedFirstPage = () => {
+  const entry = fresh(first);
+  if (!entry) return null;
+  const page = entry.page;
+  window.setTimeout(() => {
+    if (first === entry) first = null;
+  }, 0);
+  return page;
+};
+
+export const takeFeedNextPage = () => {
+  const entry = fresh(next);
+  if (!entry) return null;
+  const page = entry.page;
+  window.setTimeout(() => {
+    if (next === entry) next = null;
+  }, 0);
+  return page;
 };

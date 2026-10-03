@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import FeedPost from "@/components/FeedPost";
 import { postService } from "@/services/postService";
+import { showcasePost } from "@/lib/showcasePosts";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { cityFromPost } from "@/lib/feedLocation";
 import { contactPhone } from "@/lib/propertyListing";
@@ -24,6 +25,13 @@ const PostDetail = () => {
   useEffect(() => {
     if (!id) {
       setMissing(true);
+      setLoading(false);
+      return;
+    }
+    const local = showcasePost(id);
+    if (local) {
+      setPost(local);
+      setMissing(false);
       setLoading(false);
       return;
     }

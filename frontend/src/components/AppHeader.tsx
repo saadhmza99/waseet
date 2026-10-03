@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Bell, Wrench, MapPin, ChevronDown, ChevronLeft, Search } from "lucide-react";
+import { Bell, MapPin, ChevronDown, ChevronLeft, Search } from "lucide-react";
+import logo from "@/assets/sifarah-arch-wide.jpg";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { detectCityFromIp, getStoredFeedCity, setStoredFeedCity } from "@/lib/feedLocation";
 import { MOROCCO_REGION_CITIES } from "@/lib/moroccoPlaces";
@@ -52,12 +53,12 @@ const AppHeader = () => {
   };
 
   return (
-    <header className="relative z-50 bg-white text-black">
+    <header className="relative z-50 bg-[#174f43] text-white">
       <div className="mx-auto max-w-2xl px-3 pb-3 pt-3">
-        <div className="flex h-12 items-center justify-between gap-3 px-1">
-          <button type="button" onClick={() => navigate("/")} className="flex min-w-0 items-center gap-1.5">
-            <Wrench className="h-7 w-7 shrink-0 text-orange-500" strokeWidth={2.7} />
-            <span className="truncate text-2xl font-bold tracking-tight text-neutral-950">Sifarah</span>
+        <div className="flex h-14 items-center justify-between gap-3 px-1">
+          <button type="button" onClick={() => navigate("/")} className="flex min-w-0 items-center gap-2">
+            <img src={logo} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+            <span className="truncate text-3xl font-bold leading-none tracking-tight text-white">Sifarah</span>
           </button>
           <div className="flex min-w-0 items-center gap-1">
             <button
@@ -68,18 +69,24 @@ const AppHeader = () => {
                 setActiveRegion(null);
                 setRegionQuery("");
               }}
-              className="flex max-w-[50vw] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1.5 text-left shadow-sm transition hover:bg-neutral-50 sm:max-w-xs"
+              className="flex max-w-[50vw] items-center gap-1.5 rounded-full border border-white/40 bg-[#ececee]/70 px-2.5 py-1.5 text-left shadow-sm backdrop-blur-xl transition hover:bg-[#ececee]/85 sm:max-w-xs"
             >
               <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
-                <MapPin className="h-5 w-5 fill-current text-black" strokeWidth={2} />
-                <span className="absolute top-[5.5px] h-[5px] w-[5px] rounded-full bg-white" />
+                <MapPin
+                  className="h-5 w-5 fill-current text-neutral-900"
+                  strokeWidth={2}
+                  style={{
+                    maskImage: "radial-gradient(circle at 50% 42%, transparent 2.4px, #000 2.9px)",
+                    WebkitMaskImage: "radial-gradient(circle at 50% 42%, transparent 2.4px, #000 2.9px)",
+                  }}
+                />
               </span>
-              <span className="truncate text-[15px] font-medium text-neutral-950">{feedCity}</span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-neutral-800" />
+              <span className="truncate text-[15px] font-medium text-neutral-900">{feedCity}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-neutral-900" />
             </button>
             <button
               type="button"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-black transition hover:text-neutral-600"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-white transition hover:text-white/80"
               aria-label="Notifications"
             >
               <Bell className="h-6 w-6" strokeWidth={2} />
@@ -100,7 +107,7 @@ const AppHeader = () => {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Rechercher entreprises, catégories…"
-              className="h-10 w-full rounded-full border border-neutral-300 bg-white pl-9 pr-3 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-orange-400"
+              className="h-10 w-full rounded-full border border-white/40 bg-white pl-9 pr-3 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-white"
             />
           </form>
         )}

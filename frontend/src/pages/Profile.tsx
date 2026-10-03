@@ -55,6 +55,13 @@ import { profileHandle } from "@/lib/profileHandle";
 import AboutRichEditor from "@/components/AboutRichEditor";
 import { aboutHtmlIsEmpty, sanitizeAboutHtml, toAboutHtml } from "@/lib/aboutHtml";
 import PortfolioGrid from "@/components/PortfolioGrid";
+import { ProjectCard } from "@/components/project/ProjectCard";
+import { ServiceCard } from "@/components/service/ServiceCard";
+import { SHOWCASE_PROFILE_USERNAME } from "@/lib/showcasePosts";
+import { SHOWCASE_PROJECTS } from "@/lib/showcaseProjects";
+import { SHOWCASE_PROPERTIES } from "@/lib/showcaseProperties";
+import { SHOWCASE_SERVICES } from "@/lib/showcaseServices";
+import { priceLabel } from "@/lib/serviceOffer";
 import { locationsFrom, ProfileDetailsFields, type InfosField } from "@/components/ProfileInfosCard";
 import UploadProgressRing from "@/components/UploadProgressRing";
 import { RetryImage } from "@/components/RetryImage";
@@ -70,6 +77,10 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
+
+const RAHMA_PROJECT = SHOWCASE_PROJECTS.find((row) => row.id === "showcase-faubourgs-anfa") || SHOWCASE_PROJECTS[0];
+const RAHMA_PROPERTY = SHOWCASE_PROPERTIES.find((row) => row.id === "showcase-anfa-place-129") || SHOWCASE_PROPERTIES[0];
+const RAHMA_SERVICE = SHOWCASE_SERVICES.find((row) => row.id === "showcase-cgi-promotion") || SHOWCASE_SERVICES[0];
 
 const tabs = ["Posts", "Projets", "Biens", "Services"] as const;
 type PostsView = "grid" | "reels";
@@ -742,6 +753,50 @@ const Profile = () => {
     return Number((total / reviews.length).toFixed(1));
   }, [reviews]);
 
+  const rahmaShowcase = (profile?.username || "").replace(/^@/, "") === SHOWCASE_PROFILE_USERNAME;
+  const visibleProjects = useMemo(
+    () => (rahmaShowcase && !projectItems.some((row) => row.id === RAHMA_PROJECT.id) ? [RAHMA_PROJECT, ...projectItems] : projectItems),
+    [rahmaShowcase, projectItems]
+  );
+  const visibleProperties = useMemo(() => {
+    if (!rahmaShowcase || propertyItems.some((row) => row.id === RAHMA_PROPERTY.id)) return propertyItems;
+    return [
+      {
+        id: RAHMA_PROPERTY.id,
+        user_id: profile?.id,
+        title: RAHMA_PROPERTY.details.title,
+        description: RAHMA_PROPERTY.details.description,
+        images: RAHMA_PROPERTY.images,
+        price: Number(RAHMA_PROPERTY.details.priceDh).toLocaleString("fr-FR") + " DH",
+        surface: RAHMA_PROPERTY.details.builtSurface,
+        beds: RAHMA_PROPERTY.details.beds,
+        baths: RAHMA_PROPERTY.details.baths,
+        details: RAHMA_PROPERTY.details,
+      },
+      ...propertyItems,
+    ];
+  }, [rahmaShowcase, propertyItems, profile?.id]);
+  const recruitServices = useMemo(() => {
+    const posted = listings.map((listing) => ({
+      id: String(listing.id),
+      title: listing.title || "Service",
+      description: listing.description || listing.profession || "",
+      location: listing.location || "",
+      budget: listing.price_range || "",
+    }));
+    if (!rahmaShowcase || posted.some((item) => item.id === RAHMA_SERVICE.id)) return posted;
+    return [
+      {
+        id: RAHMA_SERVICE.id,
+        title: RAHMA_SERVICE.offer.title,
+        description: RAHMA_SERVICE.offer.description,
+        location: "Maroc",
+        budget: priceLabel(RAHMA_SERVICE.offer),
+      },
+      ...posted,
+    ];
+  }, [rahmaShowcase, listings]);
+
   const formatTimeAgo = (date: string) => {
     try {
       return formatDistanceToNow(new Date(date), { addSuffix: true, locale: fr });
@@ -1066,7 +1121,7 @@ const Profile = () => {
       const updated = await profileService.updateProfile(user.id, {
         username: nextUsername || profile.username,
         full_name: editForm.fullName.trim() || profile.full_name,
-        bio: editForm.bio.slice(0, 165),
+        bio: editForm.bio.slice(0, 450),
         profile_type: profile.profile_type,
         avatar_url: avatarUrl,
         cover_photo_url: coverPhotoUrl,
@@ -1244,7 +1299,7 @@ const Profile = () => {
         rating={rating}
         reviewCount={reviews.length}
         onOpenReviews={openAvis}
-        onOpenServices={() => goToTab("Services")}
+        services={recruitServices}
       />
 
       <div className="mx-auto max-w-5xl">
@@ -1307,7 +1362,15 @@ const Profile = () => {
             <div className="flex min-w-0 flex-1 border-b border-border">
               {tabs.map((tab) => {
                 const count =
-                  tab === "Posts" ? postsCount : tab === "Projets" ? projectsCount : tab === "Biens" ? propertiesCount : listingsCount;
+                  tab === "Posts"
+                    ? postsCount
+                    : tab === "Projets"
+                      ? projectsCount == null ? null : projectsCount + (visibleProjects.length - projectItems.length)
+                      : tab === "Biens"
+                        ? propertiesCount == null ? null : propertiesCount + (visibleProperties.length - propertyItems.length)
+                        : listingsCount == null
+                          ? null
+                          : listingsCount + (rahmaShowcase && !listings.some((row) => row.id === RAHMA_SERVICE.id) ? 1 : 0);
                 return (
                 <button
                   key={tab}
@@ -1428,7 +1491,15 @@ const Profile = () => {
 
           {!showReviews && !showAbout && activeTab === "Projets" && (
             <div className="px-4 sm:px-6 md:px-8 py-6">
-              <div className="mb-3 flex justify-end">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                {isOwnProfile ? (
+                  <Button type="button" onClick={() => navigate("/projet/nouveau")} className="h-9 bg-[#174f43] px-3 text-white hover:bg-[#174f43]/90">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Publier un projet
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1442,11 +1513,15 @@ const Profile = () => {
               </div>
               {!portfolioReady ? (
                 <ProfileMediaGridSkeleton />
-              ) : projectItems.length === 0 ? (
+              ) : visibleProjects.length === 0 ? (
                 <p className="py-12 text-center text-sm text-muted-foreground">Aucun projet pour le moment.</p>
               ) : (
                 <>
-                  <PortfolioGrid items={catalogCards(projectItems, "project")} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {visibleProjects.map((row) => (
+                      <ProjectCard key={row.id} row={row} />
+                    ))}
+                  </div>
                   <LoadMoreButton
                     hasMore={projectsHasMore}
                     loading={loadingMoreProjects}
@@ -1474,11 +1549,11 @@ const Profile = () => {
               </div>
               {!portfolioReady ? (
                 <ProfileMediaGridSkeleton />
-              ) : propertyItems.length === 0 ? (
+              ) : visibleProperties.length === 0 ? (
                 <p className="py-12 text-center text-sm text-muted-foreground">Aucun bien pour le moment.</p>
               ) : (
                 <>
-                  <PortfolioGrid items={catalogCards(propertyItems, "property")} />
+                  <PortfolioGrid items={catalogCards(visibleProperties, "property")} />
                   <LoadMoreButton
                     hasMore={propertiesHasMore}
                     loading={loadingMoreProperties}
@@ -1750,7 +1825,15 @@ const Profile = () => {
 
           {!showReviews && !showAbout && activeTab === "Services" && (
             <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8">
-              <div className="mb-3 flex justify-end">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                {isOwnProfile ? (
+                  <Button type="button" onClick={() => navigate("/service/nouveau")} className="h-9 bg-[#174f43] px-3 text-white hover:bg-[#174f43]/90">
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Publier un service
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1764,15 +1847,18 @@ const Profile = () => {
               </div>
               {!servicesReady ? (
                 <ProfileMediaGridSkeleton />
-              ) : listings.length === 0 ? (
+              ) : listings.length === 0 && !rahmaShowcase ? (
                 <div className="py-6 text-center text-muted-foreground">Aucun service publié.</div>
               ) : (
                 <>
                 <div
                   className={`grid gap-4 sm:gap-6 ${
-                    listings.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
+                    listings.length + (rahmaShowcase ? 1 : 0) === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
                   }`}
                 >
+                  {rahmaShowcase && !listings.some((row) => row.id === RAHMA_SERVICE.id) ? (
+                    <ServiceCard key={RAHMA_SERVICE.id} row={{ ...RAHMA_SERVICE, userId: profile.id }} />
+                  ) : null}
                   {listings.map((listing) => (
                     <ListingCard
                       key={listing.id}
@@ -1965,11 +2051,12 @@ const Profile = () => {
             />
             <Textarea
               value={editForm.bio}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value.slice(0, 165) }))}
-              rows={3}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value.slice(0, 450) }))}
+              rows={6}
+              maxLength={450}
               placeholder="Bio"
             />
-            <p className="text-xs text-muted-foreground text-right">{editForm.bio.length}/165</p>
+            <p className="text-xs text-muted-foreground text-right">{editForm.bio.length}/450</p>
 
             <div className="flex justify-end">
               <Button onClick={handleSaveProfile} disabled={savingProfile}>

@@ -49,7 +49,7 @@ const Settings = () => {
   const [tagPermission, setTagPermission] = useState<"everyone" | "following" | "off">("everyone");
   const [mutedAccounts, setMutedAccounts] = useState<MutedAccount[]>([]);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
-  const MAX_BIO_LENGTH = 165;
+  const MAX_BIO_LENGTH = 450;
   const { setLanguage: setAppLanguage } = useAppLanguage();
   const languageOptions = [
     "English",

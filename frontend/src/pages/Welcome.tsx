@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { Wrench } from "lucide-react";
+import logo from "@/assets/sifarah-arch-wide.jpg";
 import { useNavigate } from "react-router-dom";
 import { prefetchFeedFirstPage } from "@/lib/feedPrefetch";
 
@@ -23,10 +22,7 @@ export const markWelcomeSeen = () => {
 
 const Welcome = ({ onDone }: { onDone?: () => void }) => {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    prefetchFeedFirstPage();
-  }, []);
+  prefetchFeedFirstPage();
 
   const goFeed = () => {
     markWelcomeSeen();
@@ -52,7 +48,7 @@ const Welcome = ({ onDone }: { onDone?: () => void }) => {
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-6 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] md:flex-row md:items-center md:justify-between md:gap-12 md:px-8 md:py-12 lg:px-10">
         <div className="flex flex-1 flex-col items-center pt-12 text-center md:flex-none md:self-start md:items-start md:pt-[6vh] md:text-left">
           <div className="flex -translate-x-3.5 items-center justify-center gap-2 md:translate-x-0 md:gap-3">
-            <Wrench className="h-12 w-12 shrink-0 text-orange-500 md:h-16 md:w-16" strokeWidth={2.2} />
+            <img src={logo} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover md:h-16 md:w-16" />
             <h1 className="text-5xl font-semibold tracking-tight drop-shadow-sm sm:text-6xl lg:text-7xl">Sifarah</h1>
           </div>
           <p className="mt-4 text-xl font-normal text-white/95 drop-shadow sm:text-2xl lg:text-3xl">

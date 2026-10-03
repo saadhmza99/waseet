@@ -41,7 +41,7 @@ const CreateProfile = () => {
     profession: "",
     bio: "",
   });
-  const MAX_BIO_LENGTH = 165;
+  const MAX_BIO_LENGTH = 450;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);

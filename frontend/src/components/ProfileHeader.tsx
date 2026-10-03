@@ -1,6 +1,7 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowLeft, Ban, Briefcase, Edit, Flag, Globe, Info, LogOut, MapPin, MessageCircle, MessageSquare, MoreVertical, Phone, Settings, Share2, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import InviteToJobModal, { type RecruitService } from "./InviteToJobModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +39,7 @@ interface ProfileHeaderProps {
   rating?: number;
   reviewCount?: number;
   onOpenReviews?: () => void;
-  onOpenServices?: () => void;
+  services?: RecruitService[];
 }
 
 const cityRegionOf = (line: string) => {
@@ -106,6 +107,7 @@ const CircleAction = ({
 );
 
 const ProfileHeader = ({
+  profileId,
   avatar,
   fullName,
   username,
@@ -126,10 +128,11 @@ const ProfileHeader = ({
   onAboutMember,
   onAboutThisMember,
   onMuteMember,
-  onOpenServices,
+  services = [],
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const [recruitOpen, setRecruitOpen] = useState(false);
   const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
   const preferredWebsite = preferredWebsiteFrom(websiteUrl);
   const hasWebsite = Boolean(preferredWebsite);
@@ -380,7 +383,7 @@ const ProfileHeader = ({
 
         <div className="mt-4 flex w-full min-w-0 items-start gap-1.5 pb-4 sm:gap-3">
           {!isOwnProfile ? (
-            <CircleAction featured label="Services" onClick={onOpenServices}>
+            <CircleAction featured label="Recruter" onClick={() => setRecruitOpen(true)}>
               <Briefcase className="h-5 w-5" />
             </CircleAction>
           ) : null}
@@ -428,6 +431,14 @@ const ProfileHeader = ({
         </div>
       </div>
 
+      <InviteToJobModal
+        isOpen={recruitOpen}
+        onClose={() => setRecruitOpen(false)}
+        professionalName={name}
+        professionalUserId={profileId}
+        phone={phone}
+        services={services}
+      />
     </div>
   );
 };

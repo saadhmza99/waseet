@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
 import { Briefcase, Building2, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, LayoutGrid, PenTool } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
 import SponsoredBanner from "@/components/SponsoredBanner";
@@ -16,12 +16,19 @@ import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
-import { takeFeedFirstPage } from "@/lib/feedPrefetch";
+import { takeFeedFirstPage, takeFeedNextPage } from "@/lib/feedPrefetch";
 import { cityFromPost } from "@/lib/feedLocation";
 import { contactPhone } from "@/lib/propertyListing";
 import { catalogService } from "@/services/catalogService";
 import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
 import { CategoryPicker } from "@/components/CategoryPicker";
+import { ProjectCard } from "@/components/project/ProjectCard";
+import { ServiceCard } from "@/components/service/ServiceCard.tsx";
+import { PropertyCard } from "@/components/property/PropertyCard";
+import { SHOWCASE_PROJECTS } from "@/lib/showcaseProjects";
+import { SHOWCASE_SERVICES } from "@/lib/showcaseServices.ts";
+import { SHOWCASE_PROPERTIES } from "@/lib/showcaseProperties";
+import { SHOWCASE_POSTS } from "@/lib/showcasePosts";
 
 const RenovationIcon = ({ className }: { className?: string }) => (
   <svg
@@ -97,7 +104,9 @@ const Index = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
-  const [feedView, setFeedView] = useState<FeedView>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vue = searchParams.get("vue");
+  const feedView: FeedView = vue === "projets" || vue === "biens" || vue === "services" ? vue : "all";
   const [profession, setProfession] = useState<ProfessionId | "tout" | null>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [allPosts, setAllPosts] = useState<any[]>([]);
@@ -121,7 +130,8 @@ const Index = () => {
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const page = await postService.getFeedPage(FEED_PAGE_SIZE, postsFetchedRef.current);
+      const prefetched = postsFetchedRef.current === FEED_PAGE_SIZE ? await takeFeedNextPage() : null;
+      const page = prefetched ?? (await postService.getFeedPage(FEED_PAGE_SIZE, postsFetchedRef.current));
       if (generation !== feedGeneration.current) return;
       postsFetchedRef.current += FEED_PAGE_SIZE;
       hasMoreRef.current = page.hasMore;
@@ -393,7 +403,7 @@ const Index = () => {
   const buildFeed = (): ReactElement[] => {
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
-    const posts = allPosts.filter((post) => {
+    const posts = (feedView === "all" ? [...SHOWCASE_POSTS, ...allPosts] : allPosts).filter((post) => {
       const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
       return matchesProfession(profession, hay) && matchesFeedView(feedView, post);
     });
@@ -402,13 +412,7 @@ const Index = () => {
         const hay = `${listing.title || ""} ${listing.profession || ""} ${listing.description || ""} ${listing.location || ""}`.toLowerCase();
         return matchesProfession(profession, hay);
       });
-      if (!annonces.length) {
-        return [
-          <div key="kind-empty" className="py-8 text-center text-muted-foreground">
-            Aucun service pour le moment
-          </div>,
-        ];
-      }
+      if (!annonces.length) return [];
       return annonces.map((listing) => {
         const profile = listing.profiles || {};
         return (
@@ -435,6 +439,7 @@ const Index = () => {
       });
     }
     if (!posts.length) {
+      if (feedView === "projets" || feedView === "biens") return [];
       if (hasMorePosts || loadingMore) {
         return [
           <div key="kind-loading" className="py-8 text-center text-muted-foreground">
@@ -534,9 +539,9 @@ const Index = () => {
       <div className="mx-auto w-full max-w-2xl">
         {categoriesOpen ? null : (
         <div className="mb-2 border-b border-neutral-200 bg-white">
-        <div className="flex w-full pb-4 pt-3">
+        <div className="flex w-full pb-[11px] pt-5">
           {[
-            { id: "all" as const, label: "Accueil", Icon: LayoutGrid, tone: "bg-[#174f43]" },
+            { id: "all" as const, label: "Accueil", Icon: LayoutGrid, tone: "bg-[#eee9ec]" },
             { id: "projets" as const, label: "Projets", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
             { id: "biens" as const, label: "Biens", Icon: Building2, tone: "bg-[#eee9ec]" },
             { id: "services" as const, label: "Services", Icon: Briefcase, tone: "bg-[#eee9ec]" },
@@ -546,21 +551,23 @@ const Index = () => {
               type="button"
               onClick={() => {
                 setCategoriesOpen(false);
+                const next = new URLSearchParams(searchParams);
                 if (item.id === "all") {
-                  setFeedView("all");
+                  next.delete("vue");
                   setProfession(null);
-                  return;
+                } else if (feedView === item.id) {
+                  next.delete("vue");
+                } else {
+                  next.set("vue", item.id);
                 }
-                setFeedView((prev) => (prev === item.id ? "all" : item.id));
+                setSearchParams(next, { replace: true });
               }}
               className="group flex min-w-0 flex-1 flex-col items-center gap-2"
             >
               <span
                 className={`inline-flex h-12 w-12 items-center justify-center rounded-full transition ${
-                  item.id === "all"
-                    ? `${item.tone} text-white ${feedView === "all" ? "scale-105 shadow-md" : "group-hover:shadow-sm"}`
-                    : feedView === item.id
-                    ? `${item.tone} scale-105 text-orange-600 shadow-md`
+                  feedView === item.id
+                    ? "scale-105 bg-[#174f43] text-white shadow-md"
                     : `${item.tone} text-neutral-800 group-hover:shadow-sm`
                 }`}
               >
@@ -650,9 +657,31 @@ const Index = () => {
         />
 
         {/* Feed with posts and sponsored banners */}
+        {feedView === "projets" ? (
+          <div className="grid gap-3 px-3 pb-4">
+            {SHOWCASE_PROJECTS.map((row) => (
+              <ProjectCard key={row.id} row={row} />
+            ))}
+          </div>
+        ) : null}
+        {feedView === "services" ? (
+          <div className="grid gap-3 px-3 pb-4">
+            {SHOWCASE_SERVICES.map((row) => (
+              <ServiceCard key={row.id} row={row} />
+            ))}
+          </div>
+        ) : null}
+        {feedView === "biens" ? (
+          <div className="grid gap-3 px-3 pb-4">
+            {SHOWCASE_PROPERTIES.map((row) => (
+              <PropertyCard key={row.id} row={row} />
+            ))}
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-        ) : feedView !== "services" && allPosts.length === 0 ? (
+        ) : feedView !== "services" && feedView !== "projets" && feedView !== "biens" && feedView !== "all" && allPosts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">Aucun post pour le moment</div>
         ) : (
           buildFeed()
