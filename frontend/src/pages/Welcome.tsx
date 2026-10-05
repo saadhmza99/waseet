@@ -106,21 +106,7 @@ const Welcome = ({ onDone }: { onDone?: () => void }) => {
       </div>
     </div>
 
-    <section className="bg-[#F7F4EE] px-6 pb-6 pt-20 text-center sm:px-12 sm:pt-24">
-      <p className="mb-[-1.75rem] text-8xl leading-none text-[#C4A48A] sm:mb-[-2.5rem] sm:text-9xl" style={{ fontFamily: '"Playfair Display", Georgia, serif' }} aria-hidden>
-        &ldquo;
-      </p>
-      <p
-        className="mx-auto max-w-3xl text-xl font-normal leading-snug text-[#182830] sm:text-2xl"
-        style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
-      >
-        <span className="font-bold text-black">&ldquo;</span>
-        Sifarah est un mot arabe qui signifie Ambassade. Sifarah est l&apos;ambassade de l&apos;écosystème autour de l&apos;immobilier au marché et au monde.
-        <span className="font-bold text-black">&rdquo;</span>
-      </p>
-    </section>
-
-    <section className="bg-[#F7F4EE] px-6 pb-24 pt-12 text-[#182830] sm:px-12 sm:pb-32 sm:pt-16 lg:px-20" style={{ fontFamily: "Inter, sans-serif" }}>
+    <section className="bg-[#F7F4EE] px-6 pb-24 pt-16 text-[#182830] sm:px-12 sm:pb-32 sm:pt-20 lg:px-20" style={{ fontFamily: "Inter, sans-serif" }}>
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto mb-24 max-w-3xl text-center sm:mb-28">
           <span className="mb-4 block text-xs font-semibold uppercase tracking-[0.3em] text-[#B35438]">Immobilier &amp; Construction</span>
