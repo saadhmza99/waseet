@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Building2, ChevronLeft, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, List, Map as MapIcon, PenTool, Search } from "lucide-react";
+import { DesktopRailFrame } from "@/components/FeedDesktopRail";
 import MapView from "@/components/MapView";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { DISCOVER_ITEMS } from "@/lib/showcaseDiscover";
@@ -371,8 +372,8 @@ const Explore = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      <div className="mx-auto w-full max-w-2xl px-3 pt-4">
+    <DesktopRailFrame className="min-h-screen bg-white pb-20 lg:pb-0">
+      <div className="mx-auto w-full max-w-2xl px-3 pt-4 lg:mx-0 lg:max-w-none lg:px-0 lg:pt-0">
         {searchFields}
         <div className="mt-3 flex items-center justify-end gap-2 pb-1">
           <div className="flex items-center gap-1.5">
@@ -559,7 +560,7 @@ const Explore = () => {
           </div>
         </div>
       ) : null}
-    </div>
+    </DesktopRailFrame>
   );
 };
 

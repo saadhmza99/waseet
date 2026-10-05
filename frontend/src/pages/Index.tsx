@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
-import { Briefcase, Building2, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, LayoutGrid, PenTool } from "lucide-react";
+import { Briefcase, Building2, Cpu, Ellipsis, FileText, Hammer, Handshake, HardHat, Home, Landmark, LayoutGrid, PenTool } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
@@ -22,6 +22,8 @@ import { contactPhone } from "@/lib/propertyListing";
 import { catalogService } from "@/services/catalogService";
 import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
 import { CategoryPicker } from "@/components/CategoryPicker";
+import FeedDesktopRail from "@/components/FeedDesktopRail";
+import { LocationAndBell } from "@/components/AppHeader";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { ServiceCard } from "@/components/service/ServiceCard.tsx";
 import { PropertyCard } from "@/components/property/PropertyCard";
@@ -29,6 +31,25 @@ import { SHOWCASE_PROJECTS } from "@/lib/showcaseProjects";
 import { SHOWCASE_SERVICES } from "@/lib/showcaseServices.ts";
 import { SHOWCASE_PROPERTIES } from "@/lib/showcaseProperties";
 import { SHOWCASE_POSTS } from "@/lib/showcasePosts";
+import archIcon from "@/assets/sifarah-arch-icon-clean.png";
+
+const ArchIcon = ({ className }: { className?: string }) => (
+  <span
+    aria-hidden
+    className={`inline-block shrink-0 bg-current ${className ?? ""}`}
+    style={{
+      maskImage: `url(${archIcon})`,
+      WebkitMaskImage: `url(${archIcon})`,
+      maskMode: "alpha",
+      maskRepeat: "no-repeat",
+      maskPosition: "center",
+      maskSize: "contain",
+      WebkitMaskRepeat: "no-repeat",
+      WebkitMaskPosition: "center",
+      WebkitMaskSize: "contain",
+    }}
+  />
+);
 
 const RenovationIcon = ({ className }: { className?: string }) => (
   <svg
@@ -533,23 +554,76 @@ const Index = () => {
 
   return (
     <div
-      className="min-h-screen bg-white pb-4"
+      className="min-h-screen bg-white pb-4 lg:pb-0"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}
     >
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="lg:flex lg:min-h-screen lg:w-full">
+      <FeedDesktopRail />
+      <div className="min-w-0 lg:flex-1 lg:py-5">
+      <div className="mx-auto flex w-full max-w-2xl flex-col lg:w-[56rem] lg:max-w-[calc(100vw-22rem)] lg:px-8">
         {categoriesOpen ? null : (
-        <div className="mb-2 border-b border-neutral-200 bg-white">
-        <div className="flex w-full pb-[11px] pt-5">
+        <div className="order-1 mb-4 hidden items-end justify-between gap-4 border-b border-neutral-200 lg:flex">
+          <div className="flex min-w-0 items-end gap-1">
+            {[
+              { id: "all" as const, label: "Accueil", Icon: LayoutGrid },
+              { id: "projets" as const, label: "Projets", Icon: RenovationIcon },
+              { id: "biens" as const, label: "Biens", Icon: Building2 },
+              { id: "services" as const, label: "Services", Icon: Handshake },
+              { id: "opportunites" as const, label: "Business", Icon: Briefcase },
+            ].map((item) => {
+              const active = item.id !== "opportunites" && feedView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    if (item.id === "opportunites") {
+                      navigate("/opportunites");
+                      return;
+                    }
+                    setCategoriesOpen(false);
+                    const next = new URLSearchParams(searchParams);
+                    if (item.id === "all") {
+                      next.delete("vue");
+                      setProfession(null);
+                    } else if (feedView === item.id) {
+                      next.delete("vue");
+                    } else {
+                      next.set("vue", item.id);
+                    }
+                    setSearchParams(next, { replace: true });
+                  }}
+                  className={`-mb-px flex items-center gap-2 border-b-2 px-3 py-3 text-base font-semibold ${
+                    active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  <item.Icon className="h-5 w-5 shrink-0" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+          <LocationAndBell calm showBell={false} className="self-center" pillClassName="h-12 px-4" />
+        </div>
+        )}
+        {categoriesOpen ? null : (
+        <div className="order-1 mb-2 border-b border-neutral-200 bg-white lg:hidden">
+        <div className="flex w-full gap-1.5 overflow-x-auto pb-[11px] pt-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[
             { id: "all" as const, label: "Accueil", Icon: LayoutGrid, tone: "bg-[#eee9ec]" },
             { id: "projets" as const, label: "Projets", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
             { id: "biens" as const, label: "Biens", Icon: Building2, tone: "bg-[#eee9ec]" },
-            { id: "services" as const, label: "Services", Icon: Briefcase, tone: "bg-[#eee9ec]" },
+            { id: "services" as const, label: "Services", Icon: Handshake, tone: "bg-[#eee9ec]" },
+            { id: "opportunites" as const, label: "Business", Icon: Briefcase, tone: "bg-[#eee9ec]" },
           ].map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => {
+                if (item.id === "opportunites") {
+                  navigate("/opportunites");
+                  return;
+                }
                 setCategoriesOpen(false);
                 const next = new URLSearchParams(searchParams);
                 if (item.id === "all") {
@@ -562,18 +636,18 @@ const Index = () => {
                 }
                 setSearchParams(next, { replace: true });
               }}
-              className="group flex min-w-0 flex-1 flex-col items-center gap-2"
+              className="group flex min-w-max flex-1 basis-0 flex-col items-center gap-2.5"
             >
               <span
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-full transition ${
+                className={`inline-flex h-[clamp(2.25rem,15vw,3.75rem)] w-[clamp(2.25rem,15vw,3.75rem)] items-center justify-center rounded-full transition ${
                   feedView === item.id
                     ? "scale-105 bg-[#174f43] text-white shadow-md"
                     : `${item.tone} text-neutral-800 group-hover:shadow-sm`
                 }`}
               >
-                <item.Icon className="h-5 w-5" />
+                <item.Icon className="h-6 w-6" />
               </span>
-              <span className="whitespace-nowrap text-center text-xs font-semibold leading-normal text-neutral-800">
+              <span className="whitespace-nowrap text-center text-sm font-semibold leading-normal text-neutral-800">
                 {item.label}
               </span>
             </button>
@@ -583,7 +657,7 @@ const Index = () => {
         )}
 
         {categoriesOpen ? null : (
-        <section className="relative mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white">
+        <section className="relative order-2 mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white lg:mx-0 lg:min-h-[280px]">
           <img
             key={bannerImage?.image_url || "fallback"}
             src={bannerImage?.image_url || "/agadir-welcome.png"}
@@ -591,17 +665,18 @@ const Index = () => {
             className="absolute inset-0 h-full w-full animate-in fade-in object-cover duration-700"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
-          <div className="relative flex min-h-[175px] max-w-full translate-y-4 flex-col justify-center px-4 py-4">
-            <p className="relative -top-1 mt-1 whitespace-nowrap text-2xl font-medium">Bonjour!</p>
-            <p className="mt-2 font-normal leading-snug text-white/95">
-              <span className="block whitespace-nowrap text-[clamp(0.7rem,3.7vw,1.0625rem)] font-light">Découvrez l'écosystème immobilier de votre région.</span>
-              <span className="mt-1 block text-base font-medium leading-snug">Agences, professionnels, projets, biens et services autour de vous.</span>
+          <div className="relative flex min-h-[175px] max-w-full flex-col justify-start px-4 pb-4 pt-4 lg:min-h-[280px] lg:px-8 lg:pb-8 lg:pt-14">
+            <div className="lg:max-w-[45vw]">
+            <p className="text-2xl font-medium leading-snug lg:text-4xl lg:leading-tight" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9), 0 0 1px #000" }}>Découvrez les professionnels, biens, projects et opportunités dans  Sifarah</p>
+           <br /> <p className="mt-2 font-normal leading-snug text-white/95 lg:mt-4">
+              <span className="mt-1 block text-[clamp(0.7rem,3.7vw,1.0625rem)] font-medium leading-snug lg:text-xl lg:leading-relaxed"> Découvrez. Suivez. Echangez.</span>
             </p>
+            </div>
           </div>
         </section>
         )}
 
-        <div className="px-3">
+        <div className="order-3 px-3 lg:px-0">
           <CategoryPicker
             open={categoriesOpen}
             onToggle={() => setCategoriesOpen((open) => !open)}
@@ -619,7 +694,7 @@ const Index = () => {
         </div>
 
         {categoriesOpen ? null : sponsoredListings.length >= 2 && feedView !== "services" && (
-          <div className="my-4 sm:my-6 space-y-3 sm:space-y-4">
+          <div className="order-4 my-4 space-y-3 sm:my-6 sm:space-y-4">
             {sponsoredListings.slice(0, 2).map((listing) => {
               const profile = listing.profiles || {};
               return (
@@ -642,7 +717,7 @@ const Index = () => {
         )}
 
         {categoriesOpen ? null : (
-        <>
+        <div className="order-4">
         {/* Create Post */}
         <CreatePost
           hideLauncher
@@ -689,8 +764,10 @@ const Index = () => {
         {!loading && feedView !== "services" ? (
           <InfiniteScrollSentinel hasMore={hasMorePosts} loading={loadingMore} onLoadMore={loadMorePosts} />
         ) : null}
-        </>
+        </div>
         )}
+      </div>
+      </div>
       </div>
     </div>
   );

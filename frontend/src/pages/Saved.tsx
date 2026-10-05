@@ -3,6 +3,7 @@ import { Heart, LayoutGrid, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
+import { DesktopRailFrame } from "@/components/FeedDesktopRail";
 import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
 import { savedService } from "@/services/savedService";
@@ -219,6 +220,7 @@ const Saved = () => {
 
   if (needsVisitorForm) {
     return (
+      <DesktopRailFrame className="pb-20 lg:pb-0">
       <div className="mx-auto flex max-w-sm flex-col items-center px-6 py-16 text-center">
         <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#174f43]/10">
           <Heart className="h-8 w-8 fill-[#174f43] text-[#174f43]" />
@@ -235,12 +237,13 @@ const Saved = () => {
           Continuer
         </button>
       </div>
+      </DesktopRailFrame>
     );
   }
 
   return (
-    <div className="pb-20">
-      <div className="mx-auto max-w-2xl px-2 sm:px-4">
+    <DesktopRailFrame className="pb-20 lg:pb-0">
+      <div className="mx-auto max-w-2xl px-2 sm:px-4 lg:mx-0 lg:max-w-none lg:px-0">
         <div className="flex min-w-0 border-b border-border">
           {tabs.map((tab) => (
             <button
@@ -387,7 +390,7 @@ const Saved = () => {
           )}
         </div>
       </div>
-    </div>
+    </DesktopRailFrame>
   );
 };
 

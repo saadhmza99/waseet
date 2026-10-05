@@ -748,7 +748,7 @@ const FeedPost = ({
 
       {displayDescription && (
         <div
-            className={`min-w-0 pl-2.5 pr-4 pb-2 ${postId && !isStandalonePost ? "cursor-pointer" : ""}`}
+            className={`min-w-0 px-2.5 pb-2 ${postId && !isStandalonePost ? "cursor-pointer" : ""}`}
           onClick={(event) => {
             if (!postId || isStandalonePost) return;
             if ((event.target as HTMLElement).closest("a,button")) return;
@@ -776,42 +776,71 @@ const FeedPost = ({
 
       {allImages.length > 0 && (
         <div
-          className={`relative overflow-hidden ${
-            allImages.length === 1
-              ? ""
-              : allImages.length === 2
-                ? "grid grid-cols-2 gap-1"
-                : "grid h-[55vh] max-h-[55vh] grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 sm:aspect-[4/3] sm:h-auto"
+          className={`relative w-full gap-1 ${
+            allImages.length >= 5
+              ? "flex items-stretch"
+              : allImages.length === 1
+                ? ""
+                : allImages.length === 2
+                  ? "grid grid-cols-2"
+                  : allImages.length === 4
+                    ? "grid grid-cols-2 grid-rows-2"
+                    : "grid aspect-[4/3] grid-cols-[1.6fr_1fr] grid-rows-2"
           }`}
         >
-          {allImages.slice(0, allImages.length >= 3 ? 3 : 2).map((image, index) => (
-            <RetryImage
-              key={`${image}-${index}`}
-              src={image}
-              alt={`Photo ${index + 1}`}
-              wrapClassName={
-                allImages.length >= 3 && index === 0
-                  ? "row-span-2 h-full"
-                  : allImages.length === 2
-                    ? "h-[55vh] max-h-[55vh] sm:aspect-[2/3] sm:h-auto"
-                    : "h-full"
-              }
-              className={
-                allImages.length === 1
-                  ? "max-h-[55vh] w-full cursor-pointer object-cover sm:aspect-[4/3]"
-                  : "h-full w-full cursor-pointer object-cover"
-              }
-              onClick={() => setSelectedImageIndex(index)}
-            />
-          ))}
+          {allImages.length >= 5 ? (
+            <>
+              <div className="grid aspect-[4/3] min-w-0 flex-1 grid-cols-[1.6fr_1fr] grid-rows-2 gap-1">
+                {allImages.slice(0, 3).map((image, index) => (
+                  <RetryImage
+                    key={`${image}-${index}`}
+                    src={image}
+                    alt={`Photo ${index + 1}`}
+                    wrapClassName={index === 0 ? "row-span-2 h-full min-h-0 w-full" : "h-full min-h-0 w-full"}
+                    className="h-full w-full cursor-pointer object-cover"
+                    onClick={() => setSelectedImageIndex(index)}
+                  />
+                ))}
+              </div>
+              <div className="flex w-[26%] shrink-0 flex-col gap-1">
+                {allImages.slice(3, 5).map((image, index) => (
+                  <RetryImage
+                    key={`${image}-${index + 3}`}
+                    src={image}
+                    alt={`Photo ${index + 4}`}
+                    wrapClassName="min-h-0 w-full flex-1"
+                    className="absolute inset-0 h-full w-full cursor-pointer object-cover"
+                    onClick={() => setSelectedImageIndex(index + 3)}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            allImages.slice(0, allImages.length === 1 ? 1 : allImages.length).map((image, index) => (
+              <RetryImage
+                key={`${image}-${index}`}
+                src={image}
+                alt={`Photo ${index + 1}`}
+                wrapClassName={
+                  allImages.length >= 3 && allImages.length !== 4 && index === 0
+                    ? "row-span-2 h-full min-h-0 w-full"
+                    : allImages.length === 1
+                      ? "aspect-[4/3] w-full"
+                      : "aspect-[4/3] h-full min-h-0 w-full"
+                }
+                className="h-full w-full cursor-pointer object-cover"
+                onClick={() => setSelectedImageIndex(index)}
+              />
+            ))
+          )}
           {hasMultipleImages ? (
-            <span className="absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-sm font-semibold text-white">
+            <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/65 px-2 py-1 text-sm font-semibold text-white">
               1/{allImages.length}
             </span>
           ) : null}
           {beforeImage && afterImage ? (
             <span
-              className="absolute left-2 top-2 rounded bg-primary px-2 py-0.5 text-sm font-bold text-primary-foreground"
+              className="pointer-events-none absolute left-2 top-2 rounded bg-primary px-2 py-0.5 text-sm font-bold text-primary-foreground"
             >
               AVANT
             </span>

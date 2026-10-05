@@ -34,6 +34,7 @@ import CreateProjectWizard from "./components/project/CreateProjectWizard";
 import CreateServiceForm from "./components/service/CreateServiceForm";
 import VisitorProfile, { JoinChoice } from "./pages/VisitorProfile";
 import Welcome, { hasSeenWelcome } from "./pages/Welcome";
+import Opportunities from "./pages/Opportunities.tsx";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,12 @@ const AppLayout = () => {
   const [welcomeDone, setWelcomeDone] = useState(() => hasSeenWelcome());
   const lockToReset = isPasswordRecovery;
 
+  const desktopRail =
+    pathname === "/" ||
+    pathname.startsWith("/explore") ||
+    pathname.startsWith("/saved") ||
+    pathname.startsWith("/opportunites");
+
   const hideAppChrome =
     isWelcome ||
     pathname.startsWith("/login") ||
@@ -84,15 +91,24 @@ const AppLayout = () => {
 
   return (
         <div className="w-full min-h-screen bg-background flex flex-col">
-          {isProfile || isReels || isProjectDetail || isServiceDetail || isPropertyDetail || lockToReset || hideAppChrome ? null : <AppHeader />}
-          {lockToReset || hideAppChrome ? null : <TabNav />}
-          <div className={`${lockToReset || hideAppChrome ? "" : "pb-20"} flex-1`}>
+          {isProfile || isReels || isProjectDetail || isServiceDetail || isPropertyDetail || lockToReset || hideAppChrome ? null : (
+            <div className={desktopRail ? "lg:hidden" : undefined}>
+              <AppHeader />
+            </div>
+          )}
+          {lockToReset || hideAppChrome ? null : (
+            <div className={desktopRail ? "lg:hidden" : undefined}>
+              <TabNav />
+            </div>
+          )}
+          <div className={`${lockToReset || hideAppChrome ? "" : desktopRail ? "pb-20 lg:pb-0" : "pb-20"} flex-1`}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/welcome" element={<Welcome onDone={() => setWelcomeDone(true)} />} />
             <Route path="/post/:id" element={<PostDetail />} />
             <Route path="/job/:title" element={<JobDetail />} />
             <Route path="/explore" element={<Explore />} />
+            <Route path="/opportunites" element={<Opportunities />} />
             <Route path="/projet/nouveau" element={<CreateProjectWizard />} />
             <Route path="/service/nouveau" element={<CreateServiceForm />} />
             <Route path="/service/:id" element={<ServicePage />} />
