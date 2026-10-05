@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
-import { Briefcase, Building2, Cpu, Ellipsis, FileText, Hammer, Handshake, HardHat, Home, Landmark, LayoutGrid, PenTool } from "lucide-react";
+import { Building2, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, PenTool } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
@@ -49,25 +49,6 @@ const ArchIcon = ({ className }: { className?: string }) => (
       WebkitMaskSize: "contain",
     }}
   />
-);
-
-const RenovationIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.65"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden
-  >
-    <path d="M3 10.5 12 3l9 7.5-1.7 2L12 6.4l-7.3 6.1z" />
-    <path d="M6.1 11.5V21h11.8v-7.2" />
-    <path d="M15.4 5.8V3.2h2.7v4.9" />
-    <path d="M7.3 14.6c1.1-.1 1.6-.5 1.9-1.3.4-1.1 1.4-1.8 2.5-1.8h2.5l.8.8-2.9 1.1-2.2 2.3-1 1z" />
-    <path d="m11.9 14.1 1.5-1.5 7.2 7.2a1.05 1.05 0 0 1-1.5 1.5z" />
-  </svg>
 );
 
 const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
@@ -562,14 +543,14 @@ const Index = () => {
       <div className="min-w-0 lg:flex-1 lg:py-5">
       <div className="mx-auto flex w-full max-w-2xl flex-col lg:w-[56rem] lg:max-w-[calc(100vw-22rem)] lg:px-8">
         {categoriesOpen ? null : (
-        <div className="order-1 mb-4 hidden items-end justify-between gap-4 border-b border-neutral-200 lg:flex">
-          <div className="flex min-w-0 items-end gap-1">
+        <div className="order-1 mb-[1.5vh] flex items-end justify-between gap-4 border-b border-neutral-200 px-[1vh] lg:mb-4 lg:px-0">
+          <div className="flex w-full min-w-0 items-end overflow-x-auto [scrollbar-width:none] lg:w-auto lg:gap-1 [&::-webkit-scrollbar]:hidden">
             {[
-              { id: "all" as const, label: "Accueil", Icon: LayoutGrid },
-              { id: "projets" as const, label: "Projets", Icon: RenovationIcon },
-              { id: "biens" as const, label: "Biens", Icon: Building2 },
-              { id: "services" as const, label: "Services", Icon: Handshake },
-              { id: "opportunites" as const, label: "Business", Icon: Briefcase },
+              { id: "all" as const, label: "Accueil" },
+              { id: "projets" as const, label: "Projets" },
+              { id: "biens" as const, label: "Biens" },
+              { id: "services" as const, label: "Services" },
+              { id: "opportunites" as const, label: "Business" },
             ].map((item) => {
               const active = item.id !== "opportunites" && feedView === item.id;
               return (
@@ -593,69 +574,18 @@ const Index = () => {
                     }
                     setSearchParams(next, { replace: true });
                   }}
-                  className={`-mb-px flex items-center gap-2 border-b-2 px-3 py-3 text-base font-semibold ${
+                  className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.4vh] py-[1.6vh] text-[1.65vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3 lg:py-3 lg:text-base ${
                     active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
                   }`}
                 >
-                  <item.Icon className="h-5 w-5 shrink-0" />
                   {item.label}
                 </button>
               );
             })}
           </div>
-          <LocationAndBell calm showBell={false} className="self-center" pillClassName="h-12 px-4" />
+          <LocationAndBell calm showBell={false} className="hidden self-center lg:flex" pillClassName="h-12 px-4" />
         </div>
         )}
-        {categoriesOpen ? null : (
-        <div className="order-1 mb-2 border-b border-neutral-200 bg-white lg:hidden">
-        <div className="flex w-full gap-1.5 overflow-x-auto pb-[11px] pt-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {[
-            { id: "all" as const, label: "Accueil", Icon: LayoutGrid, tone: "bg-[#eee9ec]" },
-            { id: "projets" as const, label: "Projets", Icon: RenovationIcon, tone: "bg-[#eee9ec]" },
-            { id: "biens" as const, label: "Biens", Icon: Building2, tone: "bg-[#eee9ec]" },
-            { id: "services" as const, label: "Services", Icon: Handshake, tone: "bg-[#eee9ec]" },
-            { id: "opportunites" as const, label: "Business", Icon: Briefcase, tone: "bg-[#eee9ec]" },
-          ].map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                if (item.id === "opportunites") {
-                  navigate("/opportunites");
-                  return;
-                }
-                setCategoriesOpen(false);
-                const next = new URLSearchParams(searchParams);
-                if (item.id === "all") {
-                  next.delete("vue");
-                  setProfession(null);
-                } else if (feedView === item.id) {
-                  next.delete("vue");
-                } else {
-                  next.set("vue", item.id);
-                }
-                setSearchParams(next, { replace: true });
-              }}
-              className="group flex min-w-max flex-1 basis-0 flex-col items-center gap-2.5"
-            >
-              <span
-                className={`inline-flex h-[clamp(2.25rem,15vw,3.75rem)] w-[clamp(2.25rem,15vw,3.75rem)] items-center justify-center rounded-full transition ${
-                  feedView === item.id
-                    ? "scale-105 bg-[#174f43] text-white shadow-md"
-                    : `${item.tone} text-neutral-800 group-hover:shadow-sm`
-                }`}
-              >
-                <item.Icon className="h-6 w-6" />
-              </span>
-              <span className="whitespace-nowrap text-center text-sm font-semibold leading-normal text-neutral-800">
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </div>
-        </div>
-        )}
-
         {categoriesOpen ? null : (
         <section className="relative order-2 mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white lg:mx-0 lg:min-h-[280px]">
           <img
