@@ -75,7 +75,7 @@ const Welcome = ({ onDone }: { onDone?: () => void }) => {
           </p> */}
         </div>
 
-        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center text-center sm:pb-8 lg:pb-[12vh]">
+        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center text-center sm:pb-8 lg:pb-[20vh]">
           <img src={logo} alt="" className="mb-[1.5vh] h-28 w-auto drop-shadow-md sm:mb-5 sm:h-36 lg:h-40" />
           <p className="max-w-3xl text-4xl font-normal leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-6xl" style={{ fontFamily: '"Playfair Display", Georgia, serif', textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9), 0 0 1px #000" }}>
             L'annuaire vivant de l'écosystème immobilier et construction au Maroc.
