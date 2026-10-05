@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT,
   profession TEXT,
   location TEXT,
-  bio TEXT CHECK (char_length(bio) <= 165),
+  bio TEXT CHECK (char_length(bio) <= 450),
   about_text TEXT,
   avatar_url TEXT,
   cover_photo_url TEXT,
