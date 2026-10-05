@@ -44,7 +44,7 @@ const Welcome = ({ onDone }: { onDone?: () => void }) => {
 
   return (
     <div className="bg-[#F7F4EE] text-[#182830]">
-    <div className="relative min-h-[100dvh] overflow-hidden bg-sky-800 text-white">
+    <div className="relative h-[100dvh] overflow-hidden bg-sky-800 text-white sm:h-auto sm:min-h-[100dvh]">
       <img
         src="/welcome-morocco.jpg"
         alt=""
@@ -52,8 +52,8 @@ const Welcome = ({ onDone }: { onDone?: () => void }) => {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/45 to-black/55" />
 
-      <div className="relative z-10 flex min-h-[100dvh] w-full flex-col px-3 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] md:px-5">
-        <div className="ml-8 flex flex-col items-start pt-8 text-left md:ml-14 md:pt-[4vh]">
+      <div className="relative z-10 flex h-full min-h-0 w-full flex-col px-3 pb-[max(3vh,env(safe-area-inset-bottom))] pt-[max(2vh,env(safe-area-inset-top))] sm:min-h-[100dvh] sm:pb-[max(3rem,env(safe-area-inset-bottom))] sm:pt-[max(1.25rem,env(safe-area-inset-top))] md:px-5">
+        <div className="ml-8 flex translate-y-[2vh] flex-col items-start text-left sm:translate-y-0 sm:pt-8 md:ml-14 md:pt-[4vh]">
           <h1 className="flex flex-col items-start drop-shadow-sm">
             <span
               lang="ar"
@@ -75,18 +75,18 @@ const Welcome = ({ onDone }: { onDone?: () => void }) => {
           </p> */}
         </div>
 
-        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center pb-8 text-center">
-          <img src={logo} alt="" className="mb-5 h-28 w-auto drop-shadow-md sm:h-36 lg:h-40" />
+        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center text-center sm:pb-8">
+          <img src={logo} alt="" className="mb-[1.5vh] h-28 w-auto drop-shadow-md sm:mb-5 sm:h-36 lg:h-40" />
           <p className="max-w-3xl text-4xl font-normal leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-6xl" style={{ fontFamily: '"Playfair Display", Georgia, serif', textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9), 0 0 1px #000" }}>
             L'annuaire vivant de l'écosystème immobilier et construction au Maroc.
           </p>
           <p
-            className="mt-20 max-w-2xl text-lg font-medium leading-relaxed text-white sm:mt-10 sm:text-xl"
+            className="mt-[2vh] max-w-2xl text-lg font-medium leading-relaxed text-white sm:mt-10 sm:text-xl"
             style={{ textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9), 0 0 1px #000" }}
           >
             Trouvez les meilleurs professionnels, explorez les projets innovants et suivez les tendances du marché marocain.
           </p>
-          <div className="mt-10 flex w-full max-w-md flex-col items-center sm:max-w-lg sm:flex-row sm:gap-4">
+          <div className="mt-[2.5vh] flex w-full max-w-md flex-col items-center sm:mt-10 sm:max-w-lg sm:flex-row sm:gap-4">
             <button
               type="button"
               onClick={goFeed}
