@@ -70,9 +70,51 @@ export const savedService = {
     if (error) throw error;
   },
 
+  async saveProject(userId: string, projectId: string) {
+    const { data, error } = await supabase
+      .from('saved_projects')
+      .insert({ user_id: userId, project_id: projectId })
+      .select()
+      .single();
+
+    if (error && error.code !== '23505') throw error;
+    return data;
+  },
+
+  async unsaveProject(userId: string, projectId: string) {
+    const { error } = await supabase
+      .from('saved_projects')
+      .delete()
+      .eq('user_id', userId)
+      .eq('project_id', projectId);
+
+    if (error) throw error;
+  },
+
+  async saveProduct(userId: string, productId: string) {
+    const { data, error } = await supabase
+      .from('saved_products')
+      .insert({ user_id: userId, product_id: productId })
+      .select()
+      .single();
+
+    if (error && error.code !== '23505') throw error;
+    return data;
+  },
+
+  async unsaveProduct(userId: string, productId: string) {
+    const { error } = await supabase
+      .from('saved_products')
+      .delete()
+      .eq('user_id', userId)
+      .eq('product_id', productId);
+
+    if (error) throw error;
+  },
+
   // Get all saved items for a user
   async getSavedItems(userId: string) {
-    const [savedPosts, savedListings, savedReels] = await Promise.all([
+    const [savedPosts, savedListings, savedReels, savedProjects, savedProducts] = await Promise.all([
       supabase
         .from('saved_posts')
         .select(`
@@ -126,12 +168,39 @@ export const savedService = {
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('saved_projects')
+        .select(`
+          *,
+          projects:project_id (*)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('saved_products')
+        .select(`
+          *,
+          products:product_id (
+            *,
+            profiles:user_id (
+              id,
+              username,
+              full_name,
+              avatar_url,
+              location
+            )
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
     ]);
 
     return {
       posts: savedPosts.data || [],
       listings: savedListings.data || [],
       reels: savedReels.data || [],
+      projects: savedProjects.data || [],
+      products: savedProducts.data || [],
     };
   },
 
@@ -164,6 +233,28 @@ export const savedService = {
       .select('id')
       .eq('user_id', userId)
       .eq('reel_id', reelId)
+      .maybeSingle();
+
+    return !!data;
+  },
+
+  async isProjectSaved(userId: string, projectId: string): Promise<boolean> {
+    const { data } = await supabase
+      .from('saved_projects')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('project_id', projectId)
+      .maybeSingle();
+
+    return !!data;
+  },
+
+  async isProductSaved(userId: string, productId: string): Promise<boolean> {
+    const { data } = await supabase
+      .from('saved_products')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('product_id', productId)
       .maybeSingle();
 
     return !!data;
@@ -230,6 +321,43 @@ export const savedService = {
             username,
             avatar_url,
             is_verified
+          )
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getSavedProjects(userId: string) {
+    const { data, error } = await supabase
+      .from('saved_projects')
+      .select(`
+        *,
+        projects:project_id (*)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getSavedProducts(userId: string) {
+    const { data, error } = await supabase
+      .from('saved_products')
+      .select(`
+        *,
+        products:product_id (
+          *,
+          profiles:user_id (
+            id,
+            username,
+            full_name,
+            avatar_url,
+            location
           )
         )
       `)

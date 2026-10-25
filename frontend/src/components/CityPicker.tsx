@@ -43,6 +43,7 @@ export const CityPicker = ({
   placeholder = "Ville",
   className,
   required,
+  disabled,
 }: {
   id?: string;
   value: string;
@@ -51,18 +52,20 @@ export const CityPicker = ({
   placeholder?: string;
   className?: string;
   required?: boolean;
+  disabled?: boolean;
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const cities = region ? citiesForRegion(region) : allMoroccoCities();
+  const isDisabled = Boolean(disabled || (region !== undefined && !region));
 
   useEffect(() => {
     setQuery(value);
   }, [value]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isDisabled) return;
     const onPointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
         setQuery(value);
@@ -71,13 +74,22 @@ export const CityPicker = ({
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open, value]);
+  }, [open, value, isDisabled]);
+
+  useEffect(() => {
+    if (isDisabled) setOpen(false);
+  }, [isDisabled]);
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    // When a region is set, list every city in that region (from cities_and_regions.json).
+    // Without a region, keep a search-narrowed list so the dropdown stays usable.
+    if (region) {
+      return needle ? cities.filter((city) => city.toLowerCase().includes(needle)) : cities;
+    }
     const list = needle ? cities.filter((city) => city.toLowerCase().includes(needle)) : cities;
-    return list.slice(0, 80);
-  }, [cities, query]);
+    return needle ? list : list.slice(0, 80);
+  }, [cities, query, region]);
 
   const pick = (city: string) => {
     onChange(city);
@@ -91,18 +103,22 @@ export const CityPicker = ({
       <Input
         id={id}
         required={required}
+        disabled={isDisabled}
         value={query}
         placeholder={placeholder}
         autoComplete="off"
         spellCheck={false}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          if (!isDisabled) setOpen(true);
+        }}
         onChange={(e) => {
+          if (isDisabled) return;
           setQuery(e.target.value);
           setOpen(true);
         }}
         className={cn("pl-9", className)}
       />
-      {open ? (
+      {open && !isDisabled ? (
         <div className="absolute left-0 right-0 z-40 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
           <div className="max-h-56 overflow-y-auto py-1">
             {matches.length ? (

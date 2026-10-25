@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { storageService } from "@/services/storageService";
+import { isWithinUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { toast } from "@/components/ui/use-toast";
 import { toAboutHtml } from "@/lib/aboutHtml";
 
@@ -107,6 +107,10 @@ const AboutRichEditor = ({ value, onChange }: AboutRichEditorProps) => {
   });
 
   const prepareImage = async (file: File) => {
+    if (!isWithinUploadLimit(file)) {
+      toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+      return;
+    }
     setUploading(true);
     try {
       const src = await storageService.uploadImage(file, "about");

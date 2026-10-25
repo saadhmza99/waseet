@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
-import { Building2, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, PenTool } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
@@ -18,19 +17,20 @@ import { toast } from "@/components/ui/use-toast";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { takeFeedFirstPage, takeFeedNextPage } from "@/lib/feedPrefetch";
 import { cityFromPost } from "@/lib/feedLocation";
-import { contactPhone } from "@/lib/propertyListing";
+import { contactPhone, propertyViewFromRow } from "@/lib/propertyListing";
 import { catalogService } from "@/services/catalogService";
 import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
-import { CategoryPicker } from "@/components/CategoryPicker";
+import { CategoryPicker, FEED_PICKER_CATEGORIES } from "@/components/CategoryPicker";
+import { FilterChips, SubCategoryChips } from "@/components/FilterChips";
 import FeedDesktopRail from "@/components/FeedDesktopRail";
-import { LocationAndBell } from "@/components/AppHeader";
+import { CreateAndBell } from "@/components/AppHeader";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { ServiceCard } from "@/components/service/ServiceCard.tsx";
 import { PropertyCard } from "@/components/property/PropertyCard";
-import { SHOWCASE_PROJECTS } from "@/lib/showcaseProjects";
-import { SHOWCASE_SERVICES } from "@/lib/showcaseServices.ts";
-import { SHOWCASE_PROPERTIES } from "@/lib/showcaseProperties";
 import { SHOWCASE_POSTS } from "@/lib/showcasePosts";
+import { offerFromRow } from "@/lib/serviceOffer";
+import { serviceFirmName, serviceFeedTags, serviceService, type ServiceRow } from "@/services/serviceService";
+import { PROJECT_TYPES, PROPERTY_TYPES, feedCategoryBySlug, feedCategoryLabel, matchesFeedCategory, normalizePropertyKind } from "@/lib/taxonomy";
 import archIcon from "@/assets/sifarah-arch-icon-clean.png";
 
 const ArchIcon = ({ className }: { className?: string }) => (
@@ -59,45 +59,27 @@ const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
 ];
 
 type FeedView = "all" | "projets" | "biens" | "services";
-type ProfessionId =
-  | "foncier"
-  | "gestion"
-  | "biens"
-  | "construction"
-  | "renovation"
-  | "architecture"
-  | "notaires"
-  | "immotech"
-  | "autres";
 
-const PROFESSION_CATEGORIES: { id: ProfessionId; label: string; Icon: typeof Building2; pattern: RegExp }[] = [
-  { id: "foncier", label: "Foncier & Conseil", Icon: Landmark, pattern: /foncier|terrain|lotissement|titre foncier/ },
-  { id: "gestion", label: "Gestion Immobilière", Icon: Building2, pattern: /gestion|syndic|locative/ },
-  { id: "biens", label: "Biens & Projets", Icon: Home, pattern: /bien|propri[eé]t[eé]|immobilier|villa|appartement/ },
-  { id: "construction", label: "Construction", Icon: HardHat, pattern: /construct|b[aâ]timent|batiment|chantier/ },
-  { id: "renovation", label: "Rénovation & Aménagement", Icon: Hammer, pattern: /r[eé]nov|renov|am[eé]nagement|amenagement/ },
-  { id: "architecture", label: "Architecture", Icon: PenTool, pattern: /architect/ },
-  { id: "notaires", label: "Notaires & Juridiques", Icon: FileText, pattern: /notaire|juridique|avocat/ },
-  { id: "immotech", label: "Immotech", Icon: Cpu, pattern: /immotech|logiciel|digital|proptech/ },
-  { id: "autres", label: "Autres", Icon: Ellipsis, pattern: /$^/ },
-];
-
-const isBienPost = (post: { post_type?: string | null; property_id?: string | null }) =>
-  ["property", "bien", "propriete", "propriété"].includes(post.post_type || "") || Boolean(post.property_id);
-const isProjetPost = (post: { post_type?: string | null; project_id?: string | null }) =>
-  post.post_type === "project" || Boolean(post.project_id);
-
-const matchesProfession = (category: ProfessionId | "tout" | null, hay: string) => {
-  if (!category || category === "tout") return true;
-  if (category === "autres") {
-    return !PROFESSION_CATEGORIES.some((item) => item.id !== "autres" && item.pattern.test(hay));
-  }
-  return PROFESSION_CATEGORIES.find((item) => item.id === category)?.pattern.test(hay) ?? true;
+type TaxonomyPost = {
+  post_type?: string | null;
+  property_id?: string | null;
+  project_id?: string | null;
+  feed_category?: string | null;
+  feed_sub_category?: string | null;
+  property_kind?: string | null;
+  project_kind?: string | null;
 };
 
-const matchesFeedView = (view: FeedView, post: { post_type?: string | null; property_id?: string | null; project_id?: string | null }) => {
-  if (view === "projets") return isProjetPost(post);
-  if (view === "biens") return isBienPost(post) && !isProjetPost(post);
+const isBienPost = (post: TaxonomyPost) =>
+  ["property", "bien", "propriete", "propriété"].includes(post.post_type || "") || Boolean(post.property_id);
+const isProjetPost = (post: TaxonomyPost) =>
+  post.post_type === "project" || Boolean(post.project_id);
+
+const matchesFeedView = (view: FeedView, typeFilter: string | null, post: TaxonomyPost) => {
+  if (view === "projets") return isProjetPost(post) && (!typeFilter || post.project_kind === typeFilter);
+  if (view === "biens") {
+    return isBienPost(post) && !isProjetPost(post) && (!typeFilter || normalizePropertyKind(post.property_kind) === typeFilter);
+  }
   return true;
 };
 
@@ -109,12 +91,28 @@ const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const vue = searchParams.get("vue");
   const feedView: FeedView = vue === "projets" || vue === "biens" || vue === "services" ? vue : "all";
-  const [profession, setProfession] = useState<ProfessionId | "tout" | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
+  const [subCategory, setSubCategory] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const selectedCategory = feedCategoryBySlug(category);
+  const showCategories = feedView !== "biens" && feedView !== "projets";
+  const matchesPost = (post: TaxonomyPost) =>
+    (!showCategories || matchesFeedCategory(category, subCategory, post)) && matchesFeedView(feedView, typeFilter, post);
+
+  useEffect(() => {
+    setTypeFilter(null);
+  }, [feedView]);
   const [allPosts, setAllPosts] = useState<any[]>([]);
   const [sponsoredListings, setSponsoredListings] = useState<any[]>([]);
   const [feedListings, setFeedListings] = useState<any[]>([]);
+  const [liveServices, setLiveServices] = useState<ServiceRow[]>([]);
+  const [catalogProjects, setCatalogProjects] = useState<any[]>([]);
+  const [catalogProperties, setCatalogProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const filteredServices = liveServices.filter((row) => matchesFeedCategory(category, subCategory, serviceFeedTags(row)));
+  const filteredProjects = catalogProjects.filter((row) => !typeFilter || row.project_type === typeFilter);
+  const filteredProperties = catalogProperties.filter((row) => !typeFilter || row.details?.propertyKind === typeFilter || row.property_kind === typeFilter);
   const [bannerImages, setBannerImages] = useState<FeedBannerImage[]>(DEFAULT_BANNER_IMAGES);
   const [bannerNow, setBannerNow] = useState(() => Date.now());
   const [hasMorePosts, setHasMorePosts] = useState(true);
@@ -196,10 +194,13 @@ const Index = () => {
 
         Promise.all([
           listingService.getListings(40, 0),
+          serviceService.listServices(120, 0),
+          catalogService.listProjects(80, 0),
+          catalogService.listProperties(80, 0),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
         ])
-          .then(([listingsData, blockedUserIds, mutedIds]) => {
+          .then(([listingsData, servicesData, projectsData, propertiesData, blockedUserIds, mutedIds]) => {
             if (cancelled) return;
             const blockedSet = new Set(blockedUserIds || []);
             const visible = (listingsData || []).filter(
@@ -207,8 +208,13 @@ const Index = () => {
             );
             setFeedListings(visible);
             setSponsoredListings(visible.filter((listing) => listing.is_sponsored));
+            setLiveServices(
+              (servicesData || []).filter((row) => !blockedSet.has(row.user_id) && !mutedIds.services.has(row.user_id)),
+            );
+            setCatalogProjects(projectsData || []);
+            setCatalogProperties(propertiesData || []);
           })
-          .catch((error) => console.error("Error loading sponsored listings:", error));
+          .catch((error) => console.error("Error loading catalog/listings:", error));
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {
@@ -224,13 +230,9 @@ const Index = () => {
 
   useEffect(() => {
     if (feedView === "services" || loading || !hasMorePosts) return;
-    if (feedView === "all" && !profession) return;
-    const matches = allPosts.some((post) => {
-      const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
-      return matchesProfession(profession, hay) && matchesFeedView(feedView, post);
-    });
-    if (!matches) void loadMorePosts();
-  }, [feedView, profession, allPosts, hasMorePosts, loading]);
+    if (feedView === "all" && !category) return;
+    if (!allPosts.some(matchesPost)) void loadMorePosts();
+  }, [feedView, category, subCategory, typeFilter, allPosts, hasMorePosts, loading]);
 
   // Format time ago
   const formatTimeAgo = (date: string) => {
@@ -366,6 +368,7 @@ const Index = () => {
               : "Ajouté au fil et au portfolio.",
         });
       } else {
+      const isRealisation = postData.postType === "realisation";
       await postService.createPost(user.id, {
         title: postData.title || "",
         description: postData.text,
@@ -373,7 +376,7 @@ const Index = () => {
         after_image_url: postData.afterImage,
         single_image_url: postData.singleImage,
         images: postData.images || [],
-        post_type: postData.postType || "standard",
+        post_type: isRealisation ? "realisation" : "standard",
         price: postData.price || null,
         surface: postData.surface || null,
         beds: postData.beds ?? null,
@@ -382,8 +385,10 @@ const Index = () => {
         city,
       });
       toast({
-        title: "Post publié",
-        description: "Votre post a été publié avec succès.",
+        title: isRealisation ? "Réalisation publiée" : "Post publié",
+        description: isRealisation
+          ? "Ajoutée à votre onglet Réalisations."
+          : "Votre post a été publié avec succès.",
       });
       }
         feedGeneration.current += 1;
@@ -405,15 +410,9 @@ const Index = () => {
   const buildFeed = (): ReactElement[] => {
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
-    const posts = (feedView === "all" ? [...SHOWCASE_POSTS, ...allPosts] : allPosts).filter((post) => {
-      const hay = `${post.post_type || ""} ${post.profiles?.profession || ""} ${post.description || ""}`.toLowerCase();
-      return matchesProfession(profession, hay) && matchesFeedView(feedView, post);
-    });
+    const posts = (feedView === "all" ? [...SHOWCASE_POSTS, ...allPosts] : allPosts).filter(matchesPost);
     if (feedView === "services") {
-      const annonces = feedListings.filter((listing) => {
-        const hay = `${listing.title || ""} ${listing.profession || ""} ${listing.description || ""} ${listing.location || ""}`.toLowerCase();
-        return matchesProfession(profession, hay);
-      });
+      const annonces = feedListings.filter((listing) => matchesFeedCategory(category, subCategory, listing));
       if (!annonces.length) return [];
       return annonces.map((listing) => {
         const profile = listing.profiles || {};
@@ -550,7 +549,7 @@ const Index = () => {
               { id: "projets" as const, label: "Projets" },
               { id: "biens" as const, label: "Biens" },
               { id: "services" as const, label: "Services" },
-              { id: "opportunites" as const, label: "Business" },
+              { id: "opportunites" as const, label: "Business", mobileOnly: true },
             ].map((item) => {
               const active = item.id !== "opportunites" && feedView === item.id;
               return (
@@ -566,7 +565,8 @@ const Index = () => {
                     const next = new URLSearchParams(searchParams);
                     if (item.id === "all") {
                       next.delete("vue");
-                      setProfession(null);
+                      setCategory(null);
+                      setSubCategory(null);
                     } else if (feedView === item.id) {
                       next.delete("vue");
                     } else {
@@ -575,6 +575,8 @@ const Index = () => {
                     setSearchParams(next, { replace: true });
                   }}
                   className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.4vh] py-[1.6vh] text-[1.65vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3 lg:py-3 lg:text-base ${
+                    "mobileOnly" in item && item.mobileOnly ? "lg:hidden" : ""
+                  } ${
                     active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
                   }`}
                 >
@@ -583,7 +585,7 @@ const Index = () => {
               );
             })}
           </div>
-          <LocationAndBell calm showBell={false} className="hidden self-center lg:flex" pillClassName="h-12 px-4" />
+          <CreateAndBell calm showBell={false} className="hidden self-center lg:flex" pillClassName="h-12 px-4" />
         </div>
         )}
         {categoriesOpen ? null : (
@@ -606,22 +608,22 @@ const Index = () => {
         </section>
         )}
 
+        {showCategories ? (
         <div className="order-3 px-3 lg:px-0">
           <CategoryPicker
             open={categoriesOpen}
             onToggle={() => setCategoriesOpen((open) => !open)}
-            selectedLabel={
-              profession === "tout"
-                ? "Tout"
-                : PROFESSION_CATEGORIES.find((item) => item.id === profession)?.label || null
-            }
-            categories={PROFESSION_CATEGORIES}
+            selectedLabel={feedCategoryLabel(category)}
+            categories={FEED_PICKER_CATEGORIES}
             onSelect={(id) => {
-              setProfession(id as ProfessionId | "tout");
+              setCategory(id);
+              setSubCategory(null);
               setCategoriesOpen(false);
             }}
           />
+          {categoriesOpen ? null : <SubCategoryChips category={category} value={subCategory} onChange={setSubCategory} />}
         </div>
+        ) : null}
 
         {categoriesOpen ? null : sponsoredListings.length >= 2 && feedView !== "services" && (
           <div className="order-4 my-4 space-y-3 sm:my-6 sm:space-y-4">
@@ -662,25 +664,54 @@ const Index = () => {
         />
 
         {/* Feed with posts and sponsored banners */}
+        {feedView === "projets" || feedView === "biens" ? (
+          <div className="px-3 pb-[1.2vh] lg:px-0">
+            <FilterChips
+              options={[
+                { id: null, label: "Tout" },
+                ...(feedView === "biens" ? PROPERTY_TYPES : PROJECT_TYPES).map((item) => ({ id: item.id, label: item.label })),
+              ]}
+              value={typeFilter}
+              onChange={setTypeFilter}
+            />
+          </div>
+        ) : null}
         {feedView === "projets" ? (
-          <div className="grid gap-3 px-3 pb-4">
-            {SHOWCASE_PROJECTS.map((row) => (
+          <div className="grid grid-cols-1 items-start gap-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2 lg:px-0">
+            {filteredProjects.map((row) => (
               <ProjectCard key={row.id} row={row} />
             ))}
+            {!filteredProjects.length ? (
+              <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground">Aucun projet dans cette rubrique pour le moment.</p>
+            ) : null}
           </div>
         ) : null}
         {feedView === "services" ? (
-          <div className="grid gap-3 px-3 pb-4">
-            {SHOWCASE_SERVICES.map((row) => (
-              <ServiceCard key={row.id} row={row} />
+          <div className="grid grid-cols-1 items-start gap-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2 lg:px-0">
+            {filteredServices.map((row) => (
+              <ServiceCard
+                key={row.id}
+                row={{
+                  id: row.id,
+                  firm: serviceFirmName(row),
+                  userId: row.user_id,
+                  offer: offerFromRow(row),
+                }}
+              />
             ))}
+            {!filteredServices.length ? (
+              <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground">Aucun service dans cette rubrique pour le moment.</p>
+            ) : null}
           </div>
         ) : null}
         {feedView === "biens" ? (
           <div className="grid gap-3 px-3 pb-4">
-            {SHOWCASE_PROPERTIES.map((row) => (
-              <PropertyCard key={row.id} row={row} />
+            {filteredProperties.map((row) => (
+              <PropertyCard key={row.id} row={propertyViewFromRow(row)} />
             ))}
+            {!filteredProperties.length ? (
+              <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground">Aucun bien dans cette rubrique pour le moment.</p>
+            ) : null}
           </div>
         ) : null}
 

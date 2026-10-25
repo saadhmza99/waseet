@@ -1,11 +1,12 @@
 import { supabase } from '@/lib/supabase';
+import { UPLOAD_MAX_BYTES } from '@/services/storageService';
 
 // Cloudflare Stream API endpoints
 const CLOUDFLARE_ACCOUNT_ID = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
 const STREAM_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream`;
 
-/** Hard cap before we even ask for a direct-upload ticket (cost + UX). */
-export const REEL_UPLOAD_MAX_BYTES = 250 * 1024 * 1024;
+/** Hard cap before we even ask for a direct-upload ticket (cost + UX). Reels use the global 20 Mo limit. */
+export const REEL_UPLOAD_MAX_BYTES = UPLOAD_MAX_BYTES;
 
 /** Law: max duration per reel (seconds). Must match Edge Function + DB constraint. */
 export const REEL_MAX_DURATION_SECONDS = 30;

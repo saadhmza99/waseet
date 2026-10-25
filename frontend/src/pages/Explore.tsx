@@ -1,64 +1,54 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Building2, ChevronLeft, Cpu, Ellipsis, FileText, Hammer, HardHat, Home, Landmark, List, Map as MapIcon, PenTool, Search } from "lucide-react";
+import { Briefcase, Building, Building2, ChevronDown, Ellipsis, Factory, HardHat, Home, Hotel, Landmark, List, Map as MapIcon, MapPin, Search, SlidersHorizontal, Store, X, type LucideIcon } from "lucide-react";
 import { DesktopRailFrame } from "@/components/FeedDesktopRail";
+import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import MapView from "@/components/MapView";
-import { CategoryPicker } from "@/components/CategoryPicker";
-import { DISCOVER_ITEMS } from "@/lib/showcaseDiscover";
-import { SHOWCASE_PROFILE_USERNAME } from "@/lib/showcasePosts";
+import { CategoryPicker, FEED_PICKER_CATEGORIES, type CategoryOption } from "@/components/CategoryPicker";
+import { RegionCitySheet } from "@/components/RegionCitySheet";
+import { SubCategoryChips } from "@/components/FilterChips";
+import { ProjectCard } from "@/components/project/ProjectCard";
+import { PROJECT_MILESTONES, milestoneReachedIndex } from "@/components/project/ProjectMilestoneTrack";
+import { COMMERCIAL_STATUSES, dossierFromRow } from "@/lib/projectDossier";
+import { ServiceCard } from "@/components/service/ServiceCard";
+import { DISCOVER_ITEMS, type DiscoverItem } from "@/lib/showcaseDiscover";
+import { offerFromRow, priceLabel, serviceMainImage, zoneLabel } from "@/lib/serviceOffer";
+import { catalogService } from "@/services/catalogService";
+import { profileService } from "@/services/profileService";
+import { serviceFirmName, serviceFeedTags, serviceService, type ServiceRow } from "@/services/serviceService";
+import { PROJECT_TYPES, feedCategoryLabel, feedSubCategoryBySlug, isFournisseurInternalCode, isPromoteurInternalCode, matchesFeedCategory, projectTypeLabel } from "@/lib/taxonomy";
 
-type DiscoverKind = "actualite" | "biens-projets" | "annonces";
-type CategoryId =
-  | "foncier"
-  | "gestion"
-  | "biens"
-  | "construction"
-  | "renovation"
-  | "architecture"
-  | "notaires"
-  | "immotech"
-  | "autres";
-type Deal = "all" | "sale" | "rent";
-type ItemKind = "actualite" | "bien" | "projet" | "annonce" | "agence";
-
-type MockItem = {
-  id: string;
-  category: CategoryId;
-  kind: ItemKind;
-  profileName: string;
-  image: string;
-  title: string;
-  city: string;
-  price?: string;
-  surface?: string;
-  beds?: number;
-  deal?: "sale" | "rent";
-  blurb?: string;
-  progress?: number;
-  baths?: number;
-  description?: string;
-  highlights?: string[];
+const PROJECT_TYPE_ICONS: Record<string, LucideIcon> = {
+  projet_residentiel: Home,
+  lotissement: MapIcon,
+  residence: Building2,
+  complexe_immobilier: Building,
+  projet_commercial: Store,
+  projet_hotelier: Hotel,
+  projet_industriel: Factory,
+  projet_mixte: Building2,
+  usine: Factory,
+  centre_commercial: Store,
+  bureau: Briefcase,
+  hotel: Hotel,
+  equipement_prive: Landmark,
+  equipement_collectif: Landmark,
+  infrastructure_projet: HardHat,
 };
 
-const KINDS: { id: DiscoverKind; label: string }[] = [
-  { id: "actualite", label: "Actualité" },
-  { id: "biens-projets", label: "Biens projets" },
-  { id: "annonces", label: "Services" },
-];
+/** Categories shown by the Catégories button while the Projets tab is active. */
+const PROJECT_TYPE_OPTIONS: CategoryOption[] = PROJECT_TYPES.map((item) => ({
+  id: item.id,
+  label: item.label,
+  Icon: PROJECT_TYPE_ICONS[item.id] || Ellipsis,
+}));
 
-const CATEGORIES: { id: CategoryId; label: string; Icon: typeof Building2 }[] = [
-  { id: "foncier", label: "Foncier & Conseil", Icon: Landmark },
-  { id: "gestion", label: "Gestion Immobilière", Icon: Building2 },
-  { id: "biens", label: "Biens & Projets", Icon: Home },
-  { id: "construction", label: "Construction", Icon: HardHat },
-  { id: "renovation", label: "Rénovation & Aménagement", Icon: Hammer },
-  { id: "architecture", label: "Architecture", Icon: PenTool },
-  { id: "notaires", label: "Notaires & Juridiques", Icon: FileText },
-  { id: "immotech", label: "Immotech", Icon: Cpu },
-  { id: "autres", label: "Autres", Icon: Ellipsis },
-];
+type MockItem = DiscoverItem;
 
-const WITH_BIENS = new Set<CategoryId>(["biens", "gestion"]);
+/** First paint + scroll pages — keep small so nested taxonomy joins stay fast. */
+const DISCOVER_PAGE_SIZE = 8;
+
+const subCategoryLabel = (item: MockItem) => feedSubCategoryBySlug(item.feed_sub_category)?.subCategory.label || "";
 
 type SearchType = "biens" | "services" | "projets" | "comptes";
 
@@ -69,18 +59,23 @@ const SEARCH_TYPES: { id: SearchType; label: string }[] = [
   { id: "services", label: "Services" },
 ];
 
-const DEALS: { id: Deal; label: string }[] = [
-  { id: "all", label: "Tout" },
-  { id: "sale", label: "Vente" },
-  { id: "rent", label: "Location" },
-];
-
-const ITEMS: MockItem[] = DISCOVER_ITEMS;
-
 const matchesQuery = (item: MockItem, query: string) => {
   if (!query) return true;
-  const hay = `${item.profileName} ${item.title} ${item.city} ${item.blurb || ""} ${item.description || ""} ${(item.highlights || []).join(" ")}`.toLowerCase();
+  const hay = `${item.profileName} ${item.username || ""} ${item.title} ${item.city} ${item.blurb || ""} ${item.description || ""} ${(item.highlights || []).join(" ")}`.toLowerCase();
   return hay.includes(query);
+};
+
+const matchesCity = (item: MockItem, city: string) => {
+  if (!city.trim()) return true;
+  const needle = city.trim().toLowerCase();
+  const hay = (item.city || "").toLowerCase();
+  if (!hay) return false;
+  if (hay.includes(needle)) return true;
+  return hay
+    .split(/[\n,;/|]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .some((part) => part === needle || part.startsWith(needle) || needle.startsWith(part));
 };
 
 const detailLine = (item: MockItem) => {
@@ -89,8 +84,6 @@ const detailLine = (item: MockItem) => {
     .filter(Boolean)
     .join(" · ");
 };
-
-const projectStatus = (progress = 0) => (progress >= 100 ? "Terminé" : "En cours");
 
 const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem) => void }) => {
   const profile = (
@@ -108,34 +101,6 @@ const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem)
       {detailLine(item) ? <span className="mt-0.5 block text-sm text-neutral-600">{detailLine(item)}</span> : null}
     </>
   );
-
-  if (item.kind === "projet") {
-    const facts = [item.profileName, item.city].filter(Boolean);
-    return (
-      <button type="button" onClick={() => onOpen(item)} className="block w-full text-left">
-        <span className="relative block">
-          <img src={item.image} alt="" className="aspect-[16/10] w-full object-cover" />
-          <span className="absolute right-3 top-3 rounded bg-neutral-900/75 px-2 py-1 text-xs font-semibold text-white">
-            {projectStatus(item.progress)}
-          </span>
-        </span>
-        <span className="block px-3 py-3">
-          <span className="block text-[17px] font-semibold leading-tight text-neutral-950">{item.title}</span>
-          <span className="mt-1 block text-sm text-neutral-600">{facts.join(" · ")}</span>
-          <span className="mt-3 flex items-center justify-between text-sm">
-            <span className="text-neutral-500">Avancement</span>
-            <span className="font-semibold text-[#174f43]">{Math.min(100, item.progress ?? 0)} %</span>
-          </span>
-          <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-neutral-200">
-            <span className="block h-full bg-[#174f43]" style={{ width: `${Math.min(100, item.progress ?? 0)}%` }} />
-          </span>
-          {item.highlights?.length ? (
-            <span className="mt-2 block text-sm font-medium text-neutral-800">{item.highlights.join(" · ")}</span>
-          ) : null}
-        </span>
-      </button>
-    );
-  }
 
   if (item.kind === "bien") {
     return (
@@ -200,88 +165,457 @@ const AccountRow = ({
   </div>
 );
 
-const CardList = ({ items, onOpen }: { items: MockItem[]; onOpen: (item: MockItem) => void }) => (
-  <ul className="mt-3 flex flex-col gap-3">
-    {items.map((item) => (
-      <li
-        key={item.id}
-        className="overflow-hidden rounded-xl border border-neutral-300 bg-white transition duration-150 hover:scale-[0.98] hover:border-neutral-400"
-      >
-        <ResultCard item={item} onOpen={onOpen} />
-      </li>
-    ))}
+/** Vertical sliding segmented control over the project stages:
+ *  Tout -> Sur plan -> Construction -> Prêt à livrer -> Livré. */
+const StageSlider = ({ value, onChange }: { value: number; onChange: (value: number) => void }) => {
+  const stops = [{ id: "", label: "Tout" }, ...PROJECT_MILESTONES];
+  const count = stops.length;
+  return (
+    <div className="relative flex flex-col rounded-[2.2vh] bg-neutral-100 p-[0.5vh]" role="group" aria-label="État du projet">
+      <span
+        aria-hidden
+        className="absolute left-[0.5vh] right-[0.5vh] rounded-[1.8vh] bg-[#174f43] shadow-sm transition-all duration-200 ease-out"
+        style={{
+          height: `calc((100% - 1vh) / ${count})`,
+          top: `calc(0.5vh + ${value} * (100% - 1vh) / ${count})`,
+        }}
+      />
+      {stops.map((stop, index) => (
+        <button
+          key={stop.label}
+          type="button"
+          onClick={() => onChange(index)}
+          aria-pressed={index === value}
+          className={`relative z-[1] w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[0.95vh] text-left text-[1.35vh] font-semibold leading-none transition-colors duration-200 ${
+            index === value ? "text-white" : "text-neutral-500 hover:text-neutral-800"
+          }`}
+        >
+          {stop.label}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const CardList = ({
+  items,
+  onOpen,
+  serviceRows,
+  projectRows,
+}: {
+  items: MockItem[];
+  onOpen: (item: MockItem) => void;
+  serviceRows: ServiceRow[];
+  projectRows: any[];
+}) => (
+  <ul className="mt-3 grid grid-cols-1 items-start gap-3 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2">
+    {items.map((item) => {
+      if (item.kind === "projet") {
+        const project = projectRows.find((row) => row.id === item.id);
+        if (project) {
+          return (
+            <li key={item.id} className="min-w-0 transition duration-150 hover:scale-[0.98]">
+              <ProjectCard row={project} />
+            </li>
+          );
+        }
+      }
+      if (item.kind === "annonce") {
+        const service = serviceRows.find((row) => row.id === item.id);
+        if (service) {
+          return (
+            <li key={item.id} className="min-w-0 transition duration-150 hover:scale-[0.98]">
+              <ServiceCard
+                row={{
+                  id: service.id,
+                  firm: serviceFirmName(service),
+                  userId: service.user_id,
+                  offer: offerFromRow(service),
+                }}
+              />
+            </li>
+          );
+        }
+      }
+      return (
+        <li
+          key={item.id}
+          className="min-w-0 overflow-hidden rounded-xl border border-neutral-300 bg-white transition duration-150 hover:scale-[0.98] hover:border-neutral-400"
+        >
+          <ResultCard item={item} onOpen={onOpen} />
+        </li>
+      );
+    })}
   </ul>
 );
 
 const Explore = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const query = (params.get("q") || "").trim().toLowerCase();
   const [draft, setDraft] = useState(params.get("q") || "");
   const [searchType, setSearchType] = useState<SearchType>("comptes");
   const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "tout" | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [subCategory, setSubCategory] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState("");
+  const [citySheetOpen, setCitySheetOpen] = useState(false);
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
-  const [kind, setKind] = useState<DiscoverKind>("actualite");
-  const [kindSlide, setKindSlide] = useState<"left" | "right">("right");
-  const kindDrag = useRef<number | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [category, setCategory] = useState<CategoryId | null>(null);
-  const [deal, setDeal] = useState<Deal>("all");
-  const [opened, setOpened] = useState<MockItem | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [projectStageIdx, setProjectStageIdx] = useState(0);
+  const [projectCommercial, setProjectCommercial] = useState<string | null>(null);
+  const [projectType, setProjectType] = useState<string | null>(null);
+  const projectStage = projectStageIdx === 0 ? null : PROJECT_MILESTONES[projectStageIdx - 1].id;
+  const activeProjectFilters = (projectStageIdx > 0 ? 1 : 0) + (projectCommercial ? 1 : 0);
+  const [liveServices, setLiveServices] = useState<ServiceRow[]>([]);
+  const [liveProjects, setLiveProjects] = useState<any[]>([]);
+  const [liveProperties, setLiveProperties] = useState<any[]>([]);
+  const [liveProfiles, setLiveProfiles] = useState<any[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreServices, setHasMoreServices] = useState(true);
+  const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
+  const [servicesBooted, setServicesBooted] = useState(false);
+  const [catalogBooted, setCatalogBooted] = useState(false);
 
-  const kindIndex = Math.max(0, KINDS.findIndex((item) => item.id === kind));
-  const moveKind = (nextIndex: number) => {
-    const count = KINDS.length;
-    const wrapped = (nextIndex + count) % count;
-    if (wrapped === kindIndex) return;
-    const forward = (wrapped - kindIndex + count) % count;
-    const backward = (kindIndex - wrapped + count) % count;
-    setKindSlide(forward <= backward ? "right" : "left");
-    setKind(KINDS[wrapped].id);
-  };
+  const servicesOffsetRef = useRef(0);
+  const profilesOffsetRef = useRef(0);
+  const hasMoreServicesRef = useRef(true);
+  const hasMoreProfilesRef = useRef(true);
+  const loadingMoreRef = useRef(false);
+  const servicesBootedRef = useRef(false);
+  const catalogBootedRef = useRef(false);
+  const loadTicket = useRef(0);
 
   const typedQuery = draft.trim().toLowerCase();
+
+  const appendUnique = <T extends { id: string }>(prev: T[], next: T[]) => {
+    const seen = new Set(prev.map((row) => row.id));
+    return [...prev, ...next.filter((row) => !seen.has(row.id))];
+  };
+
+  const cityFilter = selectedCity.trim() || null;
+
+  const loadMoreServices = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMoreServicesRef.current) return;
+    const ticket = ++loadTicket.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const page = await serviceService.listServices(DISCOVER_PAGE_SIZE, servicesOffsetRef.current, {
+        city: cityFilter,
+      });
+      if (loadTicket.current !== ticket) return;
+      servicesOffsetRef.current += DISCOVER_PAGE_SIZE;
+      const more = page.length >= DISCOVER_PAGE_SIZE;
+      hasMoreServicesRef.current = more;
+      setHasMoreServices(more);
+      setLiveServices((prev) => appendUnique(prev, page));
+    } catch (error) {
+      if (loadTicket.current !== ticket) return;
+      console.error("Error loading more services:", error);
+      hasMoreServicesRef.current = false;
+      setHasMoreServices(false);
+    } finally {
+      if (loadTicket.current === ticket) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }, [cityFilter]);
+
+  const loadMoreProfiles = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMoreProfilesRef.current) return;
+    const ticket = ++loadTicket.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const page = await profileService.listProfessionals(DISCOVER_PAGE_SIZE, profilesOffsetRef.current, {
+        city: cityFilter,
+      });
+      if (loadTicket.current !== ticket) return;
+      profilesOffsetRef.current += DISCOVER_PAGE_SIZE;
+      const more = page.length >= DISCOVER_PAGE_SIZE;
+      hasMoreProfilesRef.current = more;
+      setHasMoreProfiles(more);
+      setLiveProfiles((prev) => appendUnique(prev, page));
+    } catch (error) {
+      if (loadTicket.current !== ticket) return;
+      console.error("Error loading more professionals:", error);
+      hasMoreProfilesRef.current = false;
+      setHasMoreProfiles(false);
+    } finally {
+      if (loadTicket.current === ticket) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }, [cityFilter]);
+
+  // Default tab = Professionnels — reload whenever the city filter changes.
+  useEffect(() => {
+    let cancelled = false;
+    const bootProfiles = async () => {
+      setLoadingProfiles(true);
+      setLiveProfiles([]);
+      profilesOffsetRef.current = 0;
+      hasMoreProfilesRef.current = true;
+      setHasMoreProfiles(true);
+      try {
+        const profiles = await profileService.listProfessionals(DISCOVER_PAGE_SIZE, 0, { city: cityFilter });
+        if (cancelled) return;
+        profilesOffsetRef.current = DISCOVER_PAGE_SIZE;
+        const more = profiles.length >= DISCOVER_PAGE_SIZE;
+        hasMoreProfilesRef.current = more;
+        setHasMoreProfiles(more);
+        setLiveProfiles(profiles);
+      } catch (error) {
+        console.error("Error loading professionals:", error);
+      } finally {
+        if (!cancelled) setLoadingProfiles(false);
+      }
+    };
+    void bootProfiles();
+    return () => {
+      cancelled = true;
+    };
+  }, [cityFilter]);
+
+  // Lazy-load / reload services when that tab is open or the city filter changes.
+  useEffect(() => {
+    if (searchType !== "services") return;
+    let cancelled = false;
+    const bootServices = async () => {
+      setLoadingServices(true);
+      setLiveServices([]);
+      servicesOffsetRef.current = 0;
+      hasMoreServicesRef.current = true;
+      setHasMoreServices(true);
+      servicesBootedRef.current = false;
+      setServicesBooted(false);
+      try {
+        const services = await serviceService.listServices(DISCOVER_PAGE_SIZE, 0, { city: cityFilter });
+        if (cancelled) return;
+        servicesOffsetRef.current = DISCOVER_PAGE_SIZE;
+        const more = services.length >= DISCOVER_PAGE_SIZE;
+        hasMoreServicesRef.current = more;
+        setHasMoreServices(more);
+        setLiveServices(services);
+        servicesBootedRef.current = true;
+        setServicesBooted(true);
+      } catch (error) {
+        console.error("Error loading services:", error);
+      } finally {
+        if (!cancelled) setLoadingServices(false);
+      }
+    };
+    void bootServices();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchType, cityFilter]);
+
+  // Lazy-load projects / biens when those tabs open, and reload on city filter change.
+  useEffect(() => {
+    if (searchType !== "projets" && searchType !== "biens") return;
+    let cancelled = false;
+    const bootCatalog = async () => {
+      setLoadingCatalog(true);
+      catalogBootedRef.current = false;
+      setCatalogBooted(false);
+      try {
+        const [projects, properties] = await Promise.all([
+          catalogService.listProjects(40, 0, { city: cityFilter }),
+          catalogService.listProperties(40, 0, { city: cityFilter }),
+        ]);
+        if (cancelled) return;
+        setLiveProjects(projects);
+        setLiveProperties(properties);
+        catalogBootedRef.current = true;
+        setCatalogBooted(true);
+      } catch (error) {
+        console.error("Error loading catalog:", error);
+      } finally {
+        if (!cancelled) setLoadingCatalog(false);
+      }
+    };
+    void bootCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchType, cityFilter]);
+
+  const catalogItems = useMemo(() => {
+    const services: MockItem[] = liveServices.map((row) => {
+      const offer = offerFromRow(row);
+      const tags = serviceFeedTags(row);
+      return {
+        id: row.id,
+        feed_category: tags.feed_category,
+        feed_sub_category: tags.feed_sub_category,
+        is_promoteur: tags.is_promoteur,
+        is_fournisseur: tags.is_fournisseur,
+        kind: "annonce" as const,
+        profileName: serviceFirmName(row),
+        username: (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles)?.username || "",
+        image: serviceMainImage(offer),
+        title: offer.title,
+        city: zoneLabel(offer),
+        price: priceLabel(offer),
+        description: offer.description,
+        highlights: offer.included.slice(0, 4),
+      };
+    });
+    const projects: MockItem[] = liveProjects.map((row) => ({
+      id: row.id,
+      feed_category: "",
+      feed_sub_category: "",
+      kind: "projet" as const,
+      profileName: row.promoter_name || row.title || "Projet",
+      image: Array.isArray(row.images) ? row.images[0] || "" : row.cover_image || "",
+      title: row.title || "Projet",
+      city: row.city || "",
+      progress: Number(row.progress) || 0,
+      description: row.description || "",
+    }));
+    const biens: MockItem[] = liveProperties.map((row) => {
+      const details = row.details && typeof row.details === "object" ? row.details : {};
+      return {
+        id: row.id,
+        feed_category: "gestion-services-immobiliers",
+        feed_sub_category: "promotion-immobiliere",
+        kind: "bien" as const,
+        profileName: details.title || row.title || "Bien",
+        image: Array.isArray(row.images) ? row.images[0] || "" : "",
+        title: details.title || row.title || "Bien",
+        city: details.city || row.city || "",
+        price: details.priceDh || row.price || "",
+        surface: details.builtSurface || row.surface || "",
+        beds: details.beds ?? row.beds ?? undefined,
+        description: details.description || row.description || "",
+      };
+    });
+    const accounts: MockItem[] = liveProfiles.map((row) => {
+      const extras = Array.isArray(row.profile_internal_categories) ? row.profile_internal_categories : [];
+      const codes = [
+        row.internal_categories?.code,
+        ...extras.map((link: any) => link?.internal_categories?.code),
+      ].filter(Boolean) as string[];
+      const feed =
+        extras.find((link: any) => link?.is_primary)?.internal_categories?.feed_sub_categories ||
+        row.internal_categories?.feed_sub_categories;
+      return {
+        id: row.id,
+        feed_category: feed?.categories?.slug || "",
+        feed_sub_category: feed?.slug || "",
+        is_promoteur: codes.some((code) => isPromoteurInternalCode(code)),
+        is_fournisseur:
+          codes.some((code) => isFournisseurInternalCode(code)) || feed?.slug === "fournisseurs",
+        kind: "agence" as const,
+        profileName: row.full_name || row.username || "Professionnel",
+        username: row.username || "",
+        image: row.avatar_url || "",
+        title: row.full_name || row.username || "Professionnel",
+        city: row.location || "",
+        description: row.profession || "",
+      };
+    });
+    return [...DISCOVER_ITEMS, ...accounts, ...projects, ...biens, ...services];
+  }, [liveServices, liveProjects, liveProperties, liveProfiles]);
+
   const searched = useMemo(
     () =>
-      ITEMS.filter((item) => {
-        if (selectedCategory && selectedCategory !== "tout" && item.category !== selectedCategory) return false;
-        return matchesQuery(item, typedQuery);
+      catalogItems.filter((item) => {
+        // In the Projets tab, projects are filtered by project type (Catégories
+        // button), not by feed category.
+        const categoryOk =
+          item.kind === "projet" && searchType === "projets"
+            ? true
+            : matchesFeedCategory(selectedCategory, subCategory, item);
+        // City is applied server-side when loading; keep client match as a soft check
+        // but always allow nationwide services labeled "Maroc".
+        const cityOk =
+          !selectedCity.trim() ||
+          (item.city || "").trim().toLowerCase() === "maroc" ||
+          matchesCity(item, selectedCity);
+        return categoryOk && matchesQuery(item, typedQuery) && cityOk;
       }),
-    [typedQuery, selectedCategory]
+    [catalogItems, typedQuery, selectedCategory, subCategory, selectedCity, searchType],
   );
+  // Stage (sur plan -> livre), commercial status and type per live project,
+  // for the Projets tab filters.
+  const projectFilterData = useMemo(() => {
+    const map = new Map<string, { stage: number; commercial: string; type: string }>();
+    liveProjects.forEach((row) => {
+      const project = dossierFromRow(row);
+      map.set(row.id, {
+        stage: milestoneReachedIndex(project),
+        commercial: project.commercialStatus || "",
+        type: String(row.project_type || "").trim(),
+      });
+    });
+    return map;
+  }, [liveProjects]);
+
   const searchResults = searched.filter((item) => {
     if (searchType === "biens") return item.kind === "bien";
     if (searchType === "services") return item.kind === "annonce";
-    if (searchType === "projets") return item.kind === "projet";
+    if (searchType === "projets") {
+      if (item.kind !== "projet") return false;
+      const data = projectFilterData.get(item.id);
+      if (projectType && (!data || data.type !== projectType)) return false;
+      if (projectStage && (!data || PROJECT_MILESTONES[data.stage]?.id !== projectStage)) return false;
+      if (projectCommercial && (!data || data.commercial !== projectCommercial)) return false;
+      return true;
+    }
     return false;
   });
-  const accounts = useMemo(() => {
-    const seen = new Map<string, MockItem>();
-    searched.forEach((item) => {
-      const current = seen.get(item.profileName);
-      if (!current || (item.kind === "agence" && current.kind !== "agence")) seen.set(item.profileName, item);
-    });
-    return [...seen.values()];
-  }, [searched]);
-  const selectedLabel =
-    selectedCategory === "tout" ? "Tout" : CATEGORIES.find((item) => item.id === selectedCategory)?.label || null;
+  const accounts = useMemo(() => searched.filter((item) => item.kind === "agence"), [searched]);
+  const selectedLabel = feedCategoryLabel(selectedCategory);
 
-  const categoryItems = searched.filter((item) => item.category === category);
-  const biens = categoryItems.filter(
-    (item) => item.kind === "bien" && (deal === "all" || item.deal === deal)
-  );
-  const projets = categoryItems.filter((item) => item.kind === "projet");
-  const agences = categoryItems.filter((item) => item.kind === "agence");
-  const categoryLabel = CATEGORIES.find((item) => item.id === category)?.label || "";
+  // The Catégories button lists project types while the Projets tab is active.
+  const pickerLabel =
+    searchType === "projets" ? (projectType ? projectTypeLabel(projectType) : null) : selectedLabel;
 
-  const openCategory = (id: CategoryId) => {
-    setCategory(id);
-    setDeal("all");
-    setFilterOpen(false);
-    setOpened(null);
-  };
+  const hasMoreForTab =
+    searchType === "comptes" ? hasMoreProfiles : searchType === "services" ? hasMoreServices : false;
+
+  const loadMoreForTab = useCallback(() => {
+    if (searchType === "comptes") void loadMoreProfiles();
+    else if (searchType === "services") void loadMoreServices();
+  }, [searchType, loadMoreProfiles, loadMoreServices]);
+
+  // When filters hide everything but more pages exist, keep fetching (same idea as the feed).
+  useEffect(() => {
+    if (loadingMore || viewMode === "map") return;
+    if (searchType === "comptes" && !loadingProfiles && accounts.length === 0 && hasMoreProfiles) {
+      void loadMoreProfiles();
+      return;
+    }
+    if (searchType === "services" && servicesBooted && !loadingServices && searchResults.length === 0 && hasMoreServices) {
+      void loadMoreServices();
+    }
+  }, [
+    loadingMore,
+    loadingProfiles,
+    loadingServices,
+    servicesBooted,
+    viewMode,
+    searchType,
+    accounts.length,
+    searchResults.length,
+    hasMoreProfiles,
+    hasMoreServices,
+    loadMoreProfiles,
+    loadMoreServices,
+  ]);
+
+  const tabLoading =
+    (searchType === "comptes" && loadingProfiles) ||
+    (searchType === "services" && (loadingServices || !servicesBooted)) ||
+    ((searchType === "projets" || searchType === "biens") && (loadingCatalog || !catalogBooted));
 
   const openItem = (item: MockItem) => {
     window.scrollTo(0, 0);
@@ -301,7 +635,7 @@ const Explore = () => {
       navigate(`/post/${item.id}`);
       return;
     }
-    navigate(`/profile/${SHOWCASE_PROFILE_USERNAME}`);
+    navigate(`/profile/${item.username || item.id}`);
   };
 
   const searchFields = (
@@ -327,9 +661,40 @@ const Explore = () => {
         <CategoryPicker
           open={false}
           onToggle={() => setCategoriesOpen(true)}
-          selectedLabel={selectedLabel}
-          categories={CATEGORIES}
+          selectedLabel={pickerLabel}
+          categories={FEED_PICKER_CATEGORIES}
           onSelect={() => {}}
+        />
+        {searchType !== "projets" ? (
+          <SubCategoryChips category={selectedCategory} value={subCategory} onChange={setSubCategory} />
+        ) : null}
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCitySheetOpen(true)}
+            className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 text-left shadow-sm transition hover:border-[#174f43]"
+          >
+            <MapPin className="h-4 w-4 shrink-0 text-neutral-500" />
+            <span className={`min-w-0 flex-1 truncate text-sm ${selectedCity ? "font-medium text-neutral-900" : "text-neutral-400"}`}>
+              {selectedCity || "Filtrer par ville"}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-neutral-500" />
+          </button>
+          {selectedCity ? (
+            <button
+              type="button"
+              onClick={() => setSelectedCity("")}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+              aria-label="Effacer la ville"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+        <RegionCitySheet
+          open={citySheetOpen}
+          onClose={() => setCitySheetOpen(false)}
+          onSelect={setSelectedCity}
         />
       </div>
       <div className="mt-4 flex border-b border-neutral-200">
@@ -359,10 +724,15 @@ const Explore = () => {
           <CategoryPicker
             open
             onToggle={() => setCategoriesOpen(false)}
-            selectedLabel={selectedLabel}
-            categories={CATEGORIES}
+            selectedLabel={pickerLabel}
+            categories={searchType === "projets" ? PROJECT_TYPE_OPTIONS : FEED_PICKER_CATEGORIES}
             onSelect={(id) => {
-              setSelectedCategory(id as CategoryId | "tout");
+              if (searchType === "projets") {
+                setProjectType(id === "tout" ? null : id);
+              } else {
+                setSelectedCategory(id);
+                setSubCategory(null);
+              }
               setCategoriesOpen(false);
             }}
           />
@@ -400,166 +770,124 @@ const Explore = () => {
           </div>
         </div>
 
+        {searchType === "projets" && viewMode === "list" ? (
+          <div className="mt-[1vh]">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              aria-expanded={filtersOpen}
+              className={`inline-flex items-center gap-[0.8vh] rounded-full border px-[1.6vh] py-[0.9vh] text-[1.4vh] font-semibold shadow-sm transition ${
+                activeProjectFilters > 0
+                  ? "border-[#174f43] text-[#174f43]"
+                  : "border-neutral-200 bg-white text-neutral-700 hover:border-[#174f43] hover:text-[#174f43]"
+              }`}
+            >
+              <SlidersHorizontal className="h-[1.8vh] w-[1.8vh]" />
+              Filtres
+              {activeProjectFilters > 0 ? (
+                <span className="inline-flex h-[2vh] min-w-[2vh] items-center justify-center rounded-full bg-[#174f43] px-[0.5vh] text-[1.15vh] font-bold text-white">
+                  {activeProjectFilters}
+                </span>
+              ) : null}
+              <ChevronDown
+                className={`h-[1.8vh] w-[1.8vh] transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              }`}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="flex max-w-full items-start gap-[1.5vh] pt-[1.2vh]">
+                  <div className="w-[24vh] max-w-[48%] shrink-0">
+                    <p className="mb-[0.7vh] text-[1.25vh] font-semibold uppercase tracking-wide text-neutral-400">
+                      État du projet
+                    </p>
+                    <StageSlider value={projectStageIdx} onChange={setProjectStageIdx} />
+                  </div>
+                  <div className="w-[24vh] max-w-[48%] shrink-0">
+                    <p className="mb-[0.7vh] text-[1.25vh] font-semibold uppercase tracking-wide text-neutral-400">
+                      Commercialisation
+                    </p>
+                    <div className="flex flex-col rounded-[2.2vh] bg-neutral-100 p-[0.5vh]">
+                {[
+                  { id: null as string | null, label: "Tous" },
+                  ...COMMERCIAL_STATUSES.filter(
+                    (status) => status.id === "en_commercialisation" || status.id === "commercialise",
+                  ).map((status) => ({ id: status.id as string | null, label: status.label })),
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setProjectCommercial(option.id)}
+                    aria-pressed={projectCommercial === option.id}
+                    className={`w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[0.95vh] text-left text-[1.35vh] font-semibold leading-none transition ${
+                      projectCommercial === option.id
+                        ? "bg-[#174f43] text-white shadow-sm"
+                        : "text-neutral-500 hover:text-neutral-800"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {viewMode === "map" ? (
           <div className="px-3 py-4">
             <MapView />
           </div>
+        ) : tabLoading &&
+          ((searchType === "comptes" && accounts.length === 0) ||
+            (searchType === "services" && searchResults.length === 0) ||
+            (searchType !== "comptes" && searchType !== "services" && searchResults.length === 0)) ? (
+          <p className="px-4 py-8 text-center text-muted-foreground">Chargement…</p>
         ) : searchType === "comptes" ? (
-          accounts.length === 0 ? (
+          accounts.length === 0 && !hasMoreProfiles && !loadingProfiles ? (
             <p className="px-4 py-8 text-center text-muted-foreground">Aucun professionnel pour cette recherche</p>
           ) : (
-            <ul>
-              {accounts.map((item) => (
-                  <li key={item.profileName}>
-                    <AccountRow
-                      name={item.profileName}
-                      username={SHOWCASE_PROFILE_USERNAME}
-                      image={item.image}
-                      city={item.city}
-                      typeLabel={CATEGORIES.find((category) => category.id === item.category)?.label || ""}
-                      followed={Boolean(followed[SHOWCASE_PROFILE_USERNAME])}
-                      onFollow={() => setFollowed((current) => ({ ...current, [SHOWCASE_PROFILE_USERNAME]: !current[SHOWCASE_PROFILE_USERNAME] }))}
-                      onOpen={() => openItem(item)}
-                    />
-                  </li>
-                ))}
-            </ul>
+            <>
+              <ul>
+                {accounts.map((item) => {
+                  const username = item.username || item.id;
+                  return (
+                    <li key={item.id}>
+                      <AccountRow
+                        name={item.profileName}
+                        username={username}
+                        image={item.image}
+                        city={item.city}
+                        typeLabel={subCategoryLabel(item) || item.description || "Professionnel"}
+                        followed={Boolean(followed[username])}
+                        onFollow={() => setFollowed((current) => ({ ...current, [username]: !current[username] }))}
+                        onOpen={() => openItem(item)}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+              <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore} onLoadMore={loadMoreForTab} />
+            </>
           )
-        ) : searchResults.length === 0 ? (
+        ) : searchResults.length === 0 &&
+          !(searchType === "services" && (hasMoreServices || loadingServices)) &&
+          !tabLoading ? (
           <p className="px-4 py-8 text-center text-muted-foreground">Aucun résultat pour cette recherche</p>
         ) : (
-          <CardList items={searchResults} onOpen={openItem} />
+          <>
+            <CardList items={searchResults} onOpen={openItem} serviceRows={liveServices} projectRows={liveProjects} />
+            {searchType === "services" ? (
+              <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore || loadingServices} onLoadMore={loadMoreForTab} />
+            ) : null}
+          </>
         )}
       </div>
-
-      {category ? (
-        <div className="fixed inset-0 z-[80] overflow-y-auto bg-white pb-24">
-          <div className="mx-auto w-full max-w-2xl">
-            <div className="flex items-center gap-2 border-b border-neutral-200 px-2 py-3">
-              <button
-                type="button"
-                aria-label="Retour"
-                onClick={() => setCategory(null)}
-                className="inline-flex h-9 w-9 items-center justify-center"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <h1 className="text-lg font-semibold text-neutral-950">{categoryLabel}</h1>
-            </div>
-
-            {WITH_BIENS.has(category) ? (
-              <section className="mx-3 mt-3 overflow-hidden rounded-xl border border-neutral-300 bg-neutral-200">
-                <p className="px-3 py-2 text-sm font-semibold text-neutral-950">Biens</p>
-                <div className="flex gap-2 px-3 pb-3">
-                  {DEALS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setDeal(item.id)}
-                      className={`h-9 flex-1 rounded-full text-[13px] font-semibold ${
-                        deal === item.id ? "bg-[#174f43] text-white" : "bg-neutral-100 text-neutral-800"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-                {biens.length === 0 ? (
-                  <p className="px-3 pb-4 text-sm text-neutral-500">Aucun bien</p>
-                ) : (
-                  <CardList items={biens} onOpen={openItem} />
-                )}
-              </section>
-            ) : null}
-
-            <section className="mx-3 mt-3 overflow-hidden rounded-xl border border-neutral-300 bg-neutral-200">
-              <p className="px-3 py-2 text-sm font-semibold text-neutral-950">Projets</p>
-              {projets.length === 0 ? (
-                <p className="px-3 py-4 text-sm text-neutral-500">Aucun projet</p>
-              ) : (
-                <CardList items={projets} onOpen={openItem} />
-              )}
-            </section>
-
-            {WITH_BIENS.has(category) ? (
-              <section className="mx-3 mt-3 overflow-hidden rounded-xl border border-neutral-300 bg-neutral-200">
-                <p className="px-3 py-2 text-sm font-semibold text-neutral-950">Agences</p>
-                {agences.length === 0 ? (
-                  <p className="px-3 py-4 text-sm text-neutral-500">Aucune agence</p>
-                ) : (
-                  <CardList items={agences} onOpen={openItem} />
-                )}
-              </section>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {opened ? (
-        <div className="fixed inset-0 z-[90] overflow-y-auto bg-white pb-24">
-          <div className="mx-auto w-full max-w-2xl">
-            <div className="flex items-center gap-2 px-2 py-3">
-              <button
-                type="button"
-                aria-label="Retour"
-                onClick={() => setOpened(null)}
-                className="inline-flex h-9 w-9 items-center justify-center"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <h1 className="truncate text-lg font-semibold text-neutral-950">{opened.title}</h1>
-            </div>
-            <img src={opened.image} alt="" className="h-56 w-full object-cover" />
-            <div className="px-4 py-4">
-              <div className="flex items-center gap-2.5">
-                <img src={opened.image} alt="" className="h-10 w-10 rounded-full object-cover" />
-                <div>
-                  <p className="text-[15px] font-semibold text-neutral-950">{opened.profileName}</p>
-                  <p className="text-xs text-neutral-500">
-                    {CATEGORIES.find((item) => item.id === opened.category)?.label} · {opened.city}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-4 text-xl font-semibold text-neutral-950">{opened.title}</p>
-              {detailLine(opened) ? <p className="mt-1 text-base text-neutral-700">{detailLine(opened)}</p> : null}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {[
-                  opened.surface,
-                  opened.beds != null ? `${opened.beds} chambres` : "",
-                  opened.baths != null ? `${opened.baths} sdb` : "",
-                  opened.deal === "sale" ? "Vente" : opened.deal === "rent" ? "Location" : "",
-                ]
-                  .filter(Boolean)
-                  .map((fact) => (
-                    <span key={fact} className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700">
-                      {fact}
-                    </span>
-                  ))}
-              </div>
-              {opened.kind === "projet" ? (
-                <div className="mt-4">
-                  <p className="mb-1 text-sm font-semibold text-neutral-700">{projectStatus(opened.progress)}</p>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200">
-                    <div className="h-full bg-[#174f43]" style={{ width: `${Math.min(100, opened.progress ?? 0)}%` }} />
-                  </div>
-                </div>
-              ) : null}
-              {opened.description ? (
-                <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">{opened.description}</p>
-              ) : null}
-              {opened.highlights?.length ? (
-                <ul className="mt-4 list-disc space-y-2 pl-5">
-                  {opened.highlights.map((item) => (
-                    <li key={item} className="text-sm text-neutral-800">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </DesktopRailFrame>
   );
 };

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Briefcase, Building2, Camera, ChevronRight, Loader2, Lock, LogOut, Mail, MoreVertical, Pencil, Phone, Settings, UserRound, Users, VolumeX, UserMinus } from "lucide-react";
+import { Building2, Camera, ChevronRight, Loader2, Lock, LogOut, Mail, MoreVertical, Pencil, Phone, Settings, UserRound, Users, VolumeX, UserMinus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { visitorService } from "@/services/visitorService";
@@ -10,7 +10,7 @@ import { muteService } from "@/services/muteService";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { WhatsAppIcon } from "@/components/PostActionIcons";
 import InquiryDialog from "@/components/InquiryDialog";
-import { storageService } from "@/services/storageService";
+import { isWithinUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { isValidEmail, storeVisitorContact } from "@/lib/visitorContact";
 import { isCompletePhone } from "@/lib/phone";
@@ -80,49 +80,9 @@ const followedProfile = (row: { following_id: string; profiles: unknown }): Foll
 };
 
 export const JoinChoice = () => {
-  const navigate = useNavigate();
-  const { user, visitorUser, loading } = useAuth();
-  const { requestVisitor } = useVisitorGate();
-
+  const { user, loading } = useAuth();
   if (!loading && user) return <Navigate to="/profile" replace />;
-
-  return (
-    <div className="mx-auto flex max-w-md flex-col px-5 pb-10 pt-12">
-      <h1 className="text-center text-2xl font-bold">Rejoindre Sifarah</h1>
-      <p className="mt-2 text-center text-sm text-muted-foreground">Comment souhaitez-vous utiliser Sifarah ?</p>
-      <div className="mt-8 space-y-3">
-        {visitorUser ? null : (
-          <ChoiceCard
-            primary
-            icon={UserRound}
-            title="Particulier"
-            description="Ajoutez des annonces à vos favoris, suivez des profils et publiez jusqu'à 3 biens."
-            onClick={async () => {
-              if (await requestVisitor("profile")) navigate("/profile");
-            }}
-          />
-        )}
-        <ChoiceCard
-          icon={Building2}
-          title="Agence"
-          description="Publiez vos biens, projets et services."
-          onClick={() => navigate("/create-profile?type=enterprise")}
-        />
-        <ChoiceCard
-          icon={Briefcase}
-          title="Professionnel indépendant"
-          description="Présentez votre activité et vos réalisations."
-          onClick={() => navigate("/create-profile?type=individual")}
-        />
-      </div>
-      <p className="mt-8 text-center text-sm text-muted-foreground">
-        Déjà un compte ?{" "}
-        <button type="button" onClick={() => navigate("/login")} className="font-semibold text-[#174f43] hover:underline">
-          Se connecter
-        </button>
-      </p>
-    </div>
-  );
+  return <Navigate to="/create-profile" replace />;
 };
 
 const VisitorProfile = () => {
@@ -650,7 +610,13 @@ const VisitorProfile = () => {
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) setPendingAvatar(file);
+                      if (file) {
+                        if (!isWithinUploadLimit(file)) {
+                          toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+                        } else {
+                          setPendingAvatar(file);
+                        }
+                      }
                       e.target.value = "";
                     }}
                   />

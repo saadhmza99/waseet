@@ -1,20 +1,30 @@
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { AlignLeft, ArrowLeft, Building2, Calendar, ChevronDown, CircleDot, Image as ImageIcon, Layers, MapPin, Plus, Trash2, Type, type LucideIcon } from "lucide-react";
+import { AlignLeft, ArrowLeft, Building2, Calendar, ChevronDown, CircleDot, Image as ImageIcon, LayoutGrid, Layers, MapPin, Plus, Trash2, Type, type LucideIcon } from "lucide-react";
+import { PROJECT_TYPE_GROUPS } from "@/lib/taxonomy";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
 import { catalogService } from "@/services/catalogService";
-import { storageService } from "@/services/storageService";
 import {
+  formatUploadBytes,
+  isWithinUploadLimit,
+  partitionByUploadLimit,
+  PROJECT_DOCUMENTS_TOTAL_MAX_BYTES,
+  projectDocumentsTotalMaxLabel,
+  storageService,
+  uploadMaxLabel,
+} from "@/services/storageService";
+import {
+  COMMERCIAL_STATUSES,
   DETAIL_SECTIONS,
   DOCUMENT_TYPES,
   PROJECT_CATEGORIES,
-  PROJECT_STATUSES,
   SUBTYPES,
   TEAM_ROLES,
   PHASE_STATUSES,
   categoryLabel,
+  commercialStatusLabel,
   emptyDossier,
   newDocument,
   newPartner,
@@ -25,7 +35,10 @@ import {
   rowFromDossier,
   type ProjectCategoryId,
   type ProjectDossier,
+  type ProjectPriceMode,
+  type ProjectStatusId,
 } from "@/lib/projectDossier";
+import { PROJECT_MILESTONES, progressFromMilestone } from "@/components/project/ProjectMilestoneTrack";
 
 const STEPS = ["Informations", "Détails", "Équipe", "Travaux & planning", "Médias & documents", "Vérification"];
 
@@ -50,11 +63,39 @@ const CreateProjectWizard = () => {
   const [description, setDescription] = useState("");
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [commercialStatus, setCommercialStatus] = useState("");
+  const [priceMode, setPriceMode] = useState<ProjectPriceMode>("request");
+  const [promoterName, setPromoterName] = useState("");
+  const [promoterWebsite, setPromoterWebsite] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [dossier, setDossier] = useState<ProjectDossier>(emptyDossier());
 
   const setField = (key: string, value: string) =>
     setDossier((current) => ({ ...current, fields: { ...current.fields, [key]: value } }));
+
+  const applyPriceMode = (mode: ProjectPriceMode) => {
+    setPriceMode(mode);
+    setDossier((current) => {
+      const fields = { ...current.fields, currency: current.fields.currency || "MAD" };
+      if (mode === "request") {
+        fields.priceOnRequest = "true";
+        fields.priceFrom = "";
+        fields.priceMin = "";
+        fields.priceMax = "";
+      } else if (mode === "from") {
+        fields.priceOnRequest = "";
+        fields.priceMin = "";
+        fields.priceMax = "";
+      } else {
+        fields.priceOnRequest = "";
+        if (!fields.priceMin && fields.priceFrom) fields.priceMin = fields.priceFrom;
+      }
+      return { ...current, fields };
+    });
+  };
 
   const toggleChoice = (value: string) =>
     setDossier((current) => ({
@@ -75,15 +116,60 @@ const CreateProjectWizard = () => {
     }));
   };
 
+  const documentsUsedBytes = dossier.documents.reduce(
+    (sum, doc) => sum + Math.max(0, Number(doc.sizeBytes) || 0),
+    0
+  );
+  const documentsRemainingBytes = Math.max(0, PROJECT_DOCUMENTS_TOTAL_MAX_BYTES - documentsUsedBytes);
+
+  const uploadDocumentFile = async (docId: string, file: File) => {
+    if (!isWithinUploadLimit(file)) {
+      toast({ title: "Document", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+      return;
+    }
+    const currentDoc = dossier.documents.find((doc) => doc.id === docId);
+    const otherUsed = documentsUsedBytes - Math.max(0, Number(currentDoc?.sizeBytes) || 0);
+    if (otherUsed + file.size > PROJECT_DOCUMENTS_TOTAL_MAX_BYTES) {
+      toast({
+        title: "Quota documents",
+        description: `Le total des documents d'un projet est limité à ${projectDocumentsTotalMaxLabel} (reste ${formatUploadBytes(documentsRemainingBytes + Math.max(0, Number(currentDoc?.sizeBytes) || 0))}).`,
+      });
+      return;
+    }
+    try {
+      const url = await storageService.uploadFile(file, "projects/documents");
+      setDossier((current) => ({
+        ...current,
+        documents: current.documents.map((row) =>
+          row.id === docId
+            ? {
+                ...row,
+                url,
+                sizeBytes: file.size,
+                title: row.title.trim() || file.name.replace(/\.[^.]+$/, "").slice(0, 120),
+              }
+            : row
+        ),
+      }));
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Erreur", description: "Impossible d'envoyer ce document." });
+    }
+  };
+
   const uploadLogo = async (file: File) => {
-    if (!file.type.startsWith("image/") || file.size > 2_000_000) {
-      toast({ title: "Logo", description: "Choisissez une image de 2 Mo maximum." });
+    if (!file.type.startsWith("image/") || !isWithinUploadLimit(file)) {
+      toast({ title: "Logo", description: `Choisissez une image de ${uploadMaxLabel} maximum.` });
       return "";
     }
     return storageService.uploadImage(file, "projects");
   };
 
   const uploadCover = async (file: File) => {
+    if (!file.type.startsWith("image/") || !isWithinUploadLimit(file)) {
+      toast({ title: "Image", description: `Chaque image doit faire ${uploadMaxLabel} maximum.` });
+      return;
+    }
     const url = await storageService.uploadImage(file, "projects");
     setImages((current) => [url, ...current.filter((item) => item !== url)]);
     setDossier((current) => ({
@@ -98,17 +184,36 @@ const CreateProjectWizard = () => {
       navigate("/login");
       return;
     }
-    if (!title.trim() || !dossier.category) {
-      toast({ title: "Informations manquantes", description: "Le type et le titre du projet sont requis." });
+    if (!title.trim() || !dossier.category || !dossier.projectType) {
+      toast({ title: "Informations manquantes", description: "Le type, la rubrique Projets et le titre du projet sont requis." });
       setStep(0);
       return;
     }
     setSaving(true);
     try {
-      const payload = rowFromDossier(title.trim(), description.trim(), city.trim(), region.trim(), images, {
-        ...dossier,
-        fields: { ...dossier.fields, draft: draft ? "1" : "" },
-      });
+      const payload = rowFromDossier(
+        title.trim(),
+        description.trim(),
+        city.trim(),
+        region.trim(),
+        images,
+        {
+          ...dossier,
+          fields: {
+            ...dossier.fields,
+            draft: draft ? "1" : "",
+            currency: dossier.fields.currency || "MAD",
+            priceOnRequest: priceMode === "request" ? "true" : "",
+          },
+        },
+        {
+          commercialStatus,
+          postalCode: postalCode.trim(),
+          latitude: latitude.trim(),
+          longitude: longitude.trim(),
+          promoter: promoterName.trim() ? { name: promoterName.trim(), website: promoterWebsite.trim() } : null,
+        },
+      );
       const row = await catalogService.createProject(user.id, payload);
       toast({ title: draft ? "Brouillon enregistré" : "Projet publié" });
       navigate(`/projet/${row.id}`);
@@ -208,6 +313,23 @@ const CreateProjectWizard = () => {
                 </label>
               ) : null}
               <label className="block text-sm">
+                <FieldLabel icon={LayoutGrid}>Rubrique Projets</FieldLabel>
+                <select
+                  className={fieldClass}
+                  value={dossier.projectType}
+                  onChange={(event) => setDossier((current) => ({ ...current, projectType: event.target.value }))}
+                >
+                  <option value="">Choisir</option>
+                  {PROJECT_TYPE_GROUPS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.types.map((item) => (
+                        <option key={item.id} value={item.id}>{item.label}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
                 <FieldLabel icon={Type}>Titre du projet</FieldLabel>
                 <input className={fieldClass} value={title} maxLength={120} placeholder="Ex : Résidence Atlas" onChange={(event) => setTitle(event.target.value)} />
               </label>
@@ -219,12 +341,50 @@ const CreateProjectWizard = () => {
                 <label className="text-sm"><FieldLabel icon={MapPin}>Ville</FieldLabel><input className={fieldClass} value={city} onChange={(event) => setCity(event.target.value)} /></label>
                 <label className="text-sm"><span className="mb-1 block font-medium">Région</span><input className={fieldClass} value={region} onChange={(event) => setRegion(event.target.value)} /></label>
                 <label className="text-sm"><span className="mb-1 block font-medium">Quartier</span><input className={fieldClass} value={dossier.neighborhood} onChange={(event) => setDossier((current) => ({ ...current, neighborhood: event.target.value }))} /></label>
+                <label className="text-sm"><span className="mb-1 block font-medium">Code postal</span><input className={fieldClass} inputMode="numeric" maxLength={12} placeholder="40000" value={postalCode} onChange={(event) => setPostalCode(event.target.value)} /></label>
+                <label className="text-sm sm:col-span-2">
+                  <span className="mb-1 block font-medium">Adresse</span>
+                  <input
+                    className={fieldClass}
+                    maxLength={160}
+                    placeholder="Rue, avenue, lotissement…"
+                    value={dossier.address}
+                    onChange={(event) => setDossier((current) => ({ ...current, address: event.target.value }))}
+                  />
+                </label>
                 <label className="text-sm">
-                  <FieldLabel icon={CircleDot}>Statut</FieldLabel>
-                  <select className={fieldClass} value={dossier.status} onChange={(event) => setDossier((current) => ({ ...current, status: event.target.value as ProjectDossier["status"] }))}>
-                    <option value="">Choisir</option>
-                    {PROJECT_STATUSES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                  </select>
+                  <span className="mb-1 block font-medium">Latitude <span className="font-normal text-neutral-400">Optionnel</span></span>
+                  <input className={fieldClass} inputMode="decimal" placeholder="31.6295" value={latitude} onChange={(event) => setLatitude(event.target.value)} />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium">Longitude <span className="font-normal text-neutral-400">Optionnel</span></span>
+                  <input className={fieldClass} inputMode="decimal" placeholder="-7.9811" value={longitude} onChange={(event) => setLongitude(event.target.value)} />
+                </label>
+                <label className="text-sm sm:col-span-2">
+                  <FieldLabel icon={CircleDot}>Avancement</FieldLabel>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {PROJECT_MILESTONES.map((item) => {
+                      const active = dossier.status === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            setDossier((current) => ({
+                              ...current,
+                              status: item.id as ProjectStatusId,
+                              progress: progressFromMilestone(item.id),
+                            }))
+                          }
+                          className={`h-11 rounded-lg border px-2 text-xs font-medium ${
+                            active ? "border-[#174f43] bg-[#174f43] text-white" : "border-neutral-200"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </label>
                 <label className="text-sm"><FieldLabel icon={Calendar}>Début</FieldLabel><input type="month" className={fieldClass} value={dossier.startDate} onChange={(event) => setDossier((current) => ({ ...current, startDate: event.target.value }))} /></label>
                 <label className="text-sm"><span className="mb-1 block font-medium">Fin prévue</span><input type="month" className={fieldClass} value={dossier.expectedEnd} onChange={(event) => setDossier((current) => ({ ...current, expectedEnd: event.target.value }))} /></label>
@@ -265,6 +425,141 @@ const CreateProjectWizard = () => {
                   ) : null}
                 </section>
               ))}
+              <section className="space-y-3">
+                <h2 className="text-sm font-semibold">Programme commercial</h2>
+                <p className="text-xs text-neutral-500">Typologies, équipements et points d’intérêt autour du projet.</p>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium">Typologies</span>
+                  <input
+                    className={fieldClass}
+                    maxLength={200}
+                    placeholder="Appartement | Villa | Lot de terrain | Bureau"
+                    value={dossier.fields.typologies || ""}
+                    onChange={(event) => setField("typologies", event.target.value)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium">Équipements</span>
+                  <input
+                    className={fieldClass}
+                    maxLength={200}
+                    placeholder="Ascenseur | Jardin | Sécurité | Piscine"
+                    value={dossier.fields.equipment || ""}
+                    onChange={(event) => setField("equipment", event.target.value)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium">À proximité</span>
+                  <input
+                    className={fieldClass}
+                    maxLength={200}
+                    placeholder="Golf | Centre commercial | Écoles"
+                    value={dossier.fields.nearby || ""}
+                    onChange={(event) => setField("nearby", event.target.value)}
+                  />
+                </label>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="text-sm font-semibold">Commercialisation</h2>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium">Statut commercial</span>
+                  <select className={fieldClass} value={commercialStatus} onChange={(event) => setCommercialStatus(event.target.value)}>
+                    <option value="">Non renseigné</option>
+                    {COMMERCIAL_STATUSES.map((item) => (
+                      <option key={item.id} value={item.id}>{item.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <div>
+                  <span className="mb-1 block text-sm font-medium">Prix</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        { id: "request", label: "Sur demande" },
+                        { id: "from", label: "À partir de" },
+                        { id: "range", label: "Fourchette" },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => applyPriceMode(item.id)}
+                        className={`h-11 rounded-lg border px-2 text-xs font-medium ${
+                          priceMode === item.id ? "border-[#174f43] bg-[#174f43]/5 text-[#174f43]" : "border-neutral-200"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {priceMode !== "request" ? (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {priceMode === "from" ? (
+                      <label className="text-sm sm:col-span-2">
+                        <span className="mb-1 block font-medium">Montant à partir de</span>
+                        <input
+                          className={fieldClass}
+                          inputMode="numeric"
+                          maxLength={16}
+                          placeholder="450 000"
+                          value={dossier.fields.priceFrom || ""}
+                          onChange={(event) => setField("priceFrom", event.target.value)}
+                        />
+                      </label>
+                    ) : (
+                      <>
+                        <label className="text-sm">
+                          <span className="mb-1 block font-medium">Prix min</span>
+                          <input
+                            className={fieldClass}
+                            inputMode="numeric"
+                            maxLength={16}
+                            placeholder="450 000"
+                            value={dossier.fields.priceMin || ""}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setDossier((current) => ({
+                                ...current,
+                                fields: {
+                                  ...current.fields,
+                                  priceMin: value,
+                                  priceFrom: current.fields.priceFrom || value,
+                                },
+                              }));
+                            }}
+                          />
+                        </label>
+                        <label className="text-sm">
+                          <span className="mb-1 block font-medium">Prix max</span>
+                          <input
+                            className={fieldClass}
+                            inputMode="numeric"
+                            maxLength={16}
+                            placeholder="1 600 000"
+                            value={dossier.fields.priceMax || ""}
+                            onChange={(event) => setField("priceMax", event.target.value)}
+                          />
+                        </label>
+                      </>
+                    )}
+                    <label className="text-sm">
+                      <span className="mb-1 block font-medium">Devise</span>
+                      <select
+                        className={fieldClass}
+                        value={dossier.fields.currency || "MAD"}
+                        onChange={(event) => setField("currency", event.target.value)}
+                      >
+                        <option value="MAD">MAD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
+              </section>
+
               {dossier.category === "immobilier" ? (
                 <section>
                   <div className="mb-2 flex items-center justify-between">
@@ -290,6 +585,20 @@ const CreateProjectWizard = () => {
 
           {step === 2 ? (
             <div className="space-y-8">
+              <section className="space-y-3">
+                <h2 className="text-sm font-semibold">Promoteur</h2>
+                <p className="text-xs text-neutral-500">Le promoteur principal du programme, distinct de l’équipe technique.</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm">
+                    <span className="mb-1 block font-medium">Nom</span>
+                    <input className={fieldClass} maxLength={120} placeholder="Ex. Addoha" value={promoterName} onChange={(event) => setPromoterName(event.target.value)} />
+                  </label>
+                  <label className="text-sm">
+                    <span className="mb-1 block font-medium">Site web</span>
+                    <input className={fieldClass} maxLength={200} placeholder="https://" value={promoterWebsite} onChange={(event) => setPromoterWebsite(event.target.value)} />
+                  </label>
+                </div>
+              </section>
               <section className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold">Équipe du projet</h2>
@@ -361,10 +670,32 @@ const CreateProjectWizard = () => {
 
           {step === 3 ? (
             <div className="space-y-4">
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium">Avancement global : {dossier.progress} %</span>
-                <input type="range" min={0} max={100} value={dossier.progress} className="w-full accent-[#174f43]" onChange={(event) => setDossier((current) => ({ ...current, progress: Number(event.target.value) }))} />
-              </label>
+              <div>
+                <span className="mb-2 block text-sm font-medium">Avancement</span>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {PROJECT_MILESTONES.map((item) => {
+                    const active = dossier.status === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() =>
+                          setDossier((current) => ({
+                            ...current,
+                            status: item.id as ProjectStatusId,
+                            progress: progressFromMilestone(item.id),
+                          }))
+                        }
+                        className={`h-11 rounded-lg border px-2 text-xs font-medium ${
+                          active ? "border-[#174f43] bg-[#174f43] text-white" : "border-neutral-200"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold">Phases</h2>
                 <button type="button" className="inline-flex items-center gap-1 text-xs font-semibold text-[#174f43]" onClick={() => setDossier((current) => ({ ...current, phases: [...current.phases, newPhase()] }))}>
@@ -408,7 +739,12 @@ const CreateProjectWizard = () => {
                 <span className="mb-1 block font-medium">Galerie</span>
                 <input type="file" accept="image/*" multiple onChange={async (event) => {
                   const files = [...(event.target.files || [])];
-                  const urls = await storageService.uploadImages(files, "projects");
+                  const { accepted, rejected } = partitionByUploadLimit(files);
+                  if (rejected.length) {
+                    toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+                  }
+                  if (!accepted.length) return;
+                  const urls = await storageService.uploadImages(accepted, "projects");
                   addMedia(urls, "Chantier");
                 }} />
               </label>
@@ -417,12 +753,16 @@ const CreateProjectWizard = () => {
                   {images.map((url) => <img key={url} src={url} alt="" className="h-24 w-full rounded-lg object-cover" />)}
                 </div>
               ) : null}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-semibold">Documents</h2>
                 <button type="button" className="text-xs font-semibold text-[#174f43]" onClick={() => setDossier((current) => ({ ...current, documents: [...current.documents, newDocument()] }))}>Ajouter</button>
               </div>
               <p className="text-xs leading-relaxed text-neutral-500">
-                Le fichier reste sur le site de l'entreprise, Google Drive, Dropbox ou OneDrive. Sifarah enregistre le titre, le type, l'adresse, la visibilité et une miniature optionnelle.
+                Envoyez un fichier (PDF, image…) ou une adresse externe (Drive, Dropbox…). Total des fichiers uploadés :{" "}
+                <span className="font-semibold text-neutral-700">
+                  {formatUploadBytes(documentsUsedBytes)} / {projectDocumentsTotalMaxLabel}
+                </span>
+                {" "}(max {uploadMaxLabel} par fichier).
               </p>
               {dossier.documents.map((doc) => (
                 <div key={doc.id} className="grid gap-2 rounded-lg border border-neutral-200 p-3 sm:grid-cols-2">
@@ -431,8 +771,39 @@ const CreateProjectWizard = () => {
                     {DOCUMENT_TYPES.map((item) => <option key={item}>{item}</option>)}
                   </select>
                   <label className="text-xs text-neutral-600 sm:col-span-2">
+                    Fichier (optionnel)
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*,application/pdf"
+                      className="mt-1 block w-full text-xs"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (file) void uploadDocumentFile(doc.id, file);
+                      }}
+                    />
+                    {doc.sizeBytes ? (
+                      <span className="mt-1 block text-neutral-500">Fichier chargé · {formatUploadBytes(doc.sizeBytes)}</span>
+                    ) : null}
+                  </label>
+                  <label className="text-xs text-neutral-600 sm:col-span-2">
                     Adresse du document
-                    <input className={`${fieldClass} mt-1`} maxLength={2000} placeholder="https://" value={doc.url} onChange={(event) => setDossier((current) => ({ ...current, documents: current.documents.map((row) => row.id === doc.id ? { ...row, url: event.target.value } : row) }))} />
+                    <input
+                      className={`${fieldClass} mt-1`}
+                      maxLength={2000}
+                      placeholder="https://"
+                      value={doc.url}
+                      onChange={(event) =>
+                        setDossier((current) => ({
+                          ...current,
+                          documents: current.documents.map((row) =>
+                            row.id === doc.id
+                              ? { ...row, url: event.target.value, sizeBytes: 0 }
+                              : row
+                          ),
+                        }))
+                      }
+                    />
                   </label>
                   <label className="text-xs text-neutral-600">
                     Visibilité
@@ -444,10 +815,18 @@ const CreateProjectWizard = () => {
                       <span className="mt-1 block leading-relaxed text-neutral-500">(Pour un document privé, préférez une adresse qui n'ouvre l'accès qu'après approbation, comme un lien Google Drive en attente de validation.)</span>
                     ) : null}
                   </label>
-                  <label className="text-xs text-neutral-600">
-                    Miniature (adresse, optionnel)
-                    <input className={`${fieldClass} mt-1`} maxLength={2000} placeholder="https://" value={doc.thumbnail} onChange={(event) => setDossier((current) => ({ ...current, documents: current.documents.map((row) => row.id === doc.id ? { ...row, thumbnail: event.target.value } : row) }))} />
-                  </label>
+                  <button
+                    type="button"
+                    className="self-end text-xs font-semibold text-neutral-500"
+                    onClick={() =>
+                      setDossier((current) => ({
+                        ...current,
+                        documents: current.documents.filter((row) => row.id !== doc.id),
+                      }))
+                    }
+                  >
+                    Retirer
+                  </button>
                 </div>
               ))}
             </div>
@@ -457,8 +836,29 @@ const CreateProjectWizard = () => {
             <div className="space-y-3 text-sm">
               <h2 className="text-base font-semibold">{title || "Projet sans titre"}</h2>
               <p className="text-neutral-600">{description || "Aucune description."}</p>
-              <p>{[city, region].filter(Boolean).join(", ") || "Lieu non renseigné"}</p>
-              <p className="text-[#174f43]">{dossier.progress} % d'avancement · {dossier.team.filter((item) => item.name).length} organisations · {dossier.partners.filter((item) => item.name).length} partenaires</p>
+              <p>
+                {[dossier.address, dossier.neighborhood, city, postalCode, region].filter(Boolean).join(", ") || "Lieu non renseigné"}
+              </p>
+              {promoterName ? <p><span className="font-semibold">Promoteur : </span>{promoterName}</p> : null}
+              {commercialStatus ? <p><span className="font-semibold">Commercialisation : </span>{commercialStatusLabel(commercialStatus)}</p> : null}
+              <p>
+                <span className="font-semibold">Prix : </span>
+                {priceMode === "request"
+                  ? "Sur demande"
+                  : priceMode === "from"
+                    ? `À partir de ${dossier.fields.priceFrom || "—"} ${dossier.fields.currency || "MAD"}`
+                    : `${dossier.fields.priceMin || "—"} – ${dossier.fields.priceMax || "—"} ${dossier.fields.currency || "MAD"}`}
+              </p>
+              {dossier.fields.typologies || dossier.fields.equipment || dossier.fields.nearby ? (
+                <p className="text-neutral-600">
+                  {[dossier.fields.typologies, dossier.fields.equipment, dossier.fields.nearby].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+              <p className="text-[#174f43]">
+                {PROJECT_MILESTONES.find((item) => item.id === dossier.status)?.label || "Avancement non renseigné"}
+                {" · "}
+                {dossier.team.filter((item) => item.name).length} organisations · {dossier.partners.filter((item) => item.name).length} partenaires
+              </p>
               {!title || !dossier.category ? <p className="text-amber-700">Le type et le titre sont encore requis.</p> : <p>Votre projet est prêt à être publié.</p>}
               <div className="flex flex-wrap gap-2 pt-2">
                 <button type="button" disabled={saving} onClick={() => void publish(true)} className="h-11 rounded-lg border border-neutral-300 px-4 text-sm font-semibold">Enregistrer le brouillon</button>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Bell, Briefcase, Heart, Home, Plus, Search, Settings } from "lucide-react";
+import { Bell, Briefcase, GraduationCap, HardHat, Heart, Home, Package, Plus, Search, Settings, Wrench } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logoDetailed from "@/assets/sifarah-logo-detailed.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -103,13 +103,26 @@ const FeedDesktopRail = () => {
           <Heart className="h-5 w-5" strokeWidth={2} />
           Favoris
         </button>
-        <button type="button" onClick={() => navigate("/settings")} className={itemClass(path.startsWith("/settings"))}>
-          <Settings className="h-5 w-5" strokeWidth={2} />
-          Paramètres
+        <button type="button" onClick={() => navigate("/courses")} className={itemClass(path.startsWith("/courses"))}>
+          <GraduationCap className="h-5 w-5" strokeWidth={2} />
+          Courses
         </button>
+        <button type="button" onClick={() => navigate("/outils")} className={itemClass(path.startsWith("/outils"))}>
+          <Wrench className="h-5 w-5" strokeWidth={2} />
+          Tools
+        </button>
+        <div className="my-3" aria-hidden />
         <button type="button" onClick={() => navigate("/opportunites")} className={itemClass(path.startsWith("/opportunites"))}>
           <Briefcase className="h-5 w-5" strokeWidth={2} />
           Sifarah Business
+        </button>
+        <button type="button" onClick={() => navigate("/produits")} className={itemClass(path.startsWith("/produits"))}>
+          <Package className="h-5 w-5" strokeWidth={2} />
+          Sifarah Matériaux
+        </button>
+        <button type="button" onClick={() => navigate("/hrayfi")} className={itemClass(path.startsWith("/hrayfi"))}>
+          <HardHat className="h-5 w-5" strokeWidth={2} />
+          Sifarah Hrayfi
         </button>
       </nav>
 
@@ -152,6 +165,17 @@ const FeedDesktopRail = () => {
         </button>
         <button
           type="button"
+          onClick={() => navigate("/settings")}
+          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-neutral-100 ${
+            path.startsWith("/settings") ? "bg-[#174f43]/10 text-[#174f43]" : "text-neutral-900"
+          }`}
+          aria-label="Paramètres"
+          title="Paramètres"
+        >
+          <Settings className="h-5 w-5" strokeWidth={2} />
+        </button>
+        <button
+          type="button"
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-900 transition hover:bg-neutral-100"
           aria-label="Notifications"
         >
@@ -162,11 +186,27 @@ const FeedDesktopRail = () => {
   );
 };
 
-export const DesktopRailFrame = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
+export const DesktopRailFrame = ({
+  children,
+  className = "",
+  contentClassName = "",
+}: {
+  children: ReactNode;
+  className?: string;
+  /** Override the main column width (e.g. product pages with a left filter). */
+  contentClassName?: string;
+}) => (
   <div className={`lg:flex lg:min-h-screen lg:w-full ${className}`}>
     <FeedDesktopRail />
     <div className="min-w-0 lg:flex-1 lg:py-5">
-      <div className="mx-auto w-full lg:w-[56rem] lg:max-w-[calc(100vw-22rem)] lg:px-8">{children}</div>
+      <div
+        className={
+          contentClassName ||
+          "mx-auto w-full lg:w-[56rem] lg:max-w-[calc(100vw-22rem)] lg:px-8"
+        }
+      >
+        {children}
+      </div>
     </div>
   </div>
 );

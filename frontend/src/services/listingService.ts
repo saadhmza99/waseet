@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { CATEGORY_HISTORY_SELECT, categoryTagsFromHistory } from '@/lib/taxonomy';
 
 export interface ListingData {
   title: string;
@@ -32,27 +33,35 @@ export const listingService = {
 
   // Get all listings
   async getListings(limit = 20, offset = 0, isSponsored?: boolean) {
-    let query = supabase
-      .from('listings')
-      .select(`
-        *,
-        profiles:user_id (
-          id,
-          username,
-          full_name,
-          avatar_url,
-          is_verified
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    const run = (withCategory: boolean) => {
+      let query = supabase
+        .from('listings')
+        .select(`
+          *,
+          profiles:user_id (
+            id,
+            username,
+            full_name,
+            avatar_url,
+            is_verified
+          )${withCategory ? `, ${CATEGORY_HISTORY_SELECT}` : ''}
+        `)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (isSponsored !== undefined) {
+        query = query.eq('is_sponsored', isSponsored);
+      }
+      return query;
+    };
 
-    if (isSponsored !== undefined) {
-      query = query.eq('is_sponsored', isSponsored);
+    const rich = await run(true);
+    if (!rich.error) {
+      return (rich.data || []).map(({ category_history, ...listing }: any) => ({
+        ...listing,
+        ...categoryTagsFromHistory(category_history),
+      }));
     }
-
-    const { data, error } = await query;
-
+    const { data, error } = await run(false);
     if (error) throw error;
     return data;
   },

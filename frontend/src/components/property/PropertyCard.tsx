@@ -1,6 +1,6 @@
 import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { formatSurface, labelOf, PROPERTY_KINDS, type PropertyDetails } from "@/lib/propertyListing";
+import { formatSurface, propertyKindLabel, type PropertyDetails } from "@/lib/propertyListing";
 
 const coverFallback =
   "data:image/svg+xml;utf8," +
@@ -32,7 +32,7 @@ export const PropertyCard = ({ row }: { row: { id: string; images: string[]; det
       <span className="relative block aspect-[16/10] bg-neutral-100">
         <img src={row.images[0] || coverFallback} alt="" className="h-full w-full object-cover" />
         <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-[11px] font-semibold text-neutral-800 shadow-sm">
-          {labelOf(PROPERTY_KINDS, details.propertyKind)}
+          {propertyKindLabel(details.propertyKind)}
         </span>
       </span>
       <span className="flex flex-col gap-2 px-3.5 py-3">

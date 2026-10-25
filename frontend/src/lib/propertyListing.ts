@@ -1,19 +1,15 @@
+import { normalizePropertyKind, PROPERTY_TYPES } from "@/lib/taxonomy";
+
 export const LISTING_CATEGORIES = [
   { id: "vente", label: "Vente" },
   { id: "location", label: "Location" },
   { id: "location_vacances", label: "Location vacances" },
 ] as const;
 
-export const PROPERTY_KINDS = [
-  { id: "appartement", label: "Appartements" },
-  { id: "maison", label: "Maisons" },
-  { id: "villa", label: "Villas & maisons de luxe" },
-  { id: "riad", label: "Riad" },
-  { id: "local_commercial", label: "Locaux commerciaux" },
-  { id: "bureau", label: "Bureaux" },
-  { id: "terrain", label: "Terrains" },
-  { id: "ferme", label: "Fermes" },
-] as const;
+export const PROPERTY_KINDS = PROPERTY_TYPES;
+
+export const propertyKindLabel = (kind?: string | null) =>
+  PROPERTY_TYPES.find((item) => item.id === normalizePropertyKind(kind))?.label || kind || "";
 
 export const PROPERTY_CONDITIONS = [
   { id: "jamais_habite", label: "Jamais habité / rénové" },
@@ -194,4 +190,42 @@ export const contactPhone = (details: unknown, profilePhone?: string | null) => 
     : "";
   if (typeof listingPhone === "string" && listingPhone.trim()) return listingPhone.trim();
   return (profilePhone || "").trim();
+};
+
+/** Normalize a `public.properties` row for PropertyCard / PropertyPage. */
+export const propertyViewFromRow = (row: {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  city?: string | null;
+  region?: string | null;
+  price?: string | null;
+  surface?: string | null;
+  beds?: number | null;
+  baths?: number | null;
+  images?: unknown;
+  details?: Partial<PropertyDetails> | null;
+  source_url?: string | null;
+}) => {
+  const base = emptyPropertyDetails();
+  const details: PropertyDetails = {
+    ...base,
+    ...(row.details || {}),
+    title: row.details?.title || row.title || base.title,
+    description: row.details?.description || row.description || base.description,
+    city: row.details?.city || row.city || base.city,
+    region: row.details?.region || row.region || base.region,
+    priceDh: row.details?.priceDh || row.price || base.priceDh,
+    builtSurface: row.details?.builtSurface || row.surface || base.builtSurface,
+    beds: row.details?.beds ?? row.beds ?? base.beds,
+    baths: row.details?.baths ?? row.baths ?? base.baths,
+    features: Array.isArray(row.details?.features) ? row.details!.features! : base.features,
+    phones: Array.isArray(row.details?.phones) ? row.details!.phones! : base.phones,
+  };
+  return {
+    id: row.id,
+    sourceUrl: row.source_url || "",
+    images: Array.isArray(row.images) ? (row.images as string[]) : [],
+    details,
+  };
 };

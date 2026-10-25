@@ -1,11 +1,15 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Bookmark, ChevronRight, ExternalLink, MapPin, Share2 } from "lucide-react";
+import { ChevronRight, ExternalLink, FileText, Heart, MapPin, Share2 } from "lucide-react";
 import { catalogService } from "@/services/catalogService";
+import { savedService } from "@/services/savedService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import InquiryDialog from "@/components/InquiryDialog";
+import { ProjectCommercialTag, ProjectMilestoneTrack } from "@/components/project/ProjectMilestoneTrack";
 import { toast } from "@/components/ui/use-toast";
-import { showcaseRow } from "@/lib/showcaseProjects";
+import { savedToast } from "@/lib/savedToast";
+import FeedDesktopRail from "@/components/FeedDesktopRail";
 import {
   DETAIL_SECTIONS,
   categoryLabel,
@@ -13,23 +17,19 @@ import {
   phaseStatusLabel,
   projectLocation,
   projectMetrics,
-  statusLabel,
   type ProjectRecord,
 } from "@/lib/projectDossier";
+import { projectTypeLabel } from "@/lib/taxonomy";
+
+const withProjectChrome = (node: ReactNode) => (
+  <div className="lg:flex lg:min-h-screen lg:w-full">
+    <FeedDesktopRail />
+    <div className="min-w-0 flex-1">{node}</div>
+  </div>
+);
 
 const TABS = ["Aperçu", "Programme", "Équipe", "Documents", "Mises à jour"] as const;
 type Tab = (typeof TABS)[number];
-
-const savedKey = "sifarah.savedProjects";
-
-const readSaved = () => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(savedKey) || "[]");
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
-};
 
 const formatDate = (value: string) => {
   if (!value) return "";
@@ -41,7 +41,8 @@ const formatDate = (value: string) => {
 const ProjectPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, visitorUser } = useAuth();
+  const { requestVisitor } = useVisitorGate();
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [missing, setMissing] = useState(false);
   const [tab, setTab] = useState<Tab>("Aperçu");
@@ -59,12 +60,6 @@ const ProjectPage = () => {
     let active = true;
     setMissing(false);
     setProject(null);
-    const sample = showcaseRow(id);
-    if (sample) {
-      setProject(dossierFromRow(sample));
-      setSaved(readSaved().includes(id));
-      return;
-    }
     catalogService
       .getProject(id)
       .then((row) => {
@@ -75,19 +70,60 @@ const ProjectPage = () => {
       .catch(() => {
         if (active) setMissing(true);
       });
-    setSaved(readSaved().includes(id));
     return () => {
       active = false;
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!id) return;
+    const saverId = user?.id || visitorUser?.id;
+    if (!saverId) {
+      setSaved(false);
+      return;
+    }
+    let cancelled = false;
+    savedService.isProjectSaved(saverId, id).then((value) => {
+      if (!cancelled) setSaved(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user?.id, visitorUser?.id]);
+
   const metrics = useMemo(() => (project ? projectMetrics(project) : []), [project]);
-  const sections = project?.category ? DETAIL_SECTIONS[project.category] : [];
-  const filledFields = sections.flatMap((section) =>
+  const sections = project?.category ? DETAIL_SECTIONS[project.category] || [] : [];
+  const sectionFields = sections.flatMap((section) =>
     section.fields
       .map((field) => ({ label: field.label, value: project?.fields[field.key]?.trim() || "" }))
-      .filter((field) => field.value)
+      .filter((field) => field.value),
   );
+  /** Seeded Kerix rows often only have typologies / equipment / nearby / prices. */
+  const extraFields = [
+    { key: "typologies", label: "Typologies" },
+    { key: "surface", label: "Surface" },
+    { key: "equipment", label: "Équipements" },
+    { key: "nearby", label: "À proximité" },
+    { key: "priceFrom", label: "À partir de" },
+    { key: "priceMin", label: "Prix min" },
+    { key: "priceMax", label: "Prix max" },
+  ]
+    .map((field) => {
+      const raw = project?.fields[field.key]?.trim() || "";
+      if (!raw) return { label: field.label, value: "" };
+      if (field.key.startsWith("price")) {
+        const amount = Number(String(raw).replace(/\s/g, "").replace(",", "."));
+        if (!Number.isFinite(amount)) return { label: field.label, value: raw };
+        return {
+          label: field.label,
+          value: `${amount.toLocaleString("fr-FR")} ${project?.fields.currency || "MAD"}`,
+        };
+      }
+      return { label: field.label, value: raw };
+    })
+    .filter((field) => field.value);
+  const filledFieldLabels = new Set(sectionFields.map((field) => field.label));
+  const filledFields = [...sectionFields, ...extraFields.filter((field) => !filledFieldLabels.has(field.label))];
   const publicDocs = (project?.documents || []).filter((doc) => doc.privacy === "public" || project?.userId === user?.id);
   const gallery = project?.media?.length
     ? project.media
@@ -103,15 +139,27 @@ const ProjectPage = () => {
     toast({ title: "Lien copié" });
   };
 
-  const toggleSave = () => {
+  const toggleSave = async () => {
     if (!id) return;
-    const next = saved ? readSaved().filter((item) => item !== id) : [...readSaved(), id];
-    localStorage.setItem(savedKey, JSON.stringify(next));
-    setSaved(!saved);
+    const saver = await requestVisitor();
+    if (!saver) return;
+    try {
+      if (saved) {
+        await savedService.unsaveProject(saver.id, id);
+        setSaved(false);
+      } else {
+        await savedService.saveProject(saver.id, id);
+        setSaved(true);
+        savedToast();
+      }
+    } catch (error) {
+      console.error("Error saving project:", error);
+      toast({ title: "Erreur", description: "Impossible de mettre à jour les favoris." });
+    }
   };
 
   if (missing) {
-    return (
+    return withProjectChrome(
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <p className="text-sm text-neutral-600">Ce projet n'est plus disponible.</p>
         <button type="button" onClick={() => navigate(-1)} className="mt-4 text-sm font-semibold text-[#174f43]">
@@ -122,22 +170,22 @@ const ProjectPage = () => {
   }
 
   if (!project) {
-    return <div className="py-16 text-center text-sm text-neutral-500">Chargement du dossier…</div>;
+    return withProjectChrome(<div className="py-16 text-center text-sm text-neutral-500">Chargement du dossier…</div>);
   }
 
   const place = projectLocation(project);
 
-  return (
+  return withProjectChrome(
     <div className="min-h-screen bg-[#f4f6f3] pb-8 text-neutral-900">
       <div className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-4">
         <button type="button" onClick={() => navigate(-1)} className="mb-3 text-sm text-neutral-600">
           ← Retour
         </button>
         <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-          <div className="relative aspect-[16/8] bg-neutral-100 sm:aspect-[21/8]">
+          <div className="relative aspect-[16/9] bg-neutral-100 sm:aspect-[21/9]">
             {project.image ? <img src={project.image} alt="" className="h-full w-full object-cover" /> : null}
             <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-[11px] font-semibold text-neutral-800">
-              {project.subtype || categoryLabel(project.category)}
+              {projectTypeLabel(project.subtype) || project.subtype || categoryLabel(project.category)}
             </span>
           </div>
           <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
@@ -149,15 +197,14 @@ const ProjectPage = () => {
                   {place}
                 </p>
               ) : null}
-              <div className="mt-3 flex items-center gap-3 text-sm font-medium text-[#174f43]">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#174f43]" />
-                  {statusLabel(project.status)}
-                </span>
-                <span className="text-neutral-400">{project.progress} %</span>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-200">
-                <div className="h-full bg-[#174f43]" style={{ width: `${Math.min(100, project.progress || 0)}%` }} />
+              <div className="mt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-neutral-800">État d'avancement</p>
+                  <ProjectCommercialTag commercialStatus={project.commercialStatus} />
+                </div>
+                <div className="mt-2.5 px-0.5">
+                  <ProjectMilestoneTrack project={project} size="md" />
+                </div>
               </div>
               {metrics.length ? (
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -179,8 +226,8 @@ const ProjectPage = () => {
               </button>
               <div className="flex gap-2">
                 <button type="button" onClick={toggleSave} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 text-xs font-semibold">
-                  <Bookmark className={`h-4 w-4 ${saved ? "fill-[#174f43] text-[#174f43]" : ""}`} />
-                  {saved ? "Enregistré" : "Enregistrer"}
+                  <Heart className={`h-4 w-4 ${saved ? "fill-[#174f43] text-[#174f43]" : ""}`} />
+                  {saved ? "Enregistré" : "Favoris"}
                 </button>
                 <button type="button" onClick={() => void share()} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 text-xs font-semibold">
                   <Share2 className="h-4 w-4" />
@@ -206,7 +253,19 @@ const ProjectPage = () => {
           <div className="p-4 sm:p-6">
             {tab === "Aperçu" ? (
               <div className="space-y-6">
-                {project.description ? <p className="max-w-3xl text-sm leading-relaxed text-neutral-700">{project.description}</p> : null}
+                {project.description ? <p className="max-w-3xl text-base leading-relaxed text-neutral-700">{project.description}</p> : null}
+                {project.promoter?.name ? (
+                  <p className="text-base text-neutral-700">
+                    <span className="font-semibold">Promoteur </span>
+                    {project.promoter.website ? (
+                      <a href={project.promoter.website} target="_blank" rel="noreferrer" className="font-medium text-[#174f43]">
+                        {project.promoter.name}
+                      </a>
+                    ) : (
+                      project.promoter.name
+                    )}
+                  </p>
+                ) : null}
                 {filledFields.length ? (
                   <div>
                     <h2 className="text-sm font-semibold">Caractéristiques</h2>
@@ -378,7 +437,10 @@ const ProjectPage = () => {
                   {publicDocs.filter((doc) => doc.title).map((doc) => (
                     <li key={doc.id} className="flex items-center justify-between gap-3 px-3 py-3">
                       <div className="flex min-w-0 items-center gap-3">
-                        {doc.thumbnail ? <img src={doc.thumbnail} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" /> : null}
+                        <span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-md bg-red-600 text-white">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-[8px] font-bold leading-tight">PDF</span>
+                        </span>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{doc.title}</p>
                           <p className="truncate text-xs text-neutral-500">

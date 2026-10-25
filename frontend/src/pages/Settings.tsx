@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Bell, Shield, Moon, Globe, Trash2, User, Users, Eye, Mail } from "lucide-react";
+import { ArrowLeft, Bell, Briefcase, Shield, Moon, Globe, Trash2, User, Users, Eye, Mail } from "lucide-react";
+import { FEED_CATEGORIES } from "@/lib/taxonomy";
+import { taxonomyService, type InternalCategory } from "@/services/taxonomyService";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -12,7 +14,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { profileService } from "@/services/profileService";
 import { visitorService } from "@/services/visitorService";
 import { supabase } from "@/lib/supabase";
-import { storageService } from "@/services/storageService";
+import { isWithinUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { toast } from "@/components/ui/use-toast";
 import { userSettingsService } from "@/services/userSettingsService";
@@ -20,6 +22,7 @@ import { muteService, type MutedAccount } from "@/services/muteService";
 import { preferredWebsiteFrom, websiteLinksFrom } from "@/components/ProfileInfosCard";
 import ImageCropper from "@/components/ImageCropper";
 import { useAppLanguage } from "@/contexts/AppLanguageContext";
+import { MAX_BIO_LENGTH } from "@/lib/bio";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -49,7 +52,15 @@ const Settings = () => {
   const [tagPermission, setTagPermission] = useState<"everyone" | "following" | "off">("everyone");
   const [mutedAccounts, setMutedAccounts] = useState<MutedAccount[]>([]);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
-  const MAX_BIO_LENGTH = 450;
+  const [internalCategories, setInternalCategories] = useState<InternalCategory[]>([]);
+  const [taxonomyUnavailable, setTaxonomyUnavailable] = useState(false);
+  const [savedInternalCategoryIds, setSavedInternalCategoryIds] = useState<number[]>([]);
+  const [selectedInternalCategoryIds, setSelectedInternalCategoryIds] = useState<number[]>([]);
+  const [pickedCategoryId, setPickedCategoryId] = useState<number | null>(null);
+  const [pickedSubCategory, setPickedSubCategory] = useState("");
+  const [pickedInternalCategoryId, setPickedInternalCategoryId] = useState<number | null>(null);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const allowsMultipleCategories = profile?.profile_type === "enterprise";
   const { setLanguage: setAppLanguage } = useAppLanguage();
   const languageOptions = [
     "English",
@@ -131,6 +142,90 @@ const Settings = () => {
 
     loadPreferences();
   }, [accountId, isParticulier, setAppLanguage]);
+
+  useEffect(() => {
+    if (!user || isParticulier) return;
+    let cancelled = false;
+    Promise.all([taxonomyService.listInternalCategories(), taxonomyService.getProfileInternalCategoryIds(user.id)])
+      .then(([rows, currentIds]) => {
+        if (cancelled) return;
+        setInternalCategories(rows);
+        setSavedInternalCategoryIds(currentIds);
+        setSelectedInternalCategoryIds(currentIds);
+        const current = rows.find((row) => row.id === currentIds[0]);
+        if (current) {
+          setPickedCategoryId(current.category_id);
+          setPickedSubCategory(current.sub_category);
+          setPickedInternalCategoryId(current.id);
+        }
+      })
+      .catch((error) => {
+        console.error("Error loading internal categories:", error);
+        if (!cancelled) setTaxonomyUnavailable(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isParticulier]);
+
+  const subCategoryOptions = Array.from(
+    new Set(internalCategories.filter((row) => row.category_id === pickedCategoryId).map((row) => row.sub_category))
+  );
+  const detailOptions = internalCategories.filter(
+    (row) => row.category_id === pickedCategoryId && row.sub_category === pickedSubCategory
+  );
+  const selectedCategoryRows = selectedInternalCategoryIds
+    .map((id) => internalCategories.find((row) => row.id === id))
+    .filter(Boolean) as InternalCategory[];
+  const categorySelectionDirty =
+    selectedInternalCategoryIds.length !== savedInternalCategoryIds.length ||
+    selectedInternalCategoryIds.some((id, index) => id !== savedInternalCategoryIds[index]);
+
+  const addPickedCategory = () => {
+    if (!pickedInternalCategoryId) return;
+    if (allowsMultipleCategories) {
+      setSelectedInternalCategoryIds((prev) =>
+        prev.includes(pickedInternalCategoryId) ? prev : [...prev, pickedInternalCategoryId]
+      );
+    } else {
+      setSelectedInternalCategoryIds([pickedInternalCategoryId]);
+    }
+  };
+
+  const removeSelectedCategory = (id: number) => {
+    setSelectedInternalCategoryIds((prev) => {
+      const next = prev.filter((item) => item !== id);
+      return allowsMultipleCategories ? next : next.slice(0, 1);
+    });
+  };
+
+  const makePrimaryCategory = (id: number) => {
+    setSelectedInternalCategoryIds((prev) => [id, ...prev.filter((item) => item !== id)]);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!user || !selectedInternalCategoryIds.length) return;
+    setIsSavingCategory(true);
+    try {
+      const ids = allowsMultipleCategories
+        ? selectedInternalCategoryIds
+        : selectedInternalCategoryIds.slice(0, 1);
+      await taxonomyService.setProfileInternalCategoryIds(user.id, ids);
+      setSavedInternalCategoryIds(ids);
+      setSelectedInternalCategoryIds(ids);
+      toast({
+        title: "Catégorie enregistrée",
+        description: allowsMultipleCategories
+          ? "Vos spécialités sont enregistrées. La première est utilisée pour le fil."
+          : "Vos prochaines publications apparaîtront dans cette catégorie du fil.",
+      });
+    } catch (error) {
+      console.error("Error saving internal category:", error);
+      toast({ title: "Erreur", description: "Impossible d'enregistrer la catégorie." });
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -331,7 +426,12 @@ const Settings = () => {
                     capture="environment"
                     className="hidden"
                     onChange={(e) => {
-                      setCropFile(e.target.files?.[0] || null);
+                      const file = e.target.files?.[0] || null;
+                      if (file && !isWithinUploadLimit(file)) {
+                        toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+                      } else {
+                        setCropFile(file);
+                      }
                       e.target.value = "";
                     }}
                   />
@@ -345,7 +445,12 @@ const Settings = () => {
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => {
-                      setCropFile(e.target.files?.[0] || null);
+                      const file = e.target.files?.[0] || null;
+                      if (file && !isWithinUploadLimit(file)) {
+                        toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+                      } else {
+                        setCropFile(file);
+                      }
                       e.target.value = "";
                     }}
                   />
@@ -482,6 +587,138 @@ const Settings = () => {
             </div>
           </div>
         </div>
+
+        {isParticulier ? null : (
+        <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Catégorie professionnelle</h2>
+          </div>
+          {taxonomyUnavailable ? (
+            <p className="text-sm text-muted-foreground">Les catégories sont indisponibles pour le moment.</p>
+          ) : (
+          <div className="space-y-4 sm:space-y-5">
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              {allowsMultipleCategories
+                ? "Les entreprises peuvent ajouter plusieurs spécialités. La première (principale) place vos publications dans le fil."
+                : "Votre catégorie place vos publications dans le fil. Si vous la changez, vos anciennes publications restent dans leur catégorie d'origine."}
+            </p>
+            {selectedCategoryRows.length ? (
+              <ul className="space-y-2">
+                {selectedCategoryRows.map((row, index) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-card-foreground">
+                        {row.detailed_sub_category}
+                        {index === 0 ? (
+                          <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-accent">Principale</span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {row.sub_category} · {row.code}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {allowsMultipleCategories && index > 0 ? (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => makePrimaryCategory(row.id)}>
+                          Principale
+                        </Button>
+                      ) : null}
+                      {allowsMultipleCategories || selectedCategoryRows.length > 1 ? (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeSelectedCategory(row.id)}>
+                          Retirer
+                        </Button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div>
+              <Label htmlFor="pro-category" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                Catégorie
+              </Label>
+              <select
+                id="pro-category"
+                value={pickedCategoryId ?? ""}
+                onChange={(e) => {
+                  setPickedCategoryId(e.target.value ? Number(e.target.value) : null);
+                  setPickedSubCategory("");
+                  setPickedInternalCategoryId(null);
+                }}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Choisir</option>
+                {FEED_CATEGORIES.map((item) => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="pro-sub-category" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                Sous-catégorie
+              </Label>
+              <select
+                id="pro-sub-category"
+                value={pickedSubCategory}
+                disabled={!pickedCategoryId}
+                onChange={(e) => {
+                  setPickedSubCategory(e.target.value);
+                  setPickedInternalCategoryId(null);
+                }}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">Choisir</option>
+                {subCategoryOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="pro-detail" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                Spécialité
+              </Label>
+              <select
+                id="pro-detail"
+                value={pickedInternalCategoryId ?? ""}
+                disabled={!pickedSubCategory}
+                onChange={(e) => setPickedInternalCategoryId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">Choisir</option>
+                {detailOptions.map((item) => (
+                  <option key={item.id} value={item.id}>{item.detailed_sub_category}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addPickedCategory}
+                disabled={
+                  !pickedInternalCategoryId ||
+                  (allowsMultipleCategories
+                    ? selectedInternalCategoryIds.includes(pickedInternalCategoryId)
+                    : false)
+                }
+              >
+                {allowsMultipleCategories ? "Ajouter" : "Sélectionner"}
+              </Button>
+              <Button
+                onClick={handleSaveCategory}
+                disabled={isSavingCategory || !selectedInternalCategoryIds.length || !categorySelectionDirty}
+              >
+                {isSavingCategory ? "Enregistrement..." : "Enregistrer"}
+              </Button>
+            </div>
+          </div>
+          )}
+        </div>
+        )}
 
         {/* Notifications Section */}
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">

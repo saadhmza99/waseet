@@ -1,4 +1,4 @@
-const STORAGE_KEY = "sifarah.profileBuffer.v3";
+const STORAGE_KEY = "sifarah.profileBuffer.v4";
 const MAX_ACCOUNTS = 8;
 const TTL_MS = 5 * 60 * 1000;
 
@@ -8,6 +8,8 @@ export type ProfileBufferBundle = {
   postsHasMore: boolean;
   listings: any[];
   listingsHasMore: boolean;
+  products: any[];
+  productsHasMore: boolean;
   reviews: any[];
   reels: any[];
   reelsHasMore: boolean;
@@ -20,6 +22,7 @@ export type ProfileBufferBundle = {
   propertiesCount?: number;
   projectsCount?: number;
   listingsCount: number;
+  productsCount: number;
   followers: any[];
   isBlockedProfile: boolean;
   isFollowing: boolean;

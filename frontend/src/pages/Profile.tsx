@@ -6,13 +6,14 @@ import ProfileHeader from "@/components/ProfileHeader";
 import ProfilePageSkeleton, { ProfileMediaGridSkeleton } from "@/components/ProfilePageSkeleton";
 import ReviewCard from "@/components/ReviewCard";
 import FeedPost from "@/components/FeedPost";
-import ListingCard from "@/components/ListingCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { profileBuffer, profileRouteSlug, type ProfileBufferBundle } from "@/lib/profileBuffer";
 import { profileService } from "@/services/profileService";
 import { postService } from "@/services/postService";
-import { listingService } from "@/services/listingService";
+import { serviceService } from "@/services/serviceService";
+import { productService, type ProductRow } from "@/services/productService";
+import { offerFromRow } from "@/lib/serviceOffer";
 import { reviewService } from "@/services/reviewService";
 import { reelService } from "@/services/reelService";
 import {
@@ -24,7 +25,7 @@ import {
 } from "@/services/streamService";
 import { moderationService, isBlockCooldownError } from "@/services/moderationService";
 import { followService } from "@/services/followService";
-import { storageService } from "@/services/storageService";
+import { isWithinUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { notificationService } from "@/services/notificationService";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,18 +58,13 @@ import { aboutHtmlIsEmpty, sanitizeAboutHtml, toAboutHtml } from "@/lib/aboutHtm
 import PortfolioGrid from "@/components/PortfolioGrid";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { ServiceCard } from "@/components/service/ServiceCard";
-import { SHOWCASE_PROFILE_USERNAME } from "@/lib/showcasePosts";
-import { SHOWCASE_PROJECTS } from "@/lib/showcaseProjects";
-import { SHOWCASE_PROPERTIES } from "@/lib/showcaseProperties";
-import { SHOWCASE_SERVICES } from "@/lib/showcaseServices";
-import { priceLabel } from "@/lib/serviceOffer";
+import { ProductCard } from "@/components/product/ProductCard";
 import { locationsFrom, ProfileDetailsFields, type InfosField } from "@/components/ProfileInfosCard";
 import UploadProgressRing from "@/components/UploadProgressRing";
 import { RetryImage } from "@/components/RetryImage";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
 import ImageCropper from "@/components/ImageCropper";
 import PhoneInput from "@/components/PhoneInput";
-import { CityPicker } from "@/components/CityPicker";
 import { isCompletePhone } from "@/lib/phone";
 import BlockMemberModal from "@/components/BlockMemberModal";
 import MuteProfileModal from "@/components/MuteProfileModal";
@@ -76,36 +72,61 @@ import AboutThisMemberSheet from "@/components/AboutThisMemberSheet";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
+import { profileSectionsForInternalCodes } from "@/lib/taxonomy";
+import { MAX_BIO_LENGTH } from "@/lib/bio";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
 
-const RAHMA_PROJECT = SHOWCASE_PROJECTS.find((row) => row.id === "showcase-faubourgs-anfa") || SHOWCASE_PROJECTS[0];
-const RAHMA_PROPERTY = SHOWCASE_PROPERTIES.find((row) => row.id === "showcase-anfa-place-129") || SHOWCASE_PROPERTIES[0];
-const RAHMA_SERVICE = SHOWCASE_SERVICES.find((row) => row.id === "showcase-cgi-promotion") || SHOWCASE_SERVICES[0];
-
-const tabs = ["Posts", "Projets", "Biens", "Services"] as const;
+const tabs = ["Infos", "Posts", "Réalisations", "Projets", "Biens", "Services", "Produits"] as const;
+type ProfileTab = (typeof tabs)[number];
 type PostsView = "grid" | "reels";
 const MAX_ABOUT_LENGTH = 50000;
-const ABOUT_QUERY_TABS = new Set(["about", "details", "apropos"]);
-const tabToQuery: Record<(typeof tabs)[number], string> = {
+const tabToQuery: Record<ProfileTab, string> = {
+  Infos: "infos",
   Posts: "posts",
+  Réalisations: "realisations",
   Projets: "projets",
   Biens: "biens",
   Services: "services",
+  Produits: "produits",
 };
 
-const queryToTab: Record<string, (typeof tabs)[number]> = {
+const queryToTab: Record<string, ProfileTab> = {
+  infos: "Infos",
+  about: "Infos",
+  details: "Infos",
+  apropos: "Infos",
   posts: "Posts",
+  realisations: "Réalisations",
   portfolio: "Projets",
   projets: "Projets",
   biens: "Biens",
   services: "Services",
+  produits: "Produits",
   reels: "Posts",
+};
+
+const internalCategoryCodesOf = (profile: any): string[] => {
+  const links = Array.isArray(profile?.profile_internal_categories)
+    ? profile.profile_internal_categories
+    : [];
+  const fromLinks = links
+    .map((link: any) => {
+      const cat = link?.internal_categories ?? link?.internal_category;
+      if (Array.isArray(cat)) return cat[0]?.code;
+      return cat?.code;
+    })
+    .filter(Boolean) as string[];
+  if (fromLinks.length) return Array.from(new Set(fromLinks));
+  const raw = profile?.internal_category;
+  const single = Array.isArray(raw) ? raw[0]?.code : raw?.code;
+  return single ? [single] : [];
 };
 
 const PAGE = {
   posts: 12,
   reels: 9,
   listings: 12,
+  products: 12,
   properties: 12,
   projects: 10,
 } as const;
@@ -254,7 +275,13 @@ const PhotoEditControl = ({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) setPending({ file, source: "camera" });
+          if (file) {
+            if (!isWithinUploadLimit(file)) {
+              toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+            } else {
+              setPending({ file, source: "camera" });
+            }
+          }
           e.target.value = "";
         }}
       />
@@ -265,7 +292,13 @@ const PhotoEditControl = ({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) setPending({ file, source: "library" });
+          if (file) {
+            if (!isWithinUploadLimit(file)) {
+              toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+            } else {
+              setPending({ file, source: "library" });
+            }
+          }
           e.target.value = "";
         }}
       />
@@ -312,22 +345,49 @@ const Profile = () => {
   const { user, loading: authLoading } = useAuth();
   const { profile: currentProfile } = useProfile();
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>(
-    queryToTab[searchParams.get("tab") || ""] || "Posts"
+    queryToTab[searchParams.get("tab") || ""] || "Infos"
   );
   const [showReviews, setShowReviews] = useState(false);
-  const [showAbout, setShowAbout] = useState(ABOUT_QUERY_TABS.has(searchParams.get("tab") || ""));
   const [feedPostId, setFeedPostId] = useState<string | null>(null);
   const [hoveredPostId, setHoveredPostId] = useState<string | null>(null);
   const [postsView, setPostsView] = useState<PostsView>(
     postsViewFromQuery(searchParams.get("tab") || "", searchParams.get("view"))
   );
   const [profile, setProfile] = useState<any>(bootBundle?.profile ?? null);
+  const profileSections = useMemo(
+    () => profileSectionsForInternalCodes(internalCategoryCodesOf(profile)),
+    [profile]
+  );
+  const visibleTabs = useMemo(() => {
+    return tabs.filter((tab) => {
+      if (tab === "Infos") return true;
+      if (tab === "Posts") return profileSections.showPosts;
+      if (tab === "Réalisations") return profileSections.showRealisations;
+      if (tab === "Projets") return profileSections.showProjets;
+      if (tab === "Biens") return profileSections.showBiens;
+      if (tab === "Services") return profileSections.showServices;
+      if (tab === "Produits") return profileSections.showProduits;
+      return false;
+    });
+  }, [profileSections]);
   const [posts, setPosts] = useState<any[]>(bootBundle?.posts ?? []);
   const [postsHasMore, setPostsHasMore] = useState(Boolean(bootBundle?.postsHasMore));
   const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+  const standardPosts = useMemo(
+    () => posts.filter((post) => !post?.post_type || post.post_type === "standard"),
+    [posts]
+  );
+  const realisationPosts = useMemo(
+    () => posts.filter((post) => post?.post_type === "realisation"),
+    [posts]
+  );
+  const tabPosts = activeTab === "Réalisations" ? realisationPosts : standardPosts;
   const [listings, setListings] = useState<any[]>(bootBundle?.listings ?? []);
   const [listingsHasMore, setListingsHasMore] = useState(Boolean(bootBundle?.listingsHasMore));
   const [loadingMoreListings, setLoadingMoreListings] = useState(false);
+  const [products, setProducts] = useState<ProductRow[]>(bootBundle?.products ?? []);
+  const [productsHasMore, setProductsHasMore] = useState(Boolean(bootBundle?.productsHasMore));
+  const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
   const [reviews, setReviews] = useState<any[]>(bootBundle?.reviews ?? []);
   const [reels, setReels] = useState<any[]>(bootBundle?.reels ?? []);
   const [reelsHasMore, setReelsHasMore] = useState(Boolean(bootBundle?.reelsHasMore));
@@ -342,11 +402,13 @@ const Profile = () => {
   const [propertiesCount, setPropertiesCount] = useState<number | null>(bootBundle?.propertiesCount ?? null);
   const [projectsCount, setProjectsCount] = useState<number | null>(bootBundle?.projectsCount ?? null);
   const [listingsCount, setListingsCount] = useState<number | null>(bootBundle ? bootBundle.listingsCount : null);
+  const [productsCount, setProductsCount] = useState<number | null>(bootBundle ? bootBundle.productsCount : null);
   const [loading, setLoading] = useState(!bootBundle);
   const [postsReady, setPostsReady] = useState(Boolean(bootBundle));
   const [reelsReady, setReelsReady] = useState(Boolean(bootBundle));
   const [portfolioReady, setPortfolioReady] = useState(Boolean(bootBundle));
   const [servicesReady, setServicesReady] = useState(Boolean(bootBundle));
+  const [productsReady, setProductsReady] = useState(Boolean(bootBundle));
   const [isBlockedProfile, setIsBlockedProfile] = useState(Boolean(bootBundle?.isBlockedProfile));
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -378,6 +440,7 @@ const Profile = () => {
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const tabsContentRef = useRef<HTMLDivElement>(null);
+  const profileTabsScrollRef = useRef<HTMLDivElement>(null);
 
   const revealTabs = () => {
     requestAnimationFrame(() => {
@@ -390,12 +453,20 @@ const Profile = () => {
 
   const goToTab = (tab: (typeof tabs)[number]) => {
     setShowReviews(false);
-    setShowAbout(false);
     setEditingAbout(false);
-    if (tab !== "Posts") setFeedPostId(null);
+    if (tab !== "Posts" && tab !== "Réalisations") setFeedPostId(null);
     setActiveTab(tab);
     revealTabs();
   };
+
+  // Social-style tab strip: keep the active tab readable by scrolling it into view.
+  useEffect(() => {
+    if (showReviews) return;
+    const root = profileTabsScrollRef.current;
+    if (!root) return;
+    const active = root.querySelector<HTMLElement>(`[data-profile-tab="${activeTab}"]`);
+    active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [activeTab, showReviews]);
 
   useEffect(() => {
     if (activeTab !== "Posts" || postsView !== "grid" || feedPostId) {
@@ -431,17 +502,10 @@ const Profile = () => {
   useEffect(() => {
     const tabParam = searchParams.get("tab") || "";
     if (tabParam === "avis") {
-      setShowReviews(false);
-      setShowAbout(false);
-      return;
-    }
-    if (ABOUT_QUERY_TABS.has(tabParam)) {
-      setShowAbout(true);
-      setShowReviews(false);
+      setShowReviews(true);
       return;
     }
     setShowReviews(false);
-    setShowAbout(false);
     const viewParam = searchParams.get("view");
     const fromQuery = queryToTab[tabParam];
     if (fromQuery && fromQuery !== activeTab) {
@@ -459,9 +523,6 @@ const Profile = () => {
       if (showReviews) {
         next.set("tab", "avis");
         next.delete("view");
-      } else if (showAbout) {
-        next.set("tab", "about");
-        next.delete("view");
       } else {
         next.set("tab", tabToQuery[activeTab]);
         if (activeTab === "Posts" && postsView !== "grid") next.set("view", postsView);
@@ -469,7 +530,12 @@ const Profile = () => {
       }
       return next.toString() === prev.toString() ? prev : next;
     }, { replace: true });
-  }, [activeTab, postsView, showReviews, showAbout]);
+  }, [activeTab, postsView, showReviews]);
+
+  useEffect(() => {
+    if (!visibleTabs.length) return;
+    if (!visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0]);
+  }, [visibleTabs, activeTab]);
 
   const applyBundle = useCallback(
     (bundle: ProfileBufferBundle) => {
@@ -482,6 +548,8 @@ const Profile = () => {
       setPostsHasMore(bundle.postsHasMore);
       setListings(bundle.listings);
       setListingsHasMore(bundle.listingsHasMore);
+      setProducts(bundle.products || []);
+      setProductsHasMore(Boolean(bundle.productsHasMore));
       setReviews(bundle.reviews);
       setReels(bundle.reels);
       setReelsHasMore(bundle.reelsHasMore);
@@ -493,6 +561,7 @@ const Profile = () => {
       setPropertiesCount(bundle.propertiesCount ?? bundle.propertyItems.length);
       setProjectsCount(bundle.projectsCount ?? bundle.projectItems.length);
       setListingsCount(bundle.listingsCount);
+      setProductsCount(bundle.productsCount ?? bundle.products?.length ?? 0);
       setFollowers(bundle.followers);
       setIsBlockedProfile(bundle.isBlockedProfile);
       setIsFollowing(bundle.isFollowing);
@@ -501,6 +570,7 @@ const Profile = () => {
       setReelsReady(true);
       setPortfolioReady(true);
       setServicesReady(true);
+      setProductsReady(true);
     },
     [user?.id, user?.email]
   );
@@ -523,10 +593,12 @@ const Profile = () => {
       setReelsReady(false);
       setPortfolioReady(false);
       setServicesReady(false);
+      setProductsReady(false);
       setPostsCount(null);
       setPropertiesCount(null);
       setProjectsCount(null);
       setListingsCount(null);
+      setProductsCount(null);
     }
   }, [id, applyBundle]);
 
@@ -591,6 +663,7 @@ const Profile = () => {
           setReelsReady(true);
           setPortfolioReady(true);
           setServicesReady(true);
+          setProductsReady(true);
           return;
         }
 
@@ -621,7 +694,7 @@ const Profile = () => {
           }
           return { page, count };
         });
-        const listingsTask = settle(listingService.getListingsByUser(profileData.id, PAGE.listings, 0), Object.assign([], { totalCount: 0 })).then((listingsData) => {
+        const listingsTask = settle(serviceService.getServicesByUser(profileData.id, PAGE.listings, 0), Object.assign([], { totalCount: 0 })).then((listingsData) => {
           const page = takePage(listingsData, PAGE.listings);
           const count = totalCountOf(listingsData);
           if (alive()) {
@@ -629,6 +702,17 @@ const Profile = () => {
             setListingsHasMore(page.hasMore);
             setListingsCount(count);
             setServicesReady(true);
+          }
+          return { page, count };
+        });
+        const productsTask = settle(productService.listProductsByUser(profileData.id, PAGE.products, 0), Object.assign([], { totalCount: 0 })).then((productsData) => {
+          const page = takePage(productsData, PAGE.products);
+          const count = totalCountOf(productsData);
+          if (alive()) {
+            setProducts(page.items);
+            setProductsHasMore(page.hasMore);
+            setProductsCount(count);
+            setProductsReady(true);
           }
           return { page, count };
         });
@@ -689,10 +773,11 @@ const Profile = () => {
           return following;
         });
 
-        const [postsResult, listingsResult, reelsPage, propertiesPage, projectsPage, reviews, followers, isBlocked, following] =
+        const [postsResult, listingsResult, productsResult, reelsPage, propertiesPage, projectsPage, reviews, followers, isBlocked, following] =
           await Promise.all([
             postsTask,
             listingsTask,
+            productsTask,
             reelsTask,
             propertiesTask,
             projectsTask,
@@ -709,6 +794,8 @@ const Profile = () => {
           postsHasMore: postsResult.page.hasMore,
           listings: listingsResult.page.items,
           listingsHasMore: listingsResult.page.hasMore,
+          products: productsResult.page.items,
+          productsHasMore: productsResult.page.hasMore,
           reviews,
           reels: reelsPage.items,
           reelsHasMore: reelsPage.hasMore,
@@ -721,6 +808,7 @@ const Profile = () => {
           propertiesCount: propertiesTotal,
           projectsCount: projectsTotal,
           listingsCount: listingsResult.count,
+          productsCount: productsResult.count,
           followers,
           isBlockedProfile: isBlocked,
           isFollowing: following,
@@ -738,6 +826,7 @@ const Profile = () => {
         setReelsReady(true);
         setPortfolioReady(true);
         setServicesReady(true);
+        setProductsReady(true);
       }
     };
 
@@ -753,49 +842,22 @@ const Profile = () => {
     return Number((total / reviews.length).toFixed(1));
   }, [reviews]);
 
-  const rahmaShowcase = (profile?.username || "").replace(/^@/, "") === SHOWCASE_PROFILE_USERNAME;
-  const visibleProjects = useMemo(
-    () => (rahmaShowcase && !projectItems.some((row) => row.id === RAHMA_PROJECT.id) ? [RAHMA_PROJECT, ...projectItems] : projectItems),
-    [rahmaShowcase, projectItems]
+  const visibleProjects = projectItems;
+  const visibleProperties = propertyItems;
+  const recruitServices = useMemo(
+    () =>
+      listings.map((listing) => {
+        const card = serviceService.toCardProps(listing);
+        return {
+          id: String(listing.id),
+          title: card.title,
+          description: card.description || card.profession || "",
+          location: card.location || "",
+          budget: card.price_range || "",
+        };
+      }),
+    [listings],
   );
-  const visibleProperties = useMemo(() => {
-    if (!rahmaShowcase || propertyItems.some((row) => row.id === RAHMA_PROPERTY.id)) return propertyItems;
-    return [
-      {
-        id: RAHMA_PROPERTY.id,
-        user_id: profile?.id,
-        title: RAHMA_PROPERTY.details.title,
-        description: RAHMA_PROPERTY.details.description,
-        images: RAHMA_PROPERTY.images,
-        price: Number(RAHMA_PROPERTY.details.priceDh).toLocaleString("fr-FR") + " DH",
-        surface: RAHMA_PROPERTY.details.builtSurface,
-        beds: RAHMA_PROPERTY.details.beds,
-        baths: RAHMA_PROPERTY.details.baths,
-        details: RAHMA_PROPERTY.details,
-      },
-      ...propertyItems,
-    ];
-  }, [rahmaShowcase, propertyItems, profile?.id]);
-  const recruitServices = useMemo(() => {
-    const posted = listings.map((listing) => ({
-      id: String(listing.id),
-      title: listing.title || "Service",
-      description: listing.description || listing.profession || "",
-      location: listing.location || "",
-      budget: listing.price_range || "",
-    }));
-    if (!rahmaShowcase || posted.some((item) => item.id === RAHMA_SERVICE.id)) return posted;
-    return [
-      {
-        id: RAHMA_SERVICE.id,
-        title: RAHMA_SERVICE.offer.title,
-        description: RAHMA_SERVICE.offer.description,
-        location: "Maroc",
-        budget: priceLabel(RAHMA_SERVICE.offer),
-      },
-      ...posted,
-    ];
-  }, [rahmaShowcase, listings]);
 
   const formatTimeAgo = (date: string) => {
     try {
@@ -877,7 +939,7 @@ const Profile = () => {
     setLoadingMoreListings(true);
     try {
       const page = takePage(
-        await listingService.getListingsByUser(profile.id, PAGE.listings, listings.length),
+        await serviceService.getServicesByUser(profile.id, PAGE.listings, listings.length),
         PAGE.listings
       );
       setListings((prev) => [...prev, ...page.items]);
@@ -886,6 +948,23 @@ const Profile = () => {
       console.error("Error loading more listings:", error);
     } finally {
       setLoadingMoreListings(false);
+    }
+  };
+
+  const loadMoreProducts = async () => {
+    if (!profile?.id || loadingMoreProducts || !productsHasMore) return;
+    setLoadingMoreProducts(true);
+    try {
+      const page = takePage(
+        await productService.listProductsByUser(profile.id, PAGE.products, products.length),
+        PAGE.products
+      );
+      setProducts((prev) => [...prev, ...page.items]);
+      setProductsHasMore(page.hasMore);
+    } catch (error) {
+      console.error("Error loading more products:", error);
+    } finally {
+      setLoadingMoreProducts(false);
     }
   };
 
@@ -924,7 +1003,6 @@ const Profile = () => {
   };
 
   const openAvis = () => {
-    setShowAbout(false);
     setEditingAbout(false);
     setShowReviews(true);
     revealTabs();
@@ -935,29 +1013,8 @@ const Profile = () => {
     revealTabs();
   };
 
-  const openAbout = () => {
-    setShowReviews(false);
-    setShowAbout(true);
-    revealTabs();
-  };
-
-  const closeAbout = () => {
-    setShowAbout(false);
-    setEditingAbout(false);
-    revealTabs();
-  };
-
   const openInfosEditor = (field?: InfosField) => {
     setInfosEditField(field ?? "all");
-    if (field === "location") {
-      setEditForm((prev) => {
-        const rows = prev.location.length ? prev.location.split("\n") : [];
-        if (!rows.length || rows[rows.length - 1].trim()) {
-          return { ...prev, location: [...rows, ""].join("\n") };
-        }
-        return prev;
-      });
-    }
     if (field === "website") {
       setEditForm((prev) => {
         const rows = prev.website.length ? prev.website.split("\n") : [];
@@ -1121,7 +1178,7 @@ const Profile = () => {
       const updated = await profileService.updateProfile(user.id, {
         username: nextUsername || profile.username,
         full_name: editForm.fullName.trim() || profile.full_name,
-        bio: editForm.bio.slice(0, 450),
+        bio: editForm.bio.slice(0, MAX_BIO_LENGTH),
         profile_type: profile.profile_type,
         avatar_url: avatarUrl,
         cover_photo_url: coverPhotoUrl,
@@ -1158,8 +1215,6 @@ const Profile = () => {
         : null;
 
       const updated = await profileService.updateProfile(user.id, {
-        profession: editForm.profession.trim() || null,
-        location: locationsFrom(editForm.location).join("\n") || null,
         phone: editForm.phone.trim() || null,
         email: editForm.email.trim() || null,
         website_url,
@@ -1248,13 +1303,11 @@ const Profile = () => {
       const usernameOrId = profile?.username || profile?.id;
       const link = showReviews
         ? `${window.location.origin}/profile/${encodeURIComponent(usernameOrId)}?tab=avis`
-        : showAbout
-          ? `${window.location.origin}/profile/${encodeURIComponent(usernameOrId)}?tab=about`
-          : buildSectionLink(section);
+        : buildSectionLink(section);
       await navigator.clipboard.writeText(link);
       toast({
         title: "Lien copié",
-        description: `Lien de la section ${showReviews ? "Avis" : showAbout ? "Infos" : title} copié.`,
+        description: `Lien de la section ${showReviews ? "Avis" : title} copié.`,
       });
     } catch {
       toast({ title: "Erreur", description: "Impossible de copier le lien." });
@@ -1281,6 +1334,7 @@ const Profile = () => {
         username={profile.username || "Utilisateur"}
         coverPhoto={profile.cover_photo_url}
         bio={profile.bio}
+        ice={profile.ice}
         profession={profile.profession}
         location={profile.location}
         isOwnProfile={isOwnProfile}
@@ -1293,7 +1347,6 @@ const Profile = () => {
         onEditProfile={() => setShowEditProfileModal(true)}
         onReportMember={handleReportMember}
         onBlockMember={handleBlockMember}
-        onAboutMember={openAbout}
         onAboutThisMember={() => setShowAboutMember(true)}
         onMuteMember={() => setShowMuteModal(true)}
         rating={rating}
@@ -1302,14 +1355,14 @@ const Profile = () => {
         services={recruitServices}
       />
 
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
         <div
           ref={tabsContentRef}
           className="scroll-mt-2 px-3 sm:px-4 md:px-6"
         >
         <div
           className={`mb-1 flex items-center bg-card px-2 py-1 sm:px-1 ${
-            showReviews || showAbout ? "sticky top-0 z-20 border-b border-border" : ""
+            showReviews ? "sticky top-0 z-20 border-b border-border" : ""
           }`}
         >
           {showReviews ? (
@@ -1317,77 +1370,54 @@ const Profile = () => {
               <button
                 type="button"
                 onClick={closeAvis}
-                className="mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-secondary"
+                className="mr-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-secondary"
                 aria-label="Retour"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-6 w-6" />
               </button>
-              <p className="min-w-0 flex-1 text-sm font-semibold text-card-foreground">Avis</p>
-            </>
-          ) : showAbout ? (
-            <>
-              <button
-                type="button"
-                onClick={closeAbout}
-                className="mr-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-secondary"
-                aria-label="Retour"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <p className="min-w-0 flex-1 text-sm font-semibold text-card-foreground">Infos</p>
-              {isOwnProfile ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => openInfosEditor()}
-                >
-                  <Pencil className="mr-1 h-3.5 w-3.5" />
-                  Modifier
-                </Button>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => copySectionLink("Posts", "Infos")}
-                className="h-9 w-9 shrink-0"
-                aria-label="Partager la section"
-                title="Partager la section"
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
+              <p className="min-w-0 flex-1 text-lg font-semibold text-card-foreground">Avis</p>
             </>
           ) : (
-            <div className="flex min-w-0 flex-1 border-b border-border">
-              {tabs.map((tab) => {
+            <div
+              ref={profileTabsScrollRef}
+              className="-mx-2 flex min-w-0 flex-1 touch-pan-x snap-x snap-mandatory overflow-x-auto overscroll-x-contain border-b border-border px-2 [scrollbar-width:none] sm:mx-0 sm:snap-none sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
+            >
+              {visibleTabs.map((tab) => {
                 const count =
-                  tab === "Posts"
-                    ? postsCount
-                    : tab === "Projets"
-                      ? projectsCount == null ? null : projectsCount + (visibleProjects.length - projectItems.length)
-                      : tab === "Biens"
-                        ? propertiesCount == null ? null : propertiesCount + (visibleProperties.length - propertyItems.length)
-                        : listingsCount == null
-                          ? null
-                          : listingsCount + (rahmaShowcase && !listings.some((row) => row.id === RAHMA_SERVICE.id) ? 1 : 0);
+                  tab === "Infos"
+                    ? undefined
+                    : tab === "Posts"
+                      ? standardPosts.length
+                      : tab === "Réalisations"
+                        ? realisationPosts.length
+                      : tab === "Projets"
+                        ? projectsCount
+                        : tab === "Biens"
+                          ? propertiesCount
+                          : tab === "Services"
+                            ? listingsCount
+                            : productsCount;
                 return (
-                <button
-                  key={tab}
-                  onClick={() => goToTab(tab)}
-                  className={`inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-2.5 text-center transition-colors sm:flex-none sm:px-4 ${
-                    activeTab === tab
-                      ? "-mb-px border-accent text-accent"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {count == null ? (
-                    <span className="inline-block h-4 w-6 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
-                  ) : (
-                    <span className="text-sm font-medium tabular-nums">{count}</span>
-                  )}
-                  <span className="text-sm font-semibold">{tab}</span>
-                </button>
+                  <button
+                    key={tab}
+                    type="button"
+                    data-profile-tab={tab}
+                    onClick={() => goToTab(tab)}
+                    className={`inline-flex shrink-0 snap-center items-center justify-center gap-1.5 border-b-2 px-3.5 py-3.5 text-center transition-colors sm:gap-2 sm:px-5 ${
+                      activeTab === tab
+                        ? "-mb-px border-accent text-accent"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab !== "Infos" ? (
+                      count == null ? (
+                        <span className="inline-block h-4 w-6 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700 sm:h-5 sm:w-7" />
+                      ) : (
+                        <span className="text-sm font-medium tabular-nums sm:text-lg">{count}</span>
+                      )
+                    ) : null}
+                    <span className="whitespace-nowrap text-sm font-semibold sm:text-lg">{tab}</span>
+                  </button>
                 );
               })}
             </div>
@@ -1397,27 +1427,53 @@ const Profile = () => {
         <div className="min-w-0">
           <div
             className={`min-w-0 ${
-              showReviews || showAbout || activeTab === "Posts"
+              showReviews || activeTab === "Posts" || activeTab === "Réalisations" || activeTab === "Infos"
                 ? ""
                 : "rounded-lg border border-border bg-card"
             }`}
           >
 
-          {showAbout && (
-            <div id="about" className="min-w-0 overflow-hidden border-t border-border bg-card py-6 sm:rounded-lg sm:border">
-              <div className="mb-6 px-4 sm:px-6 md:px-8">
-                <ProfileDetailsFields
-                  profile={profile}
-                  isOwnProfile={isOwnProfile}
-                  userEmail={user?.email}
-                  onEdit={openInfosEditor}
-                />
+          {!showReviews && activeTab === "Infos" && (
+            <div id="about" className="min-w-0 overflow-hidden border-t border-border bg-card pb-8 pt-3 sm:rounded-lg sm:border sm:pt-4">
+              <div className="mb-6 flex items-start justify-between gap-3 px-4 sm:px-6 md:px-8">
+                <div className="min-w-0 flex-1">
+                  <ProfileDetailsFields
+                    profile={profile}
+                    isOwnProfile={isOwnProfile}
+                    userEmail={user?.email}
+                    onEdit={openInfosEditor}
+                  />
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {isOwnProfile ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => openInfosEditor()}
+                    >
+                      <Pencil className="mr-1 h-3.5 w-3.5" />
+                      Modifier
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copySectionLink("Infos", "Infos")}
+                    className="h-9 w-9 shrink-0"
+                    aria-label="Partager la section"
+                    title="Partager la section"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
-              <section>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    Présentation
+              <section className="px-4 sm:px-6 md:px-8">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
+                    À propos
                   </h3>
                   {isOwnProfile && !aboutHtmlIsEmpty(profile.about_text) && !editingAbout ? (
                     <Button
@@ -1459,7 +1515,7 @@ const Profile = () => {
                   </div>
                 ) : !aboutHtmlIsEmpty(profile.about_text) ? (
                   <div
-                    className={`about-content w-full min-w-0 max-w-full overflow-hidden text-base leading-relaxed text-card-foreground ${
+                    className={`about-content w-full min-w-0 max-w-full overflow-hidden text-lg leading-relaxed text-card-foreground ${
                       isOwnProfile ? "cursor-pointer" : ""
                     }`}
                     onClick={(event) => {
@@ -1478,18 +1534,18 @@ const Profile = () => {
                       setEditForm((prev) => ({ ...prev, about: profile.about_text || "" }));
                       setEditingAbout(true);
                     }}
-                    className="flex min-h-[180px] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground hover:border-accent hover:text-foreground"
+                    className="flex min-h-[200px] w-full flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-4 py-10 text-center text-base text-muted-foreground hover:border-accent hover:text-foreground"
                   >
-                    Cliquez pour rédiger votre présentation
+                    Cliquez pour rédiger votre à propos
                   </button>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Aucune présentation pour le moment.</p>
+                  <p className="text-base text-muted-foreground">Aucun à propos pour le moment.</p>
                 )}
               </section>
             </div>
           )}
 
-          {!showReviews && !showAbout && activeTab === "Projets" && (
+          {!showReviews && activeTab === "Projets" && (
             <div className="px-4 sm:px-6 md:px-8 py-6">
               <div className="mb-3 flex items-center justify-between gap-2">
                 {isOwnProfile ? (
@@ -1514,10 +1570,10 @@ const Profile = () => {
               {!portfolioReady ? (
                 <ProfileMediaGridSkeleton />
               ) : visibleProjects.length === 0 ? (
-                <p className="py-12 text-center text-sm text-muted-foreground">Aucun projet pour le moment.</p>
+                <p className="py-12 text-center text-base text-muted-foreground">Aucun projet pour le moment.</p>
               ) : (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-3">
                     {visibleProjects.map((row) => (
                       <ProjectCard key={row.id} row={row} />
                     ))}
@@ -1533,7 +1589,7 @@ const Profile = () => {
             </div>
           )}
 
-          {!showReviews && !showAbout && activeTab === "Biens" && (
+          {!showReviews && activeTab === "Biens" && (
             <div className="px-4 sm:px-6 md:px-8 py-6">
               <div className="mb-3 flex justify-end">
                 <Button
@@ -1550,7 +1606,7 @@ const Profile = () => {
               {!portfolioReady ? (
                 <ProfileMediaGridSkeleton />
               ) : visibleProperties.length === 0 ? (
-                <p className="py-12 text-center text-sm text-muted-foreground">Aucun bien pour le moment.</p>
+                <p className="py-12 text-center text-base text-muted-foreground">Aucun bien pour le moment.</p>
               ) : (
                 <>
                   <PortfolioGrid items={catalogCards(visibleProperties, "property")} />
@@ -1565,7 +1621,7 @@ const Profile = () => {
             </div>
           )}
 
-          {!showReviews && !showAbout && activeTab === "Posts" && (
+          {!showReviews && (activeTab === "Posts" || activeTab === "Réalisations") && (
             <div>
               <div className="mb-1 flex items-center justify-end gap-1 border-b border-border px-1 py-1">
                 <div className="inline-flex rounded-md border border-border p-0.5">
@@ -1618,11 +1674,13 @@ const Profile = () => {
                 <>
                   {!postsReady ? (
                     <ProfileMediaGridSkeleton />
-                  ) : posts.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">Aucun post publié.</div>
+                  ) : tabPosts.length === 0 ? (
+                    <div className="py-10 text-center text-base text-muted-foreground">
+                      {activeTab === "Réalisations" ? "Aucune réalisation publiée." : "Aucun post publié."}
+                    </div>
                   ) : feedPostId ? (
                     <div className="scroll-mt-2">
-                      {posts.map((post) => (
+                      {tabPosts.map((post) => (
                         <div
                           key={post.id}
                           id={`profile-post-${post.id}`}
@@ -1636,7 +1694,7 @@ const Profile = () => {
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
-                      {posts.map((post) => {
+                      {tabPosts.map((post) => {
                         const cover = coverOfPost(post);
                         const likes = post.likes_count || 0;
                         const id = String(post.id);
@@ -1776,7 +1834,7 @@ const Profile = () => {
                   {!reelsReady ? (
                     <ProfileMediaGridSkeleton />
                   ) : reels.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">Aucun reel publie.</div>
+                    <div className="py-10 text-center text-base text-muted-foreground">Aucun reel publie.</div>
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
                       {reels.map((reel) => {
@@ -1823,7 +1881,7 @@ const Profile = () => {
             </div>
           )}
 
-          {!showReviews && !showAbout && activeTab === "Services" && (
+          {!showReviews && activeTab === "Services" && (
             <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8">
               <div className="mb-3 flex items-center justify-between gap-2">
                 {isOwnProfile ? (
@@ -1847,38 +1905,25 @@ const Profile = () => {
               </div>
               {!servicesReady ? (
                 <ProfileMediaGridSkeleton />
-              ) : listings.length === 0 && !rahmaShowcase ? (
-                <div className="py-6 text-center text-muted-foreground">Aucun service publié.</div>
+              ) : listings.length === 0 ? (
+                <div className="py-8 text-center text-base text-muted-foreground">Aucun service publié.</div>
               ) : (
                 <>
-                <div
-                  className={`grid gap-4 sm:gap-6 ${
-                    listings.length + (rahmaShowcase ? 1 : 0) === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
-                  }`}
-                >
-                  {rahmaShowcase && !listings.some((row) => row.id === RAHMA_SERVICE.id) ? (
-                    <ServiceCard key={RAHMA_SERVICE.id} row={{ ...RAHMA_SERVICE, userId: profile.id }} />
-                  ) : null}
-                  {listings.map((listing) => (
-                    <ListingCard
-                      key={listing.id}
-                      id={listing.id}
-                      userId={listing.user_id}
-                      avatar={profileAvatar}
-                      username={profile.username || "Utilisateur"}
-                      fullName={profile.full_name || ""}
-                      isVerified={Boolean(profile.is_verified)}
-                      timeAgo={formatTimeAgo(listing.created_at)}
-                      image={listing.image_url || ""}
-                      imageCount={listing.image_count || 1}
-                      location={listing.location || ""}
-                      title={listing.title || "Service"}
-                      profession={listing.profession}
-                      priceRange={listing.price_range || "Prix sur demande"}
-                      isSponsored={Boolean(listing.is_sponsored)}
-                      fillWidth
-                    />
-                  ))}
+                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 sm:gap-6">
+                  {listings.map((listing) => {
+                    const offer = listing.offer || offerFromRow(listing);
+                    return (
+                      <ServiceCard
+                        key={listing.id}
+                        row={{
+                          id: String(listing.id),
+                          firm: profile.full_name || profile.username || "Entreprise",
+                          offer,
+                          userId: listing.user_id || profile.id,
+                        }}
+                      />
+                    );
+                  })}
                 </div>
                 <LoadMoreButton
                   hasMore={listingsHasMore}
@@ -1890,13 +1935,48 @@ const Profile = () => {
             </div>
           )}
 
+          {!showReviews && activeTab === "Produits" && (
+            <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8">
+              <div className="mb-3 flex items-center justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copySectionLink("Produits", "Produits")}
+                  className="h-9 w-9"
+                  aria-label="Partager la section"
+                  title="Partager la section"
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
+              {!productsReady ? (
+                <ProfileMediaGridSkeleton />
+              ) : products.length === 0 ? (
+                <div className="py-8 text-center text-base text-muted-foreground">Aucun produit publié.</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-3">
+                    {products.map((product) => (
+                      <ProductCard key={product.id} row={product} />
+                    ))}
+                  </div>
+                  <LoadMoreButton
+                    hasMore={productsHasMore}
+                    loading={loadingMoreProducts}
+                    onClick={loadMoreProducts}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
           {showReviews && (
             <div id="avis" className="min-w-0">
               <div className="border-t border-border bg-card px-4 py-6 sm:rounded-lg sm:border sm:px-8">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-bold text-card-foreground">Avis</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <h2 className="text-xl font-bold text-card-foreground sm:text-2xl">Avis</h2>
+                    <p className="mt-1 text-base text-muted-foreground">
                       {rating} / 5 · {reviews.length} avis
                     </p>
                   </div>
@@ -2051,12 +2131,12 @@ const Profile = () => {
             />
             <Textarea
               value={editForm.bio}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value.slice(0, 450) }))}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value.slice(0, MAX_BIO_LENGTH) }))}
               rows={6}
-              maxLength={450}
+              maxLength={MAX_BIO_LENGTH}
               placeholder="Bio"
             />
-            <p className="text-xs text-muted-foreground text-right">{editForm.bio.length}/450</p>
+            <p className="text-xs text-muted-foreground text-right">{editForm.bio.length}/{MAX_BIO_LENGTH}</p>
 
             <div className="flex justify-end">
               <Button onClick={handleSaveProfile} disabled={savingProfile}>
@@ -2079,70 +2159,14 @@ const Profile = () => {
             <DialogTitle>
               {infosEditField === "all"
                 ? "Modifier les infos"
-                : infosEditField === "profession"
-                    ? "Ajouter une profession"
-                    : infosEditField === "location"
-                      ? "Ajouter un lieu"
-                      : infosEditField === "email"
-                        ? "Ajouter un email"
-                        : infosEditField === "phone"
-                          ? "Ajouter un téléphone"
-                          : "Ajouter un site web"}
+                : infosEditField === "email"
+                  ? "Ajouter un email"
+                  : infosEditField === "phone"
+                    ? "Ajouter un téléphone"
+                    : "Ajouter un site web"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {infosEditField === "all" || infosEditField === "profession" ? (
-            <Input
-              value={editForm.profession}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, profession: e.target.value }))}
-              placeholder="Profession"
-            />
-            ) : null}
-            {infosEditField === "all" || infosEditField === "location" ? (
-            <div className="space-y-2">
-              {(editForm.location.length ? editForm.location.split("\n") : [""]).map((lieu, index, rows) => (
-                <div key={index} className="flex items-center gap-2">
-                  <CityPicker
-                    value={lieu}
-                    onChange={(city) => {
-                      const next = [...rows];
-                      next[index] = city;
-                      setEditForm((prev) => ({ ...prev, location: next.join("\n") }));
-                    }}
-                    placeholder={`Ville ${index + 1}`}
-                  />
-                  {rows.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0"
-                      onClick={() => {
-                        const next = rows.filter((_, i) => i !== index);
-                        setEditForm((prev) => ({ ...prev, location: next.join("\n") }));
-                      }}
-                      aria-label="Supprimer ce lieu"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
-                onClick={() =>
-                  setEditForm((prev) => {
-                    const rows = prev.location.length ? prev.location.split("\n") : [""];
-                    return { ...prev, location: [...rows, ""].join("\n") };
-                  })
-                }
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter un lieu
-              </button>
-            </div>
-            ) : null}
             {infosEditField === "all" || infosEditField === "email" ? (
             <div className="space-y-1.5">
               <Input

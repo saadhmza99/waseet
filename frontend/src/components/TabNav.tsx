@@ -1,6 +1,7 @@
-import { Heart, Plus, Search, User } from "lucide-react";
+import { Heart, Search, Store, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 
 const HomeNavIcon = ({ className, active }: { className?: string; active?: boolean }) => (
   <svg
@@ -21,6 +22,7 @@ const TabNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, visitorUser } = useAuth();
+  const { profile } = useProfile();
   const path = location.pathname;
 
   if (
@@ -28,42 +30,44 @@ const TabNav = () => {
     path.startsWith("/create-profile") ||
     path.startsWith("/change-password") ||
     path.startsWith("/settings") ||
-    path.startsWith("/admin") ||
-    path.startsWith("/settings")
+    path.startsWith("/admin")
   ) {
     return null;
   }
 
-  const creating = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
-
-  const goCreate = () => {
-    if (!user && !visitorUser) {
-      navigate("/login");
-      return;
-    }
-    if (creating) {
-      navigate("/", { replace: true, state: {} });
-      return;
-    }
-    navigate("/", { state: { openCreate: true } });
-  };
+  const profileSlugMatch = path.match(/^\/profile\/([^/?#]+)/i);
+  const viewedSlug = profileSlugMatch
+    ? decodeURIComponent(profileSlugMatch[1]).replace(/^@/, "").trim().toLowerCase()
+    : "";
+  const ownAliases = [
+    user?.id,
+    profile?.id,
+    profile?.username,
+    visitorUser?.id,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).replace(/^@/, "").trim().toLowerCase());
+  const onOwnProfile =
+    path === "/profile" || (Boolean(viewedSlug) && ownAliases.includes(viewedSlug));
 
   const itemClass = (active: boolean) =>
     `flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 whitespace-nowrap py-1 text-[11px] leading-none ${
       active ? "font-semibold text-[#237a5d]" : "font-medium text-muted-foreground"
     }`;
 
+  const iconWrap = "flex h-8 items-center justify-center";
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex max-w-xl items-center px-1 py-1">
         <button type="button" onClick={() => navigate("/")} className={itemClass(path === "/")}>
-          <span className="flex h-8 items-center justify-center">
+          <span className={iconWrap}>
             <HomeNavIcon className="h-8 w-9" active={path === "/"} />
           </span>
           Fil
         </button>
         <button type="button" onClick={() => navigate("/explore")} className={itemClass(path.startsWith("/explore"))}>
-          <span className="flex h-8 items-center justify-center">
+          <span className={iconWrap}>
             <Search
               className={`h-7 w-7 ${path.startsWith("/explore") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
               strokeWidth={path.startsWith("/explore") ? 1.8 : 2}
@@ -73,16 +77,11 @@ const TabNav = () => {
         </button>
         <button
           type="button"
-          onClick={goCreate}
-          aria-label="Créer"
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg ${
-            creating ? "bg-black" : "bg-[#174f43] hover:bg-[#123d34]"
-          }`}
+          onClick={() => navigate("/saved")}
+          className={itemClass(path.startsWith("/saved"))}
+          aria-label="Favoris"
         >
-          <Plus className="h-8 w-8" strokeWidth={2.5} />
-        </button>
-        <button type="button" onClick={() => navigate("/saved")} className={itemClass(path.startsWith("/saved"))}>
-          <span className="flex h-8 items-center justify-center">
+          <span className={iconWrap}>
             <Heart
               className={`h-7 w-7 ${path.startsWith("/saved") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
               strokeWidth={path.startsWith("/saved") ? 1.8 : 2}
@@ -92,13 +91,27 @@ const TabNav = () => {
         </button>
         <button
           type="button"
-          onClick={() => navigate("/profile")}
-          className={itemClass(path.startsWith("/profile"))}
+          onClick={() => navigate("/produits")}
+          className={itemClass(path.startsWith("/produits"))}
+          aria-label="Sifarah Matériaux"
         >
-          <span className="flex h-8 items-center justify-center">
+          <span className={iconWrap}>
+            <Store
+              className={`h-7 w-7 ${path.startsWith("/produits") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
+              strokeWidth={path.startsWith("/produits") ? 1.8 : 2}
+            />
+          </span>
+          Matériaux
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate("/profile")}
+          className={itemClass(onOwnProfile)}
+        >
+          <span className={iconWrap}>
             <User
-              className={`h-7 w-7 ${path.startsWith("/profile") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
-              strokeWidth={path.startsWith("/profile") ? 1.8 : 2}
+              className={`h-7 w-7 ${onOwnProfile ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
+              strokeWidth={onOwnProfile ? 1.8 : 2}
             />
           </span>
           Profil

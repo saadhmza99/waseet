@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Building2, FolderKanban, LayoutGrid, Plus, X } from "lucide-react";
+import { ArrowLeft, Building2, FolderKanban, Images, LayoutGrid, Package, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { catalogService } from "@/services/catalogService";
+import { taxonomyService } from "@/services/taxonomyService";
+import {
+  profileSectionsForInternalCodes,
+  type ProfileSectionVisibility,
+} from "@/lib/taxonomy";
 import { visitorService } from "@/services/visitorService";
 import { isValidEmail } from "@/lib/visitorContact";
 import { isCompletePhone } from "@/lib/phone";
@@ -12,14 +17,24 @@ import PhoneInput from "@/components/PhoneInput";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { storageService } from "@/services/storageService";
+import { partitionByUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { PostType } from "@/services/postService";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import PropertyListingWizard from "@/components/PropertyListingWizard";
 import { CityPicker } from "@/components/CityPicker";
 
-export type CreateKind = PostType | "service";
+export type CreateKind = PostType | "service" | "product";
+
+const createKindAllowed = (kind: CreateKind, sections: ProfileSectionVisibility) => {
+  if (kind === "standard") return sections.showPosts;
+  if (kind === "realisation") return sections.showRealisations;
+  if (kind === "property") return sections.showBiens;
+  if (kind === "project") return sections.showProjets;
+  if (kind === "service") return sections.showServices;
+  if (kind === "product") return sections.showProduits;
+  return false;
+};
 
 export type PublishDestination = "feed" | "portfolio" | "both";
 
@@ -58,11 +73,13 @@ const HandGearIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const postTypes: { id: CreateKind; label: string; Icon: typeof LayoutGrid | typeof HandGearIcon }[] = [
-  { id: "standard", label: "Standard", Icon: LayoutGrid },
+const postTypes: { id: CreateKind; label: string; Icon: typeof LayoutGrid | typeof HandGearIcon | typeof Package | typeof Images }[] = [
+  { id: "standard", label: "Post", Icon: LayoutGrid },
+  { id: "realisation", label: "Réalisation", Icon: Images },
   { id: "property", label: "Bien", Icon: Building2 },
   { id: "project", label: "Projet", Icon: FolderKanban },
   { id: "service", label: "Service", Icon: HandGearIcon },
+  { id: "product", label: "Produit", Icon: Package },
 ];
 
 const greenBtn = "bg-[#174f43] text-white hover:bg-[#123d34]";
@@ -108,6 +125,43 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
     setPublishTo("portfolio");
   }, [particulier, isOpen]);
 
+  const [profileSections, setProfileSections] = useState<ProfileSectionVisibility | null>(null);
+  useEffect(() => {
+    if (!isOpen || !user) {
+      setProfileSections(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([taxonomyService.listInternalCategories(), taxonomyService.getProfileInternalCategoryIds(user.id)])
+      .then(([rows, ids]) => {
+        if (cancelled) return;
+        const codes = ids
+          .map((id) => rows.find((row) => row.id === id)?.code || null)
+          .filter(Boolean) as string[];
+        setProfileSections(profileSectionsForInternalCodes(codes));
+      })
+      .catch((error) => {
+        console.error("Error loading create-type visibility:", error);
+        if (!cancelled) setProfileSections(profileSectionsForInternalCodes([]));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, user]);
+
+  const visiblePostTypes = useMemo(() => {
+    if (particulier) return postTypes.filter((type) => type.id === "property");
+    if (!profileSections) return postTypes.filter((type) => type.id === "standard");
+    return postTypes.filter((type) => createKindAllowed(type.id, profileSections));
+  }, [particulier, profileSections]);
+
+  useEffect(() => {
+    if (!visiblePostTypes.length) return;
+    if (!visiblePostTypes.some((type) => type.id === postType)) {
+      setPostType(visiblePostTypes[0].id);
+    }
+  }, [visiblePostTypes, postType]);
+
   useEffect(() => {
     if (!isOpen) return;
     document.body.style.overflow = "hidden";
@@ -130,15 +184,19 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const filesArray = Array.from(files);
-    setSelectedFiles((prev) => [...prev, ...filesArray]);
+    const { accepted, rejected } = partitionByUploadLimit(Array.from(files));
+    if (rejected.length) {
+      toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+    }
+    if (!accepted.length) return;
+    setSelectedFiles((prev) => [...prev, ...accepted]);
     const imageUrls: string[] = [];
-    filesArray.forEach((file) => {
+    accepted.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
           imageUrls.push(event.target.result as string);
-          if (imageUrls.length === filesArray.length) {
+          if (imageUrls.length === accepted.length) {
             setSelectedImages((prev) => [...prev, ...imageUrls]);
           }
         }
@@ -308,45 +366,61 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
           <div>
             <p className="mb-2 text-sm font-semibold text-card-foreground">Type de post</p>
-            <div className="grid grid-cols-4 gap-2">
-              {postTypes.map((type) => {
-                const locked = particulier && type.id !== "property";
-                return (
-                  <button
-                    key={type.id}
-                    type="button"
-                    onClick={() => {
-                      if (locked) {
-                        toast({ title: "Compte professionnel requis", description: "Un particulier publie un bien dans son portfolio." });
-                        return;
-                      }
-                      if (type.id === "project") {
-                        resetForm();
-                        navigate("/projet/nouveau");
-                        return;
-                      }
-                      if (type.id === "service") {
-                        resetForm();
-                        navigate("/service/nouveau");
-                        return;
-                      }
-                      setPostType(type.id);
-                    }}
-                    className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 text-center transition-colors ${
-                      postType === type.id
-                        ? "border-[#174f43] bg-[#174f43]/10 text-[#174f43]"
-                        : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50"
-                    } ${locked ? "opacity-40" : ""}`}
-                  >
-                    <type.Icon className="h-6 w-6" />
-                    <span className="truncate text-xs font-semibold">{type.label}</span>
-                  </button>
-                );
-              })}
+            <div
+              className={`grid gap-1.5 sm:gap-2 ${
+                visiblePostTypes.length <= 2
+                  ? "grid-cols-2"
+                  : visiblePostTypes.length === 3
+                    ? "grid-cols-3"
+                    : visiblePostTypes.length === 4
+                      ? "grid-cols-4"
+                      : visiblePostTypes.length === 5
+                        ? "grid-cols-5"
+                        : "grid-cols-3 sm:grid-cols-6"
+              }`}
+            >
+              {visiblePostTypes.map((type) => (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => {
+                    if (type.id === "project") {
+                      resetForm();
+                      navigate("/projet/nouveau");
+                      return;
+                    }
+                    if (type.id === "service") {
+                      resetForm();
+                      navigate("/service/nouveau");
+                      return;
+                    }
+                    if (type.id === "product") {
+                      resetForm();
+                      navigate("/produit/nouveau");
+                      return;
+                    }
+                    setPostType(type.id);
+                  }}
+                  className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1 py-2 text-center transition-colors ${
+                    postType === type.id
+                      ? "border-[#174f43] bg-[#174f43]/10 text-[#174f43]"
+                      : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50"
+                  }`}
+                >
+                  <type.Icon className="h-6 w-6" />
+                  <span className="truncate text-xs font-semibold">{type.label}</span>
+                </button>
+              ))}
             </div>
             {particulier ? (
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 Un particulier publie jusqu'à 3 biens, uniquement dans son portfolio.
+              </p>
+            ) : !profileSections ? (
+              <p className="mt-2 text-xs leading-snug text-muted-foreground">Chargement des types disponibles…</p>
+            ) : visiblePostTypes.length <= 1 ? (
+              <p className="mt-2 text-xs leading-snug text-muted-foreground">
+                Types alignés sur les onglets de votre profil. Ajoutez des spécialités dans Paramètres pour en débloquer d'autres.
               </p>
             ) : null}
           </div>

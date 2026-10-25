@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
+import { partitionByUploadLimit, uploadMaxLabel } from "@/services/storageService";
 import FeatureAmenityGrid from "@/components/FeatureAmenityGrid";
 import PhoneInput from "@/components/PhoneInput";
 import { CityPicker, RegionSelect } from "@/components/CityPicker";
@@ -659,9 +660,13 @@ const PropertyListingWizard = ({
 
   const addPhotos = (list: FileList | null) => {
     if (!list) return;
-    const next = Array.from(list);
-    setFiles((prev) => [...prev, ...next]);
-    next.forEach((file) => {
+    const { accepted, rejected } = partitionByUploadLimit(Array.from(list));
+    if (rejected.length) {
+      toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
+    }
+    if (!accepted.length) return;
+    setFiles((prev) => [...prev, ...accepted]);
+    accepted.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {

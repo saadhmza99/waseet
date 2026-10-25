@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT,
   profession TEXT,
   location TEXT,
-  bio TEXT CHECK (char_length(bio) <= 450),
+  bio TEXT CHECK (char_length(bio) <= 251),
   about_text TEXT,
   avatar_url TEXT,
   cover_photo_url TEXT,
@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS website_url TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS about_text TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ice TEXT;
+COMMENT ON COLUMN public.profiles.ice IS
+  'Identifiant Commun de l''Entreprise (Morocco). Shown on profile Infos when set.';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE NOT NULL;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS contact_updated_at TIMESTAMP WITH TIME ZONE;
@@ -1522,7 +1525,7 @@ ALTER TABLE public.posts
 
 ALTER TABLE public.posts
   ADD CONSTRAINT posts_post_type_check
-  CHECK (post_type IN ('standard', 'property', 'project'));
+  CHECK (post_type IN ('standard', 'realisation', 'property', 'project'));
 
 ALTER TABLE public.posts
   ADD COLUMN IF NOT EXISTS price TEXT,
@@ -1777,6 +1780,8 @@ BEGIN
     UPDATE public.saved_posts SET user_id = v_uid WHERE user_id = v_old_user;
     UPDATE public.saved_listings SET user_id = v_uid WHERE user_id = v_old_user;
     UPDATE public.saved_reels SET user_id = v_uid WHERE user_id = v_old_user;
+    UPDATE public.saved_projects SET user_id = v_uid WHERE user_id = v_old_user;
+    UPDATE public.saved_products SET user_id = v_uid WHERE user_id = v_old_user;
     UPDATE public.follows SET follower_id = v_uid WHERE follower_id = v_old_user;
   END IF;
 
@@ -2107,6 +2112,8 @@ CREATE TABLE IF NOT EXISTS public.properties (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Projects: English typed columns matching create-project form (UI labels stay French).
+-- Nested lists use named JSONB arrays — there is no monolithic `details` blob.
 CREATE TABLE IF NOT EXISTS public.projects (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
@@ -2114,12 +2121,93 @@ CREATE TABLE IF NOT EXISTS public.projects (
   description TEXT,
   city TEXT,
   region TEXT,
-  price TEXT,
-  surface TEXT,
-  beds INTEGER,
-  baths INTEGER,
+  neighborhood TEXT,
+  address TEXT,
+  postal_code TEXT,
+  country TEXT DEFAULT 'Maroc',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  category TEXT,
+  subtype TEXT,
+  project_type TEXT,
+  status TEXT,
+  commercial_status TEXT,
+  progress INTEGER DEFAULT 0,
+  start_date TEXT,
+  expected_end TEXT,
+  actual_end TEXT,
+  cover_image TEXT,
   images JSONB DEFAULT '[]'::jsonb,
-  details JSONB DEFAULT '{}'::jsonb,
+  typologies TEXT,
+  equipment TEXT,
+  nearby TEXT,
+  price_on_request BOOLEAN DEFAULT false,
+  price_from NUMERIC,
+  price_min NUMERIC,
+  price_max NUMERIC,
+  currency TEXT DEFAULT 'MAD',
+  usage TEXT,
+  land_area TEXT,
+  built_area TEXT,
+  buildings TEXT,
+  floors TEXT,
+  basements TEXT,
+  apartments TEXT,
+  parking TEXT,
+  surface TEXT,
+  promoter_id TEXT,
+  promoter_name TEXT,
+  promoter_website TEXT,
+  team JSONB DEFAULT '[]'::jsonb,
+  partners JSONB DEFAULT '[]'::jsonb,
+  phases JSONB DEFAULT '[]'::jsonb,
+  updates JSONB DEFAULT '[]'::jsonb,
+  media JSONB DEFAULT '[]'::jsonb,
+  units JSONB DEFAULT '[]'::jsonb,
+  choices JSONB DEFAULT '[]'::jsonb,
+  attributes JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Project documents: one row per document (brochure, plans, autorisations…).
+-- Kept out of projects JSONB so `privacy` is enforced by RLS: private
+-- documents are only ever returned to the project owner.
+CREATE TABLE IF NOT EXISTS public.projects_documents (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL DEFAULT 'Brochure commerciale',
+  url TEXT NOT NULL DEFAULT '',
+  privacy TEXT NOT NULL DEFAULT 'public' CHECK (privacy IN ('public', 'private')),
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Services: English typed columns matching create-service form (UI labels stay French).
+CREATE TABLE IF NOT EXISTS public.services (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  description TEXT,
+  category TEXT,
+  cover TEXT,
+  gallery JSONB DEFAULT '[]'::jsonb,
+  kinds JSONB DEFAULT '[]'::jsonb,
+  included JSONB DEFAULT '[]'::jsonb,
+  options JSONB DEFAULT '[]'::jsonb,
+  price_mode TEXT DEFAULT 'devis',
+  amount TEXT,
+  duration TEXT,
+  zone_mode TEXT DEFAULT 'villes',
+  cities JSONB DEFAULT '[]'::jsonb,
+  region TEXT,
+  travel BOOLEAN DEFAULT false,
+  remote BOOLEAN DEFAULT false,
+  audiences JSONB DEFAULT '[]'::jsonb,
+  audience_other TEXT,
+  missions JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
@@ -2132,9 +2220,109 @@ CREATE INDEX IF NOT EXISTS projects_user_created_idx
   ON public.projects (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS projects_city_idx
   ON public.projects (city);
+CREATE INDEX IF NOT EXISTS projects_promoter_name_idx
+  ON public.projects (promoter_name);
+CREATE INDEX IF NOT EXISTS projects_status_idx
+  ON public.projects (status);
+CREATE INDEX IF NOT EXISTS projects_commercial_status_idx
+  ON public.projects (commercial_status);
+CREATE INDEX IF NOT EXISTS projects_project_type_idx
+  ON public.projects (project_type);
+CREATE INDEX IF NOT EXISTS projects_title_idx
+  ON public.projects (title);
+CREATE INDEX IF NOT EXISTS projects_documents_project_position_idx
+  ON public.projects_documents (project_id, position);
+CREATE INDEX IF NOT EXISTS services_user_created_idx
+  ON public.services (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS services_category_idx
+  ON public.services (category);
+CREATE INDEX IF NOT EXISTS services_title_idx
+  ON public.services (title);
+
+-- Products: materials / catalogue items offered by fournisseurs (Sifarah Product).
+CREATE TABLE IF NOT EXISTS public.products (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  description TEXT,
+  category TEXT,
+  brand TEXT,
+  sku TEXT,
+  price NUMERIC,
+  currency TEXT DEFAULT 'MAD',
+  unit TEXT,
+  min_quantity TEXT,
+  cover TEXT,
+  gallery JSONB DEFAULT '[]'::jsonb,
+  delivery_cities JSONB DEFAULT '[]'::jsonb,
+  attributes JSONB DEFAULT '{}'::jsonb,
+  source_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS products_user_created_idx
+  ON public.products (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS products_category_idx
+  ON public.products (category);
+CREATE INDEX IF NOT EXISTS products_title_idx
+  ON public.products (title);
+
+-- Saved catalog projects & products (after parent tables exist).
+CREATE TABLE IF NOT EXISTS public.saved_projects (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.saved_products (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id, product_id)
+);
+
+ALTER TABLE public.saved_projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_products ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own saved projects" ON public.saved_projects;
+CREATE POLICY "Users can view their own saved projects"
+  ON public.saved_projects FOR SELECT
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can save projects" ON public.saved_projects;
+CREATE POLICY "Users can save projects"
+  ON public.saved_projects FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can unsave projects" ON public.saved_projects;
+CREATE POLICY "Users can unsave projects"
+  ON public.saved_projects FOR DELETE
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can view their own saved products" ON public.saved_products;
+CREATE POLICY "Users can view their own saved products"
+  ON public.saved_products FOR SELECT
+  USING (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can save products" ON public.saved_products;
+CREATE POLICY "Users can save products"
+  ON public.saved_products FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND public.visitor_session_active());
+
+DROP POLICY IF EXISTS "Users can unsave products" ON public.saved_products;
+CREATE POLICY "Users can unsave products"
+  ON public.saved_products FOR DELETE
+  USING (auth.uid() = user_id AND public.visitor_session_active());
 
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Properties are viewable by everyone" ON public.properties;
 CREATE POLICY "Properties are viewable by everyone"
@@ -2176,6 +2364,95 @@ CREATE POLICY "Users can delete their own projects"
   ON public.projects FOR DELETE
   USING (auth.uid() = user_id);
 
+-- Project documents: public ones are readable by everyone; private ones only
+-- by the owner of the parent project. Writes are owner-only.
+DROP POLICY IF EXISTS "Project documents are viewable when public or owned" ON public.projects_documents;
+CREATE POLICY "Project documents are viewable when public or owned"
+  ON public.projects_documents FOR SELECT
+  USING (
+    privacy = 'public'
+    OR EXISTS (
+      SELECT 1 FROM public.projects p
+      WHERE p.id = project_id AND p.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can add documents to their own projects" ON public.projects_documents;
+CREATE POLICY "Users can add documents to their own projects"
+  ON public.projects_documents FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.projects p
+      WHERE p.id = project_id AND p.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can update documents of their own projects" ON public.projects_documents;
+CREATE POLICY "Users can update documents of their own projects"
+  ON public.projects_documents FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.projects p
+      WHERE p.id = project_id AND p.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.projects p
+      WHERE p.id = project_id AND p.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can delete documents of their own projects" ON public.projects_documents;
+CREATE POLICY "Users can delete documents of their own projects"
+  ON public.projects_documents FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.projects p
+      WHERE p.id = project_id AND p.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Services are viewable by everyone" ON public.services;
+CREATE POLICY "Services are viewable by everyone"
+  ON public.services FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own services" ON public.services;
+CREATE POLICY "Users can create their own services"
+  ON public.services FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own services" ON public.services;
+CREATE POLICY "Users can update their own services"
+  ON public.services FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own services" ON public.services;
+CREATE POLICY "Users can delete their own services"
+  ON public.services FOR DELETE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Products are viewable by everyone" ON public.products;
+CREATE POLICY "Products are viewable by everyone"
+  ON public.products FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own products" ON public.products;
+CREATE POLICY "Users can create their own products"
+  ON public.products FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own products" ON public.products;
+CREATE POLICY "Users can update their own products"
+  ON public.products FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own products" ON public.products;
+CREATE POLICY "Users can delete their own products"
+  ON public.products FOR DELETE
+  USING (auth.uid() = user_id);
+
 DROP TRIGGER IF EXISTS update_properties_updated_at ON public.properties;
 CREATE TRIGGER update_properties_updated_at
   BEFORE UPDATE ON public.properties
@@ -2186,10 +2463,31 @@ CREATE TRIGGER update_projects_updated_at
   BEFORE UPDATE ON public.projects
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS update_projects_documents_updated_at ON public.projects_documents;
+CREATE TRIGGER update_projects_documents_updated_at
+  BEFORE UPDATE ON public.projects_documents
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_services_updated_at ON public.services;
+CREATE TRIGGER update_services_updated_at
+  BEFORE UPDATE ON public.services
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS update_products_updated_at ON public.products;
+CREATE TRIGGER update_products_updated_at
+  BEFORE UPDATE ON public.products
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
 GRANT SELECT ON public.properties TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.properties TO authenticated;
 GRANT SELECT ON public.projects TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.projects TO authenticated;
+GRANT SELECT ON public.projects_documents TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.projects_documents TO authenticated;
+GRANT SELECT ON public.services TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.services TO authenticated;
+GRANT SELECT ON public.products TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.products TO authenticated;
 
 ALTER TABLE public.posts
   ADD COLUMN IF NOT EXISTS city TEXT,
@@ -2243,7 +2541,7 @@ WHERE p.post_type = 'property'
   AND NOT EXISTS (SELECT 1 FROM public.properties x WHERE x.id = p.id);
 
 INSERT INTO public.projects (
-  id, user_id, title, description, city, region, price, surface, beds, baths, images, details, created_at, updated_at
+  id, user_id, title, description, city, images, created_at, updated_at
 )
 SELECT
   p.id,
@@ -2251,13 +2549,7 @@ SELECT
   COALESCE(NULLIF(btrim(p.title), ''), 'Projet'),
   p.description,
   COALESCE(NULLIF(btrim(p.city), ''), NULLIF(btrim(p.property_details->>'city'), '')),
-  NULLIF(btrim(p.property_details->>'region'), ''),
-  p.price,
-  p.surface,
-  p.beds,
-  p.baths,
   COALESCE(p.images, '[]'::jsonb),
-  COALESCE(p.property_details, '{}'::jsonb),
   p.created_at,
   p.updated_at
 FROM public.posts p
@@ -2295,6 +2587,12 @@ ALTER TABLE public.inquiries ADD CONSTRAINT inquiries_target_check
 DROP FUNCTION IF EXISTS public.inquiry_rate_retry_at(UUID, UUID, TEXT, UUID, UUID);
 DROP FUNCTION IF EXISTS public.inquiry_rate_count(UUID, UUID, TEXT, UUID, UUID);
 DROP FUNCTION IF EXISTS public.inquiry_rate_status(UUID, UUID, TEXT);
+DROP FUNCTION IF EXISTS public.inquiry_rate_retry_at(UUID, UUID, TEXT, UUID, UUID, UUID, UUID);
+DROP FUNCTION IF EXISTS public.inquiry_rate_count(UUID, UUID, TEXT, UUID, UUID, UUID, UUID);
+DROP FUNCTION IF EXISTS public.inquiry_rate_status(UUID, UUID, TEXT, UUID, UUID);
+DROP FUNCTION IF EXISTS public.inquiry_rate_retry_at(UUID, UUID, TEXT, UUID, UUID, UUID, TEXT);
+DROP FUNCTION IF EXISTS public.inquiry_rate_count(UUID, UUID, TEXT, UUID, UUID, UUID, TEXT);
+DROP FUNCTION IF EXISTS public.inquiry_rate_status(UUID, UUID, TEXT, UUID, TEXT);
 
 CREATE OR REPLACE FUNCTION public.inquiry_rate_retry_at(
   p_sender UUID,
@@ -2870,6 +3168,668 @@ REVOKE ALL ON FUNCTION public.send_private_thread(UUID, TEXT) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.reply_private_thread(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.send_private_thread(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.reply_private_thread(UUID, TEXT) TO authenticated;
+
+-- ============================================================================
+-- Taxonomy
+--   categories           : sector categories shown in the feed (Biens & Projets is not one of them)
+--   feed_sub_categories  : sub-category buttons shown after a category is picked
+--   internal_categories  : detailed internal taxonomy, never shown as such in the feed
+--   profiles.internal_category_id : the one internal category of a professional, set in Paramètres
+--   profile_category_history      : every category a professional has had
+--   posts.category_history_id     : the author's category when the post was published
+--   listings.category_history_id  : the same for services
+--   property_types / project_types: buttons of the Biens and Projets tabs
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.categories (
+  id SMALLINT PRIMARY KEY,
+  slug TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  position SMALLINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.feed_sub_categories (
+  id SERIAL PRIMARY KEY,
+  category_id SMALLINT NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
+  slug TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  position SMALLINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS feed_sub_categories_category_idx
+  ON public.feed_sub_categories (category_id, position);
+
+CREATE TABLE IF NOT EXISTS public.internal_categories (
+  id SERIAL PRIMARY KEY,
+  category_id SMALLINT NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
+  code TEXT UNIQUE NOT NULL,
+  sub_category TEXT NOT NULL,
+  detailed_sub_category TEXT NOT NULL,
+  feed_sub_category_id INTEGER NOT NULL REFERENCES public.feed_sub_categories(id) ON DELETE RESTRICT,
+  CONSTRAINT internal_categories_unique_path UNIQUE (category_id, sub_category, detailed_sub_category)
+);
+
+CREATE INDEX IF NOT EXISTS internal_categories_feed_sub_category_idx
+  ON public.internal_categories (feed_sub_category_id);
+
+CREATE TABLE IF NOT EXISTS public.property_types (
+  slug TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  position SMALLINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.project_types (
+  slug TEXT PRIMARY KEY,
+  group_name TEXT NOT NULL,
+  name TEXT NOT NULL,
+  position SMALLINT NOT NULL
+);
+
+INSERT INTO public.categories (id, slug, name, description, position) VALUES
+  (1, 'gestion-services-immobiliers', 'Gestion & services immobiliers',
+   'Agences immobilières, agents indépendants, promoteurs immobiliers, gestionnaires de biens, syndics et conciergeries.', 1),
+  (3, 'construction-btp', 'Construction & BTP',
+   'Entreprises de construction, gros œuvre, génie civil, ingénierie, bureaux d''études techniques et entreprises spécialisées.', 2),
+  (4, 'renovation-amenagement', 'Rénovation & Aménagement',
+   'Rénovation, artisans, peinture, plomberie, électricité, menuiserie, aménagement intérieur et extérieur, paysagisme et décoration.', 3),
+  (5, 'architecture-design', 'Architecture & Design',
+   'Architectes, architectes d''intérieur, designers, paysagistes et cabinets de conception.', 4),
+  (6, 'juridique-foncier', 'Juridique & Foncier',
+   'Notaires, avocats spécialisés, conseil foncier, géomètres-topographes, expertise foncière et conseil en fiscalité immobilière.', 5),
+  (7, 'immotech', 'ImmoTech',
+   'PropTech, logiciels immobiliers, plateformes numériques, domotique, gestion technique des bâtiments et solutions innovantes.', 6),
+  (8, 'autres-services', 'Autres services',
+   'Assurances, financement immobilier, courtiers, experts-comptables, fournisseurs et prestataires qui ne rentrent pas dans les autres catégories.', 7)
+ON CONFLICT (id) DO UPDATE
+SET slug = EXCLUDED.slug, name = EXCLUDED.name, description = EXCLUDED.description, position = EXCLUDED.position;
+
+INSERT INTO public.feed_sub_categories (category_id, slug, name, position) VALUES
+  (1, 'agences-agents', 'Agences & agents', 1),
+  (1, 'promotion-immobiliere', 'Promotion immobilière', 2),
+  (1, 'gestion-immobiliere', 'Gestion immobilière', 3),
+  (1, 'conseil-expertise', 'Conseil & expertise', 4),
+  (3, 'construction-gros-oeuvre', 'Construction & gros œuvre', 1),
+  (3, 'second-oeuvre', 'Second œuvre', 2),
+  (3, 'ingenierie-etudes', 'Ingénierie & études', 3),
+  (3, 'entreprises-specialisees', 'Entreprises spécialisées', 4),
+  (3, 'materiaux-equipements', 'Matériaux & équipements', 5),
+  (4, 'renovation', 'Rénovation', 1),
+  (4, 'amenagement-interieur', 'Aménagement intérieur', 2),
+  (4, 'amenagement-exterieur', 'Aménagement extérieur', 3),
+  (4, 'decoration', 'Décoration', 4),
+  (4, 'travaux-specialises', 'Travaux spécialisés', 5),
+  (5, 'architecture', 'Architecture', 1),
+  (5, 'architecture-interieure', 'Architecture intérieure', 2),
+  (5, 'design', 'Design', 3),
+  (5, 'urbanisme-paysage', 'Urbanisme & paysage', 4),
+  (5, 'bim-3d', 'BIM & 3D', 5),
+  (6, 'foncier-developpement', 'Foncier & développement', 1),
+  (6, 'droit-immobilier-foncier', 'Droit immobilier & foncier', 2),
+  (6, 'notariat', 'Notariat', 3),
+  (6, 'fiscalite', 'Fiscalité', 4),
+  (6, 'expertise-etudes', 'Expertise & études', 5),
+  (7, 'proptech', 'PropTech', 1),
+  (7, 'logiciels-immobiliers', 'Logiciels immobiliers', 2),
+  (7, 'construction-tech', 'Construction Tech', 3),
+  (7, 'data-ia', 'Data & IA', 4),
+  (7, 'smart-building', 'Smart Building', 5),
+  (8, 'finance-assurance', 'Finance & assurance', 1),
+  (8, 'conseil-comptabilite', 'Conseil & comptabilité', 2),
+  (8, 'marketing-communication', 'Marketing & communication', 3),
+  (8, 'fournisseurs', 'Fournisseurs', 4),
+  (8, 'services-professionnels', 'Services professionnels', 5)
+ON CONFLICT (slug) DO UPDATE
+SET category_id = EXCLUDED.category_id, name = EXCLUDED.name, position = EXCLUDED.position;
+
+INSERT INTO public.internal_categories (category_id, code, sub_category, detailed_sub_category, feed_sub_category_id)
+SELECT v.category_id, v.code, v.sub_category, v.detailed_sub_category, f.id
+FROM (VALUES
+  (1, '1.1.1', 'Transaction & commercialisation', 'Agence immobilière', 'agences-agents'),
+  (1, '1.1.2', 'Transaction & commercialisation', 'Agent immobilier indépendant', 'agences-agents'),
+  (1, '1.1.3', 'Transaction & commercialisation', 'Courtage immobilier', 'agences-agents'),
+  (1, '1.1.4', 'Transaction & commercialisation', 'Commercialisation immobilière', 'agences-agents'),
+  (1, '1.1.5', 'Transaction & commercialisation', 'Location', 'agences-agents'),
+  (1, '1.1.6', 'Transaction & commercialisation', 'Location longue durée', 'agences-agents'),
+  (1, '1.1.7', 'Transaction & commercialisation', 'Location courte durée', 'agences-agents'),
+  (1, '1.2.1', 'Promotion & développement immobilier', 'Promoteur immobilier', 'promotion-immobiliere'),
+  (1, '1.2.2', 'Promotion & développement immobilier', 'Développeur immobilier', 'promotion-immobiliere'),
+  (1, '1.2.3', 'Promotion & développement immobilier', 'Marchand de biens', 'promotion-immobiliere'),
+  (1, '1.2.4', 'Promotion & développement immobilier', 'Opérateur immobilier', 'promotion-immobiliere'),
+  (1, '1.3.1', 'Gestion', 'Gestion immobilière', 'gestion-immobiliere'),
+  (1, '1.3.2', 'Gestion', 'Gestion locative', 'gestion-immobiliere'),
+  (1, '1.3.3', 'Gestion', 'Property management', 'gestion-immobiliere'),
+  (1, '1.3.4', 'Gestion', 'Asset management', 'gestion-immobiliere'),
+  (1, '1.3.5', 'Gestion', 'Facility management', 'gestion-immobiliere'),
+  (1, '1.3.6', 'Gestion', 'Syndic', 'gestion-immobiliere'),
+  (1, '1.3.7', 'Gestion', 'Conciergerie', 'gestion-immobiliere'),
+  (1, '1.4.1', 'Conseil & expertise', 'Conseil immobilier', 'conseil-expertise'),
+  (1, '1.4.2', 'Conseil & expertise', 'Expertise immobilière', 'conseil-expertise'),
+  (1, '1.4.3', 'Conseil & expertise', 'Évaluation immobilière', 'conseil-expertise'),
+  (1, '1.4.4', 'Conseil & expertise', 'Conseil en investissement immobilier', 'conseil-expertise'),
+  (1, '1.4.5', 'Conseil & expertise', 'Conseil en commercialisation', 'conseil-expertise'),
+
+  (3, '3.1.1', 'Construction & gros œuvre', 'Fondations', 'construction-gros-oeuvre'),
+  (3, '3.1.2', 'Construction & gros œuvre', 'Terrassement bâtiment', 'construction-gros-oeuvre'),
+  (3, '3.1.3', 'Construction & gros œuvre', 'Structure', 'construction-gros-oeuvre'),
+  (3, '3.1.4', 'Construction & gros œuvre', 'Béton', 'construction-gros-oeuvre'),
+  (3, '3.1.5', 'Construction & gros œuvre', 'Maçonnerie', 'construction-gros-oeuvre'),
+  (3, '3.1.6', 'Construction & gros œuvre', 'Charpente', 'construction-gros-oeuvre'),
+  (3, '3.2.1', 'Second œuvre technique', 'Électricité', 'second-oeuvre'),
+  (3, '3.2.2', 'Second œuvre technique', 'Plomberie', 'second-oeuvre'),
+  (3, '3.2.3', 'Second œuvre technique', 'Climatisation', 'second-oeuvre'),
+  (3, '3.2.4', 'Second œuvre technique', 'Ventilation', 'second-oeuvre'),
+  (3, '3.2.5', 'Second œuvre technique', 'Chauffage', 'second-oeuvre'),
+  (3, '3.2.6', 'Second œuvre technique', 'Étanchéité', 'second-oeuvre'),
+  (3, '3.2.7', 'Second œuvre technique', 'Isolation', 'second-oeuvre'),
+  (3, '3.2.8', 'Second œuvre technique', 'Sécurité incendie', 'second-oeuvre'),
+  (3, '3.2.9', 'Second œuvre technique', 'Ascenseurs', 'second-oeuvre'),
+  (3, '3.3.1', 'Finition', 'Revêtements', 'entreprises-specialisees'),
+  (3, '3.3.2', 'Finition', 'Peinture', 'entreprises-specialisees'),
+  (3, '3.3.3', 'Finition', 'Façades', 'entreprises-specialisees'),
+  (3, '3.3.4', 'Finition', 'Menuiserie', 'entreprises-specialisees'),
+  (3, '3.3.5', 'Finition', 'Métallerie', 'entreprises-specialisees'),
+  (3, '3.3.6', 'Finition', 'Serrurerie', 'entreprises-specialisees'),
+  (3, '3.4.1', 'Ingénierie & études', 'Génie civil / structure', 'ingenierie-etudes'),
+  (3, '3.4.2', 'Ingénierie & études', 'Bureau d’études', 'ingenierie-etudes'),
+  (3, '3.4.3', 'Ingénierie & études', 'Études techniques', 'ingenierie-etudes'),
+  (3, '3.4.4', 'Ingénierie & études', 'Contrôle technique', 'ingenierie-etudes'),
+  (3, '3.4.5', 'Ingénierie & études', 'Économie de la construction', 'ingenierie-etudes'),
+  (3, '3.4.6', 'Ingénierie & études', 'Coordination de chantier', 'ingenierie-etudes'),
+  (3, '3.5.1', 'Matériaux & équipements', 'Matériaux de construction', 'materiaux-equipements'),
+  (3, '3.5.2', 'Matériaux & équipements', 'Équipements de chantier', 'materiaux-equipements'),
+  (3, '3.5.3', 'Matériaux & équipements', 'Équipements techniques', 'materiaux-equipements'),
+  (3, '3.5.4', 'Matériaux & équipements', 'Fournisseurs spécialisés', 'materiaux-equipements'),
+
+  (4, '4.1.1', 'Rénovation', 'Rénovation complète', 'renovation'),
+  (4, '4.1.2', 'Rénovation', 'Rénovation intérieure', 'renovation'),
+  (4, '4.1.3', 'Rénovation', 'Rénovation extérieure', 'renovation'),
+  (4, '4.1.4', 'Rénovation', 'Rénovation de façade', 'renovation'),
+  (4, '4.1.5', 'Rénovation', 'Réhabilitation', 'renovation'),
+  (4, '4.1.6', 'Rénovation', 'Restauration', 'renovation'),
+  (4, '4.1.7', 'Rénovation', 'Rénovation énergétique', 'renovation'),
+  (4, '4.2.1', 'Aménagement intérieur', 'Aménagement intérieur', 'amenagement-interieur'),
+  (4, '4.2.2', 'Aménagement intérieur', 'Décoration', 'decoration'),
+  (4, '4.2.3', 'Aménagement intérieur', 'Cuisine', 'amenagement-interieur'),
+  (4, '4.2.4', 'Aménagement intérieur', 'Salle de bain', 'amenagement-interieur'),
+  (4, '4.2.5', 'Aménagement intérieur', 'Mobilier', 'decoration'),
+  (4, '4.2.6', 'Aménagement intérieur', 'Dressing', 'amenagement-interieur'),
+  (4, '4.2.7', 'Aménagement intérieur', 'Éclairage', 'decoration'),
+  (4, '4.3.1', 'Aménagement extérieur', 'Jardin', 'amenagement-exterieur'),
+  (4, '4.3.2', 'Aménagement extérieur', 'Paysagisme', 'amenagement-exterieur'),
+  (4, '4.3.3', 'Aménagement extérieur', 'Terrasse', 'amenagement-exterieur'),
+  (4, '4.3.4', 'Aménagement extérieur', 'Piscine', 'amenagement-exterieur'),
+  (4, '4.3.5', 'Aménagement extérieur', 'Aménagement extérieur', 'amenagement-exterieur'),
+  (4, '4.4.1', 'Travaux spécialisés', 'Peinture', 'travaux-specialises'),
+  (4, '4.4.2', 'Travaux spécialisés', 'Revêtement', 'travaux-specialises'),
+  (4, '4.4.3', 'Travaux spécialisés', 'Menuiserie', 'travaux-specialises'),
+  (4, '4.4.4', 'Travaux spécialisés', 'Plomberie', 'travaux-specialises'),
+  (4, '4.4.5', 'Travaux spécialisés', 'Électricité', 'travaux-specialises'),
+  (4, '4.4.6', 'Travaux spécialisés', 'Isolation', 'travaux-specialises'),
+
+  (5, '5.1.1', 'Architecture', 'Architecture', 'architecture'),
+  (5, '5.1.2', 'Architecture', 'Architecture résidentielle', 'architecture'),
+  (5, '5.1.3', 'Architecture', 'Architecture commerciale', 'architecture'),
+  (5, '5.1.4', 'Architecture', 'Architecture industrielle', 'architecture'),
+  (5, '5.1.5', 'Architecture', 'Architecture touristique', 'architecture'),
+  (5, '5.1.6', 'Architecture', 'Architecture patrimoniale', 'architecture'),
+  (5, '5.2.1', 'Architecture intérieure', 'Architecture intérieure', 'architecture-interieure'),
+  (5, '5.2.2', 'Architecture intérieure', 'Design intérieur', 'design'),
+  (5, '5.2.3', 'Architecture intérieure', 'Décoration', 'design'),
+  (5, '5.3.1', 'Urbanisme & paysage', 'Urbanisme', 'urbanisme-paysage'),
+  (5, '5.3.2', 'Urbanisme & paysage', 'Aménagement urbain', 'urbanisme-paysage'),
+  (5, '5.3.3', 'Urbanisme & paysage', 'Paysagisme', 'urbanisme-paysage'),
+  (5, '5.4.1', 'Conception numérique', 'BIM', 'bim-3d'),
+  (5, '5.4.2', 'Conception numérique', 'Modélisation 3D', 'bim-3d'),
+  (5, '5.4.3', 'Conception numérique', 'Visualisation architecturale', 'bim-3d'),
+  (5, '5.4.4', 'Conception numérique', 'Rendu 3D', 'bim-3d'),
+  (5, '5.4.5', 'Conception numérique', 'Réalité virtuelle', 'bim-3d'),
+  (5, '5.5.1', 'Études & maîtrise d’œuvre', 'Conception', 'architecture'),
+  (5, '5.5.2', 'Études & maîtrise d’œuvre', 'Plans', 'architecture'),
+  (5, '5.5.3', 'Études & maîtrise d’œuvre', 'Maîtrise d’œuvre', 'architecture'),
+  (5, '5.5.4', 'Études & maîtrise d’œuvre', 'Assistance à maîtrise d’ouvrage', 'architecture'),
+  (5, '5.5.5', 'Études & maîtrise d’œuvre', 'Coordination', 'architecture'),
+
+  (6, '6.1.1', 'Foncier & développement', 'Stratégie foncière', 'foncier-developpement'),
+  (6, '6.1.2', 'Foncier & développement', 'Développement foncier', 'foncier-developpement'),
+  (6, '6.1.3', 'Foncier & développement', 'Acquisition foncière', 'foncier-developpement'),
+  (6, '6.1.4', 'Foncier & développement', 'Valorisation foncière', 'foncier-developpement'),
+  (6, '6.1.5', 'Foncier & développement', 'Gestion foncière', 'foncier-developpement'),
+  (6, '6.1.6', 'Foncier & développement', 'Conseil foncier', 'foncier-developpement'),
+  (6, '6.1.7', 'Foncier & développement', 'Aménagement foncier', 'foncier-developpement'),
+  (6, '6.1.8', 'Foncier & développement', 'Lotissement', 'foncier-developpement'),
+  (6, '6.2.1', 'Expertise & études foncières', 'Expertise foncière', 'expertise-etudes'),
+  (6, '6.2.2', 'Expertise & études foncières', 'Études foncières', 'expertise-etudes'),
+  (6, '6.2.3', 'Expertise & études foncières', 'Géomètre-topographe', 'expertise-etudes'),
+  (6, '6.2.4', 'Expertise & études foncières', 'Topographie', 'expertise-etudes'),
+  (6, '6.2.5', 'Expertise & études foncières', 'Cadastre', 'expertise-etudes'),
+  (6, '6.2.6', 'Expertise & études foncières', 'Études de terrain', 'expertise-etudes'),
+  (6, '6.3.1', 'Droit', 'Droit immobilier', 'droit-immobilier-foncier'),
+  (6, '6.3.2', 'Droit', 'Droit foncier', 'droit-immobilier-foncier'),
+  (6, '6.3.3', 'Droit', 'Titres fonciers', 'droit-immobilier-foncier'),
+  (6, '6.3.4', 'Droit', 'Copropriété', 'droit-immobilier-foncier'),
+  (6, '6.3.5', 'Droit', 'Baux', 'droit-immobilier-foncier'),
+  (6, '6.3.6', 'Droit', 'Urbanisme & construction', 'droit-immobilier-foncier'),
+  (6, '6.3.7', 'Droit', 'Servitudes', 'droit-immobilier-foncier'),
+  (6, '6.3.8', 'Droit', 'Indivision', 'droit-immobilier-foncier'),
+  (6, '6.3.9', 'Droit', 'Succession immobilière', 'droit-immobilier-foncier'),
+  (6, '6.3.10', 'Droit', 'Contentieux immobilier', 'droit-immobilier-foncier'),
+  (6, '6.4.1', 'Professions juridiques', 'Notaire', 'notariat'),
+  (6, '6.4.2', 'Professions juridiques', 'Avocat', 'droit-immobilier-foncier'),
+  (6, '6.4.3', 'Professions juridiques', 'Conseil juridique', 'droit-immobilier-foncier'),
+  (6, '6.4.4', 'Professions juridiques', 'Adoul', 'notariat'),
+  (6, '6.4.5', 'Professions juridiques', 'Médiation / arbitrage', 'droit-immobilier-foncier'),
+  (6, '6.5.1', 'Fiscalité', 'Fiscalité immobilière', 'fiscalite'),
+  (6, '6.5.2', 'Fiscalité', 'Fiscalité foncière', 'fiscalite'),
+  (6, '6.5.3', 'Fiscalité', 'Fiscalité locative', 'fiscalite'),
+  (6, '6.5.4', 'Fiscalité', 'Fiscalité des transactions', 'fiscalite'),
+  (6, '6.5.5', 'Fiscalité', 'Conseil fiscal', 'fiscalite'),
+
+  (7, '7.1.1', 'Logiciels immobiliers', 'CRM immobilier', 'logiciels-immobiliers'),
+  (7, '7.1.2', 'Logiciels immobiliers', 'Gestion immobilière', 'logiciels-immobiliers'),
+  (7, '7.1.3', 'Logiciels immobiliers', 'Gestion locative', 'logiciels-immobiliers'),
+  (7, '7.1.4', 'Logiciels immobiliers', 'Gestion de copropriété', 'logiciels-immobiliers'),
+  (7, '7.1.5', 'Logiciels immobiliers', 'Gestion de projets', 'logiciels-immobiliers'),
+  (7, '7.1.6', 'Logiciels immobiliers', 'Gestion commerciale', 'logiciels-immobiliers'),
+  (7, '7.2.1', 'Transaction & commercialisation', 'Marketplace', 'proptech'),
+  (7, '7.2.2', 'Transaction & commercialisation', 'Listing immobilier', 'proptech'),
+  (7, '7.2.3', 'Transaction & commercialisation', 'Transaction digitale', 'proptech'),
+  (7, '7.2.4', 'Transaction & commercialisation', 'Signature électronique', 'proptech'),
+  (7, '7.2.5', 'Transaction & commercialisation', 'Visite virtuelle', 'proptech'),
+  (7, '7.2.6', 'Transaction & commercialisation', '3D / VR / AR', 'proptech'),
+  (7, '7.3.1', 'Construction Tech', 'Construction management', 'construction-tech'),
+  (7, '7.3.2', 'Construction Tech', 'BIM', 'construction-tech'),
+  (7, '7.3.3', 'Construction Tech', 'Gestion de chantier', 'construction-tech'),
+  (7, '7.3.4', 'Construction Tech', 'Planification', 'construction-tech'),
+  (7, '7.3.5', 'Construction Tech', 'Suivi de chantier', 'construction-tech'),
+  (7, '7.3.6', 'Construction Tech', 'Reality capture', 'construction-tech'),
+  (7, '7.4.1', 'Data & IA', 'Data immobilière', 'data-ia'),
+  (7, '7.4.2', 'Data & IA', 'Analytics', 'data-ia'),
+  (7, '7.4.3', 'Data & IA', 'Intelligence artificielle', 'data-ia'),
+  (7, '7.4.4', 'Data & IA', 'Valuation', 'data-ia'),
+  (7, '7.4.5', 'Data & IA', 'Market intelligence', 'data-ia'),
+  (7, '7.5.1', 'Smart Building', 'IoT', 'smart-building'),
+  (7, '7.5.2', 'Smart Building', 'Domotique', 'smart-building'),
+  (7, '7.5.3', 'Smart Building', 'BMS', 'smart-building'),
+  (7, '7.5.4', 'Smart Building', 'Gestion énergétique', 'smart-building'),
+  (7, '7.5.5', 'Smart Building', 'Sécurité intelligente', 'smart-building'),
+  (7, '7.5.6', 'Smart Building', 'Maintenance intelligente', 'smart-building'),
+  (7, '7.6.1', 'Finance & transactions', 'FinTech immobilière', 'proptech'),
+  (7, '7.6.2', 'Finance & transactions', 'Paiement', 'proptech'),
+  (7, '7.6.3', 'Finance & transactions', 'Financement', 'proptech'),
+  (7, '7.6.4', 'Finance & transactions', 'Investissement immobilier', 'proptech'),
+
+  (8, '8.1.1', 'Finance', 'Banque', 'finance-assurance'),
+  (8, '8.1.2', 'Finance', 'Crédit immobilier', 'finance-assurance'),
+  (8, '8.1.3', 'Finance', 'Financement', 'finance-assurance'),
+  (8, '8.1.4', 'Finance', 'Courtage financier', 'finance-assurance'),
+  (8, '8.1.5', 'Finance', 'Investissement', 'finance-assurance'),
+  (8, '8.2.1', 'Assurance', 'Assurance immobilière', 'finance-assurance'),
+  (8, '8.2.2', 'Assurance', 'Assurance construction', 'finance-assurance'),
+  (8, '8.2.3', 'Assurance', 'Assurance professionnelle', 'finance-assurance'),
+  (8, '8.3.1', 'Conseil', 'Comptabilité', 'conseil-comptabilite'),
+  (8, '8.3.2', 'Conseil', 'Expertise comptable', 'conseil-comptabilite'),
+  (8, '8.3.3', 'Conseil', 'Conseil aux entreprises', 'conseil-comptabilite'),
+  (8, '8.3.4', 'Conseil', 'Ressources humaines', 'conseil-comptabilite'),
+  (8, '8.3.5', 'Conseil', 'Recrutement', 'conseil-comptabilite'),
+  (8, '8.3.6', 'Conseil', 'Formation', 'conseil-comptabilite'),
+  (8, '8.4.1', 'Marketing & communication', 'Marketing immobilier', 'marketing-communication'),
+  (8, '8.4.2', 'Marketing & communication', 'Communication', 'marketing-communication'),
+  (8, '8.4.3', 'Marketing & communication', 'Photographie', 'marketing-communication'),
+  (8, '8.4.4', 'Marketing & communication', 'Vidéo', 'marketing-communication'),
+  (8, '8.4.5', 'Marketing & communication', 'Médias', 'marketing-communication'),
+  (8, '8.5.1', 'Fournisseurs', 'Fournitures professionnelles', 'fournisseurs'),
+  (8, '8.5.2', 'Fournisseurs', 'Mobilier', 'fournisseurs'),
+  (8, '8.5.3', 'Fournisseurs', 'Équipements', 'fournisseurs'),
+  (8, '8.5.4', 'Fournisseurs', 'Matériaux', 'fournisseurs'),
+  (8, '8.5.5', 'Fournisseurs', 'Produits spécialisés', 'fournisseurs'),
+  (8, '8.6.1', 'Services opérationnels', 'Nettoyage', 'services-professionnels'),
+  (8, '8.6.2', 'Services opérationnels', 'Maintenance', 'services-professionnels'),
+  (8, '8.6.3', 'Services opérationnels', 'Sécurité', 'services-professionnels'),
+  (8, '8.6.4', 'Services opérationnels', 'Déménagement', 'services-professionnels'),
+  (8, '8.6.5', 'Services opérationnels', 'Transport', 'services-professionnels'),
+  (8, '8.6.6', 'Services opérationnels', 'Énergie', 'services-professionnels')
+) AS v(category_id, code, sub_category, detailed_sub_category, feed_slug)
+JOIN public.feed_sub_categories f ON f.slug = v.feed_slug
+ON CONFLICT (code) DO UPDATE
+SET category_id = EXCLUDED.category_id,
+    sub_category = EXCLUDED.sub_category,
+    detailed_sub_category = EXCLUDED.detailed_sub_category,
+    feed_sub_category_id = EXCLUDED.feed_sub_category_id;
+
+INSERT INTO public.property_types (slug, name, position) VALUES
+  ('appartement', 'Appartement', 1),
+  ('maison_villa', 'Maison / Villa', 2),
+  ('riad', 'Riad', 3),
+  ('terrain', 'Terrain', 4),
+  ('local_commercial', 'Local commercial', 5),
+  ('bureau', 'Bureau', 6),
+  ('entrepot', 'Entrepôt', 7),
+  ('immeuble', 'Immeuble', 8),
+  ('residence', 'Résidence', 9),
+  ('hotel', 'Hôtel', 10),
+  ('bien_industriel', 'Bien industriel', 11),
+  ('bien_agricole', 'Bien agricole', 12)
+ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, position = EXCLUDED.position;
+
+INSERT INTO public.project_types (slug, group_name, name, position) VALUES
+  ('projet_residentiel', 'Projets immobiliers', 'Projet résidentiel', 1),
+  ('lotissement', 'Projets immobiliers', 'Lotissement', 2),
+  ('residence', 'Projets immobiliers', 'Résidence', 3),
+  ('complexe_immobilier', 'Projets immobiliers', 'Complexe immobilier', 4),
+  ('projet_commercial', 'Projets immobiliers', 'Projet commercial', 5),
+  ('projet_hotelier', 'Projets immobiliers', 'Projet hôtelier', 6),
+  ('projet_industriel', 'Projets immobiliers', 'Projet industriel', 7),
+  ('projet_mixte', 'Projets immobiliers', 'Projet mixte', 8),
+  ('usine', 'Projets non-résidentiels', 'Usine', 9),
+  ('centre_commercial', 'Projets non-résidentiels', 'Centre commercial', 10),
+  ('bureau', 'Projets non-résidentiels', 'Bureau', 11),
+  ('hotel', 'Projets non-résidentiels', 'Hôtel', 12),
+  ('equipement_prive', 'Projets non-résidentiels', 'Équipement privé', 13),
+  ('equipement_collectif', 'Projets non-résidentiels', 'Équipement collectif', 14),
+  ('infrastructure_projet', 'Projets non-résidentiels', 'Infrastructure liée à un projet immobilier', 15)
+ON CONFLICT (slug) DO UPDATE
+SET group_name = EXCLUDED.group_name, name = EXCLUDED.name, position = EXCLUDED.position;
+
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.feed_sub_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.internal_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.property_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_types ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Categories are viewable by everyone" ON public.categories;
+CREATE POLICY "Categories are viewable by everyone" ON public.categories FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Feed sub-categories are viewable by everyone" ON public.feed_sub_categories;
+CREATE POLICY "Feed sub-categories are viewable by everyone" ON public.feed_sub_categories FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Internal categories are viewable by everyone" ON public.internal_categories;
+CREATE POLICY "Internal categories are viewable by everyone" ON public.internal_categories FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Property types are viewable by everyone" ON public.property_types;
+CREATE POLICY "Property types are viewable by everyone" ON public.property_types FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Project types are viewable by everyone" ON public.project_types;
+CREATE POLICY "Project types are viewable by everyone" ON public.project_types FOR SELECT USING (true);
+
+REVOKE ALL ON public.categories, public.feed_sub_categories, public.internal_categories,
+  public.property_types, public.project_types FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.categories, public.feed_sub_categories, public.internal_categories,
+  public.property_types, public.project_types TO anon, authenticated;
+
+-- A professional has exactly one internal category, edited in Paramètres.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS internal_category_id INTEGER
+    REFERENCES public.internal_categories(id) ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS profiles_internal_category_idx
+  ON public.profiles (internal_category_id);
+
+CREATE TABLE IF NOT EXISTS public.profile_category_history (
+  id SERIAL PRIMARY KEY,
+  profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  internal_category_id INTEGER NOT NULL REFERENCES public.internal_categories(id) ON DELETE RESTRICT,
+  valid_from TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  valid_to TIMESTAMP WITH TIME ZONE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS profile_category_history_current_idx
+  ON public.profile_category_history (profile_id) WHERE valid_to IS NULL;
+
+ALTER TABLE public.profile_category_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Category history is viewable by everyone" ON public.profile_category_history;
+CREATE POLICY "Category history is viewable by everyone"
+  ON public.profile_category_history FOR SELECT USING (true);
+
+REVOKE ALL ON public.profile_category_history FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.profile_category_history TO anon, authenticated;
+
+ALTER TABLE public.posts
+  ADD COLUMN IF NOT EXISTS category_history_id INTEGER
+    REFERENCES public.profile_category_history(id) ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS posts_category_history_idx
+  ON public.posts (category_history_id);
+
+ALTER TABLE public.services
+  ADD COLUMN IF NOT EXISTS category_history_id INTEGER
+    REFERENCES public.profile_category_history(id) ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS services_category_history_idx
+  ON public.services (category_history_id);
+
+-- Closes the current history row and opens a new one when the category changes.
+-- The author's posts and services that had no category yet are attached to the first one.
+CREATE OR REPLACE FUNCTION public.track_profile_category_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_history_id INTEGER;
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.internal_category_id IS NOT DISTINCT FROM OLD.internal_category_id THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE public.profile_category_history
+  SET valid_to = NOW()
+  WHERE profile_id = NEW.id AND valid_to IS NULL;
+
+  IF NEW.internal_category_id IS NOT NULL THEN
+    INSERT INTO public.profile_category_history (profile_id, internal_category_id)
+    VALUES (NEW.id, NEW.internal_category_id)
+    RETURNING id INTO v_history_id;
+
+    UPDATE public.posts
+    SET category_history_id = v_history_id
+    WHERE user_id = NEW.id AND category_history_id IS NULL;
+
+    UPDATE public.services
+    SET category_history_id = v_history_id
+    WHERE user_id = NEW.id AND category_history_id IS NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_track_profile_category_change ON public.profiles;
+CREATE TRIGGER trg_track_profile_category_change
+  AFTER INSERT OR UPDATE OF internal_category_id ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.track_profile_category_change();
+
+-- A new post or service takes the author's current category. Afterwards it can only be
+-- filled in once (old rows), with a history row that belongs to the author.
+CREATE OR REPLACE FUNCTION public.attach_post_category_history()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    SELECT h.id INTO NEW.category_history_id
+    FROM public.profile_category_history h
+    WHERE h.profile_id = NEW.user_id AND h.valid_to IS NULL;
+    RETURN NEW;
+  END IF;
+
+  IF OLD.category_history_id IS NOT NULL
+     OR NOT EXISTS (
+       SELECT 1 FROM public.profile_category_history h
+       WHERE h.id = NEW.category_history_id AND h.profile_id = NEW.user_id
+     ) THEN
+    NEW.category_history_id := OLD.category_history_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_posts_10_attach_category_history ON public.posts;
+CREATE TRIGGER trg_posts_10_attach_category_history
+  BEFORE INSERT OR UPDATE OF category_history_id ON public.posts
+  FOR EACH ROW EXECUTE FUNCTION public.attach_post_category_history();
+
+DROP TRIGGER IF EXISTS trg_services_10_attach_category_history ON public.services;
+CREATE TRIGGER trg_services_10_attach_category_history
+  BEFORE INSERT OR UPDATE OF category_history_id ON public.services
+  FOR EACH ROW EXECUTE FUNCTION public.attach_post_category_history();
+
+-- Only Gestion & services immobiliers professionals publish biens on the feed.
+CREATE OR REPLACE FUNCTION public.check_post_property_author()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.post_type <> 'property' THEN
+    RETURN NEW;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profile_category_history h
+    JOIN public.internal_categories ic ON ic.id = h.internal_category_id
+    WHERE h.id = NEW.category_history_id AND ic.category_id = 1
+  ) THEN
+    RAISE EXCEPTION 'PROPERTY_AUTHOR_NOT_ALLOWED'
+      USING DETAIL = 'Seuls les professionnels de Gestion & services immobiliers publient des biens.';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_posts_20_check_property_author ON public.posts;
+CREATE TRIGGER trg_posts_20_check_property_author
+  BEFORE INSERT OR UPDATE OF post_type ON public.posts
+  FOR EACH ROW EXECUTE FUNCTION public.check_post_property_author();
+
+-- Same rule for the portfolio. Particuliers have no profile row and keep their 3 biens.
+CREATE OR REPLACE FUNCTION public.check_property_owner()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = NEW.user_id)
+     AND NOT EXISTS (
+       SELECT 1
+       FROM public.profiles pr
+       JOIN public.internal_categories ic ON ic.id = pr.internal_category_id
+       WHERE pr.id = NEW.user_id AND ic.category_id = 1
+     ) THEN
+    RAISE EXCEPTION 'PROPERTY_AUTHOR_NOT_ALLOWED'
+      USING DETAIL = 'Seuls les professionnels de Gestion & services immobiliers publient des biens.';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_check_property_owner ON public.properties;
+CREATE TRIGGER trg_check_property_owner
+  BEFORE INSERT ON public.properties
+  FOR EACH ROW EXECUTE FUNCTION public.check_property_owner();
+
+-- Biens / Projets tab buttons. Typed columns are derived from source fields.
+ALTER TABLE public.properties
+  ADD COLUMN IF NOT EXISTS property_type TEXT
+    REFERENCES public.property_types(slug) ON UPDATE CASCADE ON DELETE SET NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'projects_project_type_fkey'
+  ) THEN
+    ALTER TABLE public.projects
+      ADD CONSTRAINT projects_project_type_fkey
+      FOREIGN KEY (project_type) REFERENCES public.project_types(slug)
+      ON UPDATE CASCADE ON DELETE SET NULL;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS properties_property_type_idx ON public.properties (property_type);
+
+CREATE OR REPLACE FUNCTION public.property_type_from_kind(p_kind TEXT)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT pt.slug
+  FROM public.property_types pt
+  WHERE pt.slug = CASE btrim(COALESCE(p_kind, ''))
+    WHEN 'maison' THEN 'maison_villa'
+    WHEN 'villa' THEN 'maison_villa'
+    WHEN 'ferme' THEN 'bien_agricole'
+    ELSE btrim(COALESCE(p_kind, ''))
+  END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.set_property_type()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  NEW.property_type := public.property_type_from_kind(NEW.details->>'propertyKind');
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_set_property_type ON public.properties;
+CREATE TRIGGER trg_set_property_type
+  BEFORE INSERT OR UPDATE OF details ON public.properties
+  FOR EACH ROW EXECUTE FUNCTION public.set_property_type();
+
+CREATE OR REPLACE FUNCTION public.set_project_type()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_slug TEXT;
+BEGIN
+  v_slug := NULLIF(btrim(COALESCE(NEW.project_type, '')), '');
+  SELECT pt.slug INTO NEW.project_type
+  FROM public.project_types pt
+  WHERE pt.slug = v_slug;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_set_project_type ON public.projects;
+CREATE TRIGGER trg_set_project_type
+  BEFORE INSERT OR UPDATE OF project_type ON public.projects
+  FOR EACH ROW EXECUTE FUNCTION public.set_project_type();
+
+UPDATE public.properties
+SET property_type = public.property_type_from_kind(details->>'propertyKind')
+WHERE property_type IS NULL;
+
+-- Enterprises may hold several concurrent internal categories.
+-- profiles.internal_category_id remains the primary (post/service history).
+CREATE TABLE IF NOT EXISTS public.profile_internal_categories (
+  profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  internal_category_id INTEGER NOT NULL REFERENCES public.internal_categories(id) ON DELETE RESTRICT,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (profile_id, internal_category_id)
+);
+
+CREATE INDEX IF NOT EXISTS profile_internal_categories_category_idx
+  ON public.profile_internal_categories (internal_category_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS profile_internal_categories_one_primary_idx
+  ON public.profile_internal_categories (profile_id)
+  WHERE is_primary;
+
+-- Specialty chosen on create (one of the author's Paramètres internal categories).
+ALTER TABLE public.services
+  ADD COLUMN IF NOT EXISTS internal_category_id INTEGER
+    REFERENCES public.internal_categories(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS services_internal_category_idx
+  ON public.services (internal_category_id);
 
 NOTIFY pgrst, 'reload schema';
 

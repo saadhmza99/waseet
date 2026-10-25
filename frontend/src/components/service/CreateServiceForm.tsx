@@ -4,14 +4,15 @@ import { useNavigate } from "react-router-dom";
 import { AlignLeft, ArrowLeft, Image as ImageIcon, MapPin, Plus, Trash2, Type, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
-import { listingService } from "@/services/listingService";
-import { storageService } from "@/services/storageService";
+import { serviceService } from "@/services/serviceService";
+import { partitionByUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { RegionSelect } from "@/components/CityPicker";
 import { allMoroccoCities } from "@/lib/moroccoPlaces";
+import { taxonomyService, type InternalCategory } from "@/services/taxonomyService";
 import {
   SERVICE_AUDIENCES,
-  SERVICE_CATEGORIES,
   SERVICE_KINDS,
+  SERVICE_MISSIONS,
   clearServiceDraft,
   emptyOffer,
   loadServiceDraft,
@@ -19,6 +20,9 @@ import {
   priceLabel,
   saveServiceDraft,
   sanitizeOffer,
+  serviceCoverIsLogo,
+  serviceMainImage,
+  servicePhotos,
   zoneLabel,
   type ServiceOffer,
 } from "@/lib/serviceOffer";
@@ -58,25 +62,79 @@ const CreateServiceForm = () => {
   const [saving, setSaving] = useState(false);
   const [cityQuery, setCityQuery] = useState("");
   const [offer, setOffer] = useState<ServiceOffer>(emptyOffer);
+  const [specialtyOptions, setSpecialtyOptions] = useState<InternalCategory[] | null>(null);
   const draftLoaded = useRef(false);
 
   useEffect(() => {
     if (!user || draftLoaded.current) return;
     draftLoaded.current = true;
     const draft = loadServiceDraft(user.id);
-    if (draft && (draft.title || draft.description || draft.category)) setOffer(draft);
+    if (draft && (draft.title || draft.description || draft.category || draft.internalCategoryId)) {
+      setOffer({ ...emptyOffer(), ...draft, internalCategoryId: draft.internalCategoryId ?? null });
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setSpecialtyOptions(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([taxonomyService.listInternalCategories(), taxonomyService.getProfileInternalCategoryIds(user.id)])
+      .then(([rows, ids]) => {
+        if (cancelled) return;
+        const options = ids
+          .map((id) => rows.find((row) => row.id === id))
+          .filter(Boolean) as InternalCategory[];
+        setSpecialtyOptions(options);
+        setOffer((current) => {
+          if (current.internalCategoryId && options.some((row) => row.id === current.internalCategoryId)) {
+            const selected = options.find((row) => row.id === current.internalCategoryId)!;
+            return { ...current, category: selected.detailed_sub_category };
+          }
+          if (options.length === 1) {
+            return {
+              ...current,
+              internalCategoryId: options[0].id,
+              category: options[0].detailed_sub_category,
+            };
+          }
+          if (current.internalCategoryId && !options.some((row) => row.id === current.internalCategoryId)) {
+            return { ...current, internalCategoryId: null, category: "" };
+          }
+          return current;
+        });
+      })
+      .catch((error) => {
+        console.error("Error loading service specialties:", error);
+        if (!cancelled) setSpecialtyOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const patch = (partial: Partial<ServiceOffer>) => setOffer((current) => ({ ...current, ...partial }));
+
+  const selectSpecialty = (internalCategoryId: number) => {
+    const selected = specialtyOptions?.find((row) => row.id === internalCategoryId);
+    if (!selected) return;
+    patch({
+      internalCategoryId: selected.id,
+      category: selected.detailed_sub_category,
+    });
+  };
+
   const cities = useMemo(() => {
     const needle = cityQuery.trim().toLowerCase();
     return allMoroccoCities().filter((city) => !offer.cities.includes(city) && (!needle || city.toLowerCase().includes(needle))).slice(0, 8);
   }, [cityQuery, offer.cities]);
 
   const uploadImages = async (files: File[]) => {
-    const accepted = files.filter((file) => file.type.startsWith("image/") && file.size <= 4_000_000);
-    if (accepted.length !== files.length) {
-      toast({ title: "Image", description: "Chaque image doit faire 4 Mo maximum." });
+    const images = files.filter((file) => file.type.startsWith("image/"));
+    const { accepted, rejected } = partitionByUploadLimit(images);
+    if (rejected.length || images.length !== files.length) {
+      toast({ title: "Image", description: `Chaque image doit faire ${uploadMaxLabel} maximum.` });
     }
     if (!accepted.length) return [];
     return storageService.uploadImages(accepted, "services");
@@ -105,18 +163,7 @@ const CreateServiceForm = () => {
     }
     setSaving(true);
     try {
-      const images = [clean.cover, ...clean.gallery.filter((url) => url !== clean.cover)].filter(Boolean);
-      await listingService.createListing(user.id, {
-        title: clean.title,
-        description: clean.description,
-        profession: clean.category,
-        location: zoneLabel(clean),
-        price_range: priceLabel(clean),
-        image_url: images[0] || "",
-        image_count: images.length,
-        images,
-        property_details: { service: clean },
-      });
+      await serviceService.createService(user.id, clean);
       clearServiceDraft(user.id);
       toast({ title: "Service publié" });
       navigate("/profile?tab=services");
@@ -129,7 +176,7 @@ const CreateServiceForm = () => {
   };
 
   const next = () => {
-    if (step === 0 && (!offer.title.trim() || !offer.category || !offer.description.trim())) {
+    if (step === 0 && (!offer.title.trim() || !offer.category || offer.internalCategoryId == null || !offer.description.trim())) {
       toast({ title: "Informations manquantes", description: "Le titre, la catégorie et la description sont requis." });
       return;
     }
@@ -170,22 +217,65 @@ const CreateServiceForm = () => {
                   <Label icon={Type}>Titre du service</Label>
                   <input className={fieldClass} maxLength={120} placeholder="Ex. Gestion locative complète" value={offer.title} onChange={(event) => patch({ title: event.target.value })} />
                 </label>
-                <label className="block">
-                  <Label>Catégorie</Label>
-                  <select className={fieldClass} value={offer.category} onChange={(event) => patch({ category: event.target.value })}>
-                    <option value="">Choisir</option>
-                    {SERVICE_CATEGORIES.map((item) => <option key={item}>{item}</option>)}
-                  </select>
-                </label>
+                <div>
+                  <Label>Catégorie / spécialité</Label>
+                  {specialtyOptions === null ? (
+                    <p className="flex h-11 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
+                      Chargement des spécialités…
+                    </p>
+                  ) : specialtyOptions.length === 0 ? (
+                    <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+                      Ajoutez vos spécialités dans{" "}
+                      <button type="button" onClick={() => navigate("/settings")} className="font-semibold text-[#174f43] underline">
+                        Paramètres
+                      </button>{" "}
+                      pour classer cette prestation.
+                    </p>
+                  ) : specialtyOptions.length === 1 ? (
+                    <p className="flex h-11 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-900">
+                      {specialtyOptions[0].detailed_sub_category}
+                    </p>
+                  ) : (
+                    <select
+                      className={fieldClass}
+                      value={offer.internalCategoryId ?? ""}
+                      onChange={(event) => {
+                        const id = Number(event.target.value);
+                        if (Number.isFinite(id)) selectSpecialty(id);
+                      }}
+                    >
+                      <option value="" disabled>
+                        Choisir la spécialité de cette prestation
+                      </option>
+                      {specialtyOptions.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.detailed_sub_category}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {specialtyOptions && specialtyOptions.length > 1
+                      ? "Sélectionnez la spécialité Paramètres qui correspond à ce service."
+                      : "Issue de vos spécialités enregistrées dans Paramètres."}
+                  </p>
+                </div>
                 <label className="block">
                   <Label icon={AlignLeft}>Description</Label>
                   <textarea className={`${fieldClass} h-36 py-2`} maxLength={4000} placeholder="Décrivez votre service, ce qu'il comprend et la valeur apportée au client..." value={offer.description} onChange={(event) => patch({ description: event.target.value })} />
                 </label>
                 <div>
-                  <Label icon={ImageIcon} optional>Image de couverture</Label>
+                  <Label icon={ImageIcon} optional>Logo / couverture</Label>
+                  <p className="mb-2 text-xs text-neutral-500">
+                    Sans photos, cette image est affichée centrée (idéal pour un logo). Avec des photos, la première photo prend la place principale.
+                  </p>
                   {offer.cover ? (
                     <div className="relative">
-                      <img src={offer.cover} alt="" className="h-48 w-full rounded-lg object-cover" />
+                      <img
+                        src={offer.cover}
+                        alt=""
+                        className={`h-48 w-full rounded-lg ${servicePhotos(offer).length ? "object-cover" : "bg-[#eef2ef] object-contain p-6"}`}
+                      />
                       <div className="mt-2 flex gap-2">
                         <label className="cursor-pointer text-xs font-semibold text-[#174f43]">
                           Remplacer
@@ -201,7 +291,7 @@ const CreateServiceForm = () => {
                     </div>
                   ) : (
                     <label className="flex h-32 cursor-pointer items-center justify-center rounded-lg border border-dashed border-neutral-300 text-sm text-neutral-500">
-                      Ajouter une image
+                      Ajouter un logo
                       <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (event) => {
                         const file = event.target.files?.[0];
                         if (!file) return;
@@ -212,7 +302,10 @@ const CreateServiceForm = () => {
                   )}
                 </div>
                 <div>
-                  <Label optional>Galerie</Label>
+                  <Label optional>Photos</Label>
+                  <p className="mb-2 text-xs text-neutral-500">
+                    La première photo sert d’image principale sur la carte ; les autres apparaissent sous la description.
+                  </p>
                   <div className="grid grid-cols-3 gap-2">
                     {offer.gallery.map((url) => (
                       <div key={url} className="relative">
@@ -329,21 +422,46 @@ const CreateServiceForm = () => {
             ) : null}
 
             {step === 3 ? (
-              <div>
-                <Label optional>Ce service s'adresse à</Label>
-                <div className="flex flex-wrap gap-2">
-                  {SERVICE_AUDIENCES.map((item) => {
-                    const active = offer.audiences.includes(item);
-                    return (
-                      <button key={item} type="button" onClick={() => patch({ audiences: active ? offer.audiences.filter((row) => row !== item) : [...offer.audiences, item] })} className={`rounded-md border px-3 py-2 text-sm ${active ? "border-[#174f43] bg-[#174f43] text-white" : "border-neutral-200"}`}>
-                        {item === "Autres" ? "+ Autre" : item}
-                      </button>
-                    );
-                  })}
+              <div className="space-y-5">
+                <div>
+                  <Label optional>Ce service s'adresse à</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {SERVICE_AUDIENCES.map((item) => {
+                      const active = offer.audiences.includes(item);
+                      return (
+                        <button key={item} type="button" onClick={() => patch({ audiences: active ? offer.audiences.filter((row) => row !== item) : [...offer.audiences, item] })} className={`rounded-md border px-3 py-2 text-sm ${active ? "border-[#174f43] bg-[#174f43] text-white" : "border-neutral-200"}`}>
+                          {item === "Autres" ? "+ Autre" : item}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {offer.audiences.includes("Autres") ? (
+                    <input className={`${fieldClass} mt-3`} maxLength={80} placeholder="Précisez le public" value={offer.audienceOther} onChange={(event) => patch({ audienceOther: event.target.value })} />
+                  ) : null}
                 </div>
-                {offer.audiences.includes("Autres") ? (
-                  <input className={`${fieldClass} mt-3`} maxLength={80} placeholder="Précisez le public" value={offer.audienceOther} onChange={(event) => patch({ audienceOther: event.target.value })} />
-                ) : null}
+                <div>
+                  <Label optional>Mission</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {SERVICE_MISSIONS.map((item) => {
+                      const missions = offer.missions || [];
+                      const active = missions.includes(item);
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() =>
+                            patch({
+                              missions: active ? missions.filter((row) => row !== item) : [...missions, item],
+                            })
+                          }
+                          className={`rounded-md border px-3 py-2 text-sm ${active ? "border-[#174f43] bg-[#174f43] text-white" : "border-neutral-200"}`}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -387,24 +505,45 @@ const LineList = ({ label, optional, addLabel, items, onChange }: { label: strin
   </div>
 );
 
-const ServicePreview = ({ offer }: { offer: ServiceOffer }) => (
-  <article className="space-y-4 text-sm">
-    {offer.cover ? <img src={offer.cover} alt="" className="h-44 w-full rounded-lg object-cover" /> : null}
-    {offer.category ? <p className="text-xs font-semibold text-[#174f43]">{offer.category}</p> : null}
-    <h2 className="text-lg font-semibold">{offer.title || "Service sans titre"}</h2>
-    <p className="whitespace-pre-wrap leading-relaxed text-neutral-700">{offer.description || "Aucune description."}</p>
-    {offer.included.filter(Boolean).length ? (
-      <div>
-        <p className="font-semibold">Ce qui est inclus</p>
-        <ul className="mt-1 list-disc pl-4 text-neutral-700">{offer.included.filter(Boolean).map((item) => <li key={item}>{item}</li>)}</ul>
-      </div>
-    ) : null}
-    <p><span className="font-semibold">Où : </span>{zoneLabel(offer) || "Zone non renseignée"}</p>
-    {offer.audiences.length ? <p><span className="font-semibold">Pour : </span>{[...offer.audiences.filter((item) => item !== "Autres"), offer.audienceOther].filter(Boolean).join(", ")}</p> : null}
-    <p><span className="font-semibold">Tarif : </span>{priceLabel(offer)}{offer.duration ? ` · ${offer.duration}` : ""}</p>
-    <p className="text-xs text-neutral-500">Le téléphone, l'email, WhatsApp et le site sont ceux du profil de l'entreprise.</p>
-    {offerIsReady(offer) ? <p className="font-medium text-[#174f43]">Votre service est prêt à être publié.</p> : <p className="text-amber-700">Le titre, la catégorie, la description et la zone sont encore requis.</p>}
-  </article>
-);
+const ServicePreview = ({ offer }: { offer: ServiceOffer }) => {
+  const main = serviceMainImage(offer);
+  const logo = serviceCoverIsLogo(offer);
+  const more = servicePhotos(offer).slice(1);
+  return (
+    <article className="space-y-4 text-sm">
+      {main ? (
+        <div className={`overflow-hidden rounded-lg ${logo ? "bg-[#eef2ef]" : "bg-neutral-100"}`}>
+          <img
+            src={main}
+            alt=""
+            className={logo ? "mx-auto h-44 w-auto max-w-[70%] object-contain py-6" : "h-44 w-full object-cover"}
+          />
+        </div>
+      ) : null}
+      {offer.category ? <p className="text-xs font-semibold text-[#174f43]">{offer.category}</p> : null}
+      <h2 className="text-lg font-semibold">{offer.title || "Service sans titre"}</h2>
+      <p className="whitespace-pre-wrap leading-relaxed text-neutral-700">{offer.description || "Aucune description."}</p>
+      {more.length ? (
+        <div className="grid grid-cols-3 gap-2">
+          {more.map((url) => (
+            <img key={url} src={url} alt="" className="aspect-[4/3] w-full rounded-lg object-cover" />
+          ))}
+        </div>
+      ) : null}
+      {offer.included.filter(Boolean).length ? (
+        <div>
+          <p className="font-semibold">Ce qui est inclus</p>
+          <ul className="mt-1 list-disc pl-4 text-neutral-700">{offer.included.filter(Boolean).map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      ) : null}
+      <p><span className="font-semibold">Où : </span>{zoneLabel(offer) || "Zone non renseignée"}</p>
+      {offer.audiences.length ? <p><span className="font-semibold">Pour : </span>{[...offer.audiences.filter((item) => item !== "Autres"), offer.audienceOther].filter(Boolean).join(", ")}</p> : null}
+      {offer.missions?.length ? <p><span className="font-semibold">Mission : </span>{offer.missions.join(" · ")}</p> : null}
+      <p><span className="font-semibold">Tarif : </span>{priceLabel(offer)}{offer.duration ? ` · ${offer.duration}` : ""}</p>
+      <p className="text-xs text-neutral-500">Le téléphone, l'email, WhatsApp et le site sont ceux du profil de l'entreprise.</p>
+      {offerIsReady(offer) ? <p className="font-medium text-[#174f43]">Votre service est prêt à être publié.</p> : <p className="text-amber-700">Le titre, la catégorie, la description et la zone sont encore requis.</p>}
+    </article>
+  );
+};
 
 export default CreateServiceForm;

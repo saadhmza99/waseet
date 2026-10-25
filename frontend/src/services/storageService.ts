@@ -1,22 +1,68 @@
 import { supabase } from '@/lib/supabase';
 
+/** Max size for any single file / image upload field. */
+export const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+export const UPLOAD_MAX_MB = 20;
+
+/** Total size of uploaded documents allowed per project. */
+export const PROJECT_DOCUMENTS_TOTAL_MAX_BYTES = 50 * 1024 * 1024;
+export const PROJECT_DOCUMENTS_TOTAL_MAX_MB = 50;
+
+export const uploadMaxLabel = `${UPLOAD_MAX_MB} Mo`;
+export const projectDocumentsTotalMaxLabel = `${PROJECT_DOCUMENTS_TOTAL_MAX_MB} Mo`;
+
+export const isWithinUploadLimit = (file: File) => file.size <= UPLOAD_MAX_BYTES;
+
+export const assertWithinUploadLimit = (file: File) => {
+  if (!isWithinUploadLimit(file)) {
+    throw new Error(`Chaque fichier doit faire ${uploadMaxLabel} maximum.`);
+  }
+};
+
+export const formatUploadBytes = (bytes: number) => {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 10) return `${Math.round(mb)} Mo`;
+  if (mb >= 1) return `${mb.toFixed(1).replace(/\.0$/, "")} Mo`;
+  const kb = bytes / 1024;
+  if (kb >= 1) return `${Math.round(kb)} Ko`;
+  return `${bytes} o`;
+};
+
+/** Keep files under the limit; returns rejected ones for UI messaging. */
+export const partitionByUploadLimit = (files: File[]) => {
+  const accepted: File[] = [];
+  const rejected: File[] = [];
+  for (const file of files) {
+    if (isWithinUploadLimit(file)) accepted.push(file);
+    else rejected.push(file);
+  }
+  return { accepted, rejected };
+};
+
 export const storageService = {
   // Upload image to Supabase Storage
   async uploadImage(file: File, folder: string = 'posts'): Promise<string> {
+    return this.uploadFile(file, folder);
+  },
+
+  /** Generic file upload (images, PDFs, …) with the global per-file cap. */
+  async uploadFile(file: File, folder: string = 'posts'): Promise<string> {
+    assertWithinUploadLimit(file);
+
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `${folder}/${fileName}`;
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('images')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false,
+        contentType: file.type || undefined,
       });
 
     if (error) throw error;
 
-    // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('images')
       .getPublicUrl(filePath);
@@ -52,4 +98,3 @@ export const storageService = {
     if (error) throw error;
   },
 };
-

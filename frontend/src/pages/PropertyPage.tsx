@@ -1,4 +1,4 @@
-import { useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { iconUrl } from "@/assets/icons";
@@ -9,23 +9,13 @@ import {
   labelOf,
   LISTING_CATEGORIES,
   PROPERTY_CONDITIONS,
-  PROPERTY_KINDS,
   PROPERTY_STANDINGS,
   PROPERTY_STATUSES,
+  propertyKindLabel,
+  propertyViewFromRow,
 } from "@/lib/propertyListing";
 import { propertyPriceLabel } from "@/components/property/PropertyCard";
-import { showcaseProperty } from "@/lib/showcaseProperties";
-
-const KIND_SINGULAR: Record<string, string> = {
-  appartement: "Appartement",
-  maison: "Maison",
-  villa: "Villa",
-  riad: "Riad",
-  local_commercial: "Local commercial",
-  bureau: "Bureau",
-  terrain: "Terrain",
-  ferme: "Ferme",
-};
+import { catalogService } from "@/services/catalogService";
 
 const OutlineIcon = ({ file, className = "h-8 w-8" }: { file: string; className?: string }) => (
   <span
@@ -55,13 +45,43 @@ const placesLine = (value: string) => {
 const PropertyPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const property = id ? showcaseProperty(id) : null;
+  const [property, setProperty] = useState<ReturnType<typeof propertyViewFromRow> | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
   }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!id) {
+        setProperty(null);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const row = await catalogService.getProperty(id);
+        if (!cancelled) setProperty(row ? propertyViewFromRow(row) : null);
+      } catch (error) {
+        console.error("Error loading property:", error);
+        if (!cancelled) setProperty(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return <div className="px-4 py-16 text-center text-sm text-neutral-500">Chargement…</div>;
+  }
 
   if (!property) {
     return (
@@ -75,7 +95,7 @@ const PropertyPage = () => {
   }
 
   const { details } = property;
-  const kind = KIND_SINGULAR[details.propertyKind] || labelOf(PROPERTY_KINDS, details.propertyKind);
+  const kind = propertyKindLabel(details.propertyKind);
   const place = [details.address, details.city].filter(Boolean);
   const location = place.length > 1 ? `${place[0]} à ${place.slice(1).join(", ")}` : place[0] || details.region;
   const price = propertyPriceLabel(details);
@@ -85,7 +105,7 @@ const PropertyPage = () => {
     details.pieces ? { icon: "house-boxes.svg", label: countLine(details.pieces, "Pièce", "Pièces") } : null,
     details.beds ? { icon: "bed.svg", label: countLine(details.beds, "Chambre", "Chambres") } : null,
     details.baths ? { icon: "bath.svg", label: countLine(details.baths, "Salle de bains", "Salles de bains") } : null,
-  ].filter(Boolean);
+  ].filter(Boolean) as { icon: string; label: string }[];
   const characteristics = [
     kind ? { icon: "house.svg", label: "Type de bien", value: kind } : null,
     details.condition ? { icon: "hammer.svg", label: "État", value: labelOf(PROPERTY_CONDITIONS, details.condition) } : null,
@@ -99,11 +119,11 @@ const PropertyPage = () => {
     details.status === "en_construction" && details.delivery
       ? { icon: "sand-clock.svg", label: "Livraison", value: details.delivery }
       : null,
-  ].filter(Boolean);
-  const featureNote = (id: string) => {
-    if (id === "terrasse") return formatSurface(details.terraceSurface);
-    if (id === "jardin") return formatSurface(details.gardenSurface);
-    if (id === "garage") return placesLine(details.parkingPlaces);
+  ].filter(Boolean) as { icon: string; label: string; value: string }[];
+  const featureNote = (featureId: string) => {
+    if (featureId === "terrasse") return formatSurface(details.terraceSurface);
+    if (featureId === "jardin") return formatSurface(details.gardenSurface);
+    if (featureId === "garage") return placesLine(details.parkingPlaces);
     return "";
   };
 
@@ -115,7 +135,7 @@ const PropertyPage = () => {
         </button>
         <div className="overflow-hidden">
           <div className="relative aspect-[16/9] bg-neutral-100">
-            <img src={property.images[0]} alt="" className="h-full w-full object-cover" />
+            {property.images[0] ? <img src={property.images[0]} alt="" className="h-full w-full object-cover" /> : null}
           </div>
           <div className="space-y-5 py-5">
             <div>

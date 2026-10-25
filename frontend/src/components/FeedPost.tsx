@@ -63,7 +63,7 @@ interface FeedPostProps {
   shares: number;
   showLikeCount?: boolean;
   isSponsored?: boolean;
-  postType?: "standard" | "property" | "project";
+  postType?: "standard" | "realisation" | "property" | "project";
   price?: string | null;
   surface?: string | null;
   beds?: number | null;
@@ -733,7 +733,7 @@ const FeedPost = ({
       {postType && postType !== "standard" ? (
         <div className="px-2 sm:px-4 md:px-6 lg:px-8 pb-2">
           <span className="inline-block rounded bg-accent/10 px-2 py-0.5 text-sm font-semibold uppercase text-accent">
-            {postType === "property" ? "Bien" : "Projet"}
+            {postType === "property" ? "Bien" : postType === "project" ? "Projet" : "Réalisation"}
           </span>
           {postType === "property" ? (
             <div className="mt-2 flex flex-wrap gap-3 text-base text-card-foreground">

@@ -1,8 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import { tagService } from '@/services/tagService';
 import { userSettingsService } from '@/services/userSettingsService';
+import { CATEGORY_HISTORY_SELECT, categoryTagsFromHistory } from '@/lib/taxonomy';
 
-export type PostType = 'standard' | 'property' | 'project';
+export type PostType = 'standard' | 'realisation' | 'property' | 'project';
 
 export interface PostData {
   title?: string;
@@ -29,15 +30,38 @@ export const FEED_PAGE_SIZE = 2;
 
 export type FeedPage = { posts: any[]; hasMore: boolean };
 
+const TAXONOMY_LINK_SELECT = `
+  id, property_id, project_id,
+  property_kind:property_details->>propertyKind,
+  property:properties(property_type),
+  project:projects(project_type),
+  ${CATEGORY_HISTORY_SELECT}
+`;
+
 const attachPortfolioLinks = async (posts: any[]) => {
   const ids = posts.map((post) => post.id).filter(Boolean);
   if (!ids.length) return posts;
-  const { data, error } = await supabase.from("posts").select("id, property_id, project_id").in("id", ids);
-  if (error || !data) return posts;
-  const links = new Map(data.map((row) => [row.id, row]));
+  let rows: any[] | null = null;
+  const rich = await supabase.from("posts").select(TAXONOMY_LINK_SELECT).in("id", ids);
+  if (!rich.error && rich.data) {
+    rows = rich.data;
+  } else {
+    const basic = await supabase.from("posts").select("id, property_id, project_id").in("id", ids);
+    if (basic.error || !basic.data) return posts;
+    rows = basic.data;
+  }
+  const links = new Map(rows.map((row) => [row.id, row]));
   return posts.map((post) => {
     const link = links.get(post.id);
-    return link ? { ...post, property_id: link.property_id, project_id: link.project_id } : post;
+    if (!link) return post;
+    return {
+      ...post,
+      property_id: link.property_id,
+      project_id: link.project_id,
+      ...categoryTagsFromHistory(link.category_history),
+      property_kind: link.property?.property_type || link.property_kind || null,
+      project_kind: link.project?.project_type || null,
+    };
   });
 };
 

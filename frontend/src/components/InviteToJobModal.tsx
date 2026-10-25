@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { notificationService } from "@/services/notificationService";
 import { CityPicker } from "@/components/CityPicker";
+import { toast } from "@/components/ui/use-toast";
+import { partitionByUploadLimit, uploadMaxLabel } from "@/services/storageService";
 
 export type RecruitService = {
   id: string;
@@ -43,21 +45,25 @@ const InviteToJobModal = ({
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const imageUrls: string[] = [];
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            imageUrls.push(event.target.result as string);
-            if (imageUrls.length === files.length) {
-              setSelectedImages((prev) => [...prev, ...imageUrls]);
-            }
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+    if (!files) return;
+    const { accepted, rejected } = partitionByUploadLimit(Array.from(files));
+    if (rejected.length) {
+      toast({ title: "Image", description: `Chaque fichier doit faire ${uploadMaxLabel} maximum.` });
     }
+    if (!accepted.length) return;
+    const imageUrls: string[] = [];
+    accepted.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          imageUrls.push(event.target.result as string);
+          if (imageUrls.length === accepted.length) {
+            setSelectedImages((prev) => [...prev, ...imageUrls]);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const removeImage = (index: number) => {

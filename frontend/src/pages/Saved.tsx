@@ -6,6 +6,8 @@ import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { DesktopRailFrame } from "@/components/FeedDesktopRail";
 import ListingCard from "@/components/ListingCard";
 import FeedPost from "@/components/FeedPost";
+import { ProjectCard } from "@/components/project/ProjectCard";
+import { ProductCard } from "@/components/product/ProductCard";
 import { savedService } from "@/services/savedService";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
@@ -17,11 +19,14 @@ import { cityFromPost } from "@/lib/feedLocation";
 import { contactPhone } from "@/lib/propertyListing";
 import { RetryImage } from "@/components/RetryImage";
 import InfiniteScrollSentinel, { PAGE_SIZE } from "@/components/InfiniteScrollSentinel";
+import type { ProductRow } from "@/services/productService";
 
 const tabs = [
   { id: "posts", label: "Posts" },
   { id: "biens", label: "Biens" },
+  { id: "projets", label: "Projets" },
   { id: "services", label: "Services" },
+  { id: "produits", label: "Produits" },
 ] as const;
 
 type SavedTab = (typeof tabs)[number]["id"];
@@ -39,23 +44,38 @@ const Saved = () => {
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
   const [savedListings, setSavedListings] = useState<any[]>([]);
   const [savedReels, setSavedReels] = useState<any[]>([]);
+  const [savedProjects, setSavedProjects] = useState<any[]>([]);
+  const [savedProducts, setSavedProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadSaved = async () => {
       if (authLoading) return;
 
+      const settleList = async <T,>(promise: Promise<T[] | null | undefined>, label: string) => {
+        try {
+          return (await promise) || [];
+        } catch (error) {
+          console.warn(`Favoris: ${label} unavailable`, error);
+          return [] as T[];
+        }
+      };
+
       if (!user && visitorUser) {
         try {
           setLoading(true);
-          const [posts, listings, reels] = await Promise.all([
-            savedService.getSavedPosts(visitorUser.id),
-            savedService.getSavedListings(visitorUser.id),
-            savedService.getSavedReels(visitorUser.id),
+          const [posts, listings, reels, projects, products] = await Promise.all([
+            settleList(savedService.getSavedPosts(visitorUser.id), "posts"),
+            settleList(savedService.getSavedListings(visitorUser.id), "services"),
+            settleList(savedService.getSavedReels(visitorUser.id), "reels"),
+            settleList(savedService.getSavedProjects(visitorUser.id), "projets"),
+            settleList(savedService.getSavedProducts(visitorUser.id), "produits"),
           ]);
-          setSavedPosts(posts || []);
-          setSavedListings(listings || []);
-          setSavedReels(reels || []);
+          setSavedPosts(posts);
+          setSavedListings(listings);
+          setSavedReels(reels);
+          setSavedProjects(projects);
+          setSavedProducts(products);
         } catch (error) {
           console.error("Error loading saved items:", error);
         } finally {
@@ -68,31 +88,41 @@ const Saved = () => {
         setSavedPosts([]);
         setSavedListings([]);
         setSavedReels([]);
+        setSavedProjects([]);
+        setSavedProducts([]);
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        const [posts, listings, reels, blockedIds, mutedIds] = await Promise.all([
-          savedService.getSavedPosts(user.id),
-          savedService.getSavedListings(user.id),
-          savedService.getSavedReels(user.id),
-          moderationService.getBlockedUserIds(user.id),
-          muteService.getMutedIds(user.id),
+        const [posts, listings, reels, projects, products, blockedIds, mutedIds] = await Promise.all([
+          settleList(savedService.getSavedPosts(user.id), "posts"),
+          settleList(savedService.getSavedListings(user.id), "services"),
+          settleList(savedService.getSavedReels(user.id), "reels"),
+          settleList(savedService.getSavedProjects(user.id), "projets"),
+          settleList(savedService.getSavedProducts(user.id), "produits"),
+          moderationService.getBlockedUserIds(user.id).catch(() => [] as string[]),
+          muteService.getMutedIds(user.id).catch(() => ({ posts: new Set<string>(), services: new Set<string>() })),
         ]);
         const blockedSet = new Set(blockedIds || []);
         setSavedPosts(
-          (posts || []).filter(
+          posts.filter(
             (item) => !blockedSet.has(item.posts?.user_id) && !mutedIds.posts.has(item.posts?.user_id)
           )
         );
         setSavedListings(
-          (listings || []).filter(
+          listings.filter(
             (item) => !blockedSet.has(item.listings?.user_id) && !mutedIds.services.has(item.listings?.user_id)
           )
         );
-        setSavedReels((reels || []).filter((item) => !blockedSet.has(item.reels?.user_id)));
+        setSavedReels(reels.filter((item) => !blockedSet.has(item.reels?.user_id)));
+        setSavedProjects(projects.filter((item) => !blockedSet.has(item.projects?.user_id)));
+        setSavedProducts(
+          products.filter(
+            (item) => !blockedSet.has(item.products?.user_id) && !mutedIds.services.has(item.products?.user_id)
+          )
+        );
       } catch (error) {
         console.error("Error loading saved items:", error);
       } finally {
@@ -128,6 +158,14 @@ const Saved = () => {
     () => savedPosts.filter((saved) => saved.posts && isBienPost(saved.posts)),
     [savedPosts]
   );
+  const projectRows = useMemo(
+    () => savedProjects.map((saved) => saved.projects).filter(Boolean),
+    [savedProjects]
+  );
+  const productRows = useMemo(
+    () => savedProducts.map((saved) => saved.products).filter(Boolean) as ProductRow[],
+    [savedProducts]
+  );
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [revealing, setRevealing] = useState(false);
@@ -143,7 +181,11 @@ const Saved = () => {
         : regularPosts.length
       : activeTab === "biens"
         ? bienPosts.length
-        : savedListings.length;
+        : activeTab === "projets"
+          ? projectRows.length
+          : activeTab === "produits"
+            ? productRows.length
+            : savedListings.length;
 
   const revealMore = () => {
     if (revealing) return;
@@ -157,7 +199,9 @@ const Saved = () => {
   const tabCounts: Record<SavedTab, number> = {
     posts: regularPosts.length,
     biens: bienPosts.length,
+    projets: projectRows.length,
     services: savedListings.length,
+    produits: productRows.length,
   };
 
   const renderFeedPost = (saved: any) => {
@@ -227,7 +271,7 @@ const Saved = () => {
         </span>
         <h1 className="text-xl font-semibold">Vos favoris</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Laissez vos coordonnées pour ajouter des biens, projets et services à vos favoris et les retrouver ici.
+          Laissez vos coordonnées pour ajouter des biens, projets, produits et services à vos favoris et les retrouver ici.
         </p>
         <button
           type="button"
@@ -244,7 +288,7 @@ const Saved = () => {
   return (
     <DesktopRailFrame className="pb-20 lg:pb-0">
       <div className="mx-auto max-w-2xl px-2 sm:px-4 lg:mx-0 lg:max-w-none lg:px-0">
-        <div className="flex min-w-0 border-b border-border">
+        <div className="flex min-w-0 touch-pan-x snap-x snap-mandatory overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -253,14 +297,14 @@ const Saved = () => {
                 setActiveTab(tab.id);
                 if (tab.id === "posts") setPostsView("grid");
               }}
-              className={`inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1 py-2.5 text-center transition-colors ${
+              className={`inline-flex shrink-0 snap-center items-center justify-center gap-1.5 border-b-2 px-3 py-2.5 text-center transition-colors sm:flex-1 sm:px-1 ${
                 activeTab === tab.id
                   ? "-mb-px border-accent text-accent"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <span className="text-base font-medium tabular-nums sm:text-lg">{tabCounts[tab.id]}</span>
-              <span className="truncate text-base font-semibold sm:text-lg">{tab.label}</span>
+              <span className="whitespace-nowrap text-base font-semibold sm:text-lg">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -367,6 +411,18 @@ const Saved = () => {
                 </div>
               )}
 
+              {activeTab === "projets" && (
+                projectRows.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">Aucun projet dans vos favoris</div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {projectRows.slice(0, visibleCount).map((row) => (
+                      <ProjectCard key={row.id} row={row} />
+                    ))}
+                  </div>
+                )
+              )}
+
               {activeTab === "services" && (
                 savedListings.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground">Aucun service dans vos favoris</div>
@@ -379,6 +435,18 @@ const Saved = () => {
                       {savedListings.slice(0, visibleCount).map((saved) => renderServiceCard(saved, false))}
                     </div>
                   </>
+                )
+              )}
+
+              {activeTab === "produits" && (
+                productRows.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">Aucun produit dans vos favoris</div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {productRows.slice(0, visibleCount).map((row) => (
+                      <ProductCard key={row.id} row={row} />
+                    ))}
+                  </div>
                 )
               )}
               <InfiniteScrollSentinel

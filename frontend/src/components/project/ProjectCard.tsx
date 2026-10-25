@@ -1,13 +1,14 @@
-import { MapPin } from "lucide-react";
+﻿import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ProjectCommercialTag, ProjectMilestoneTrack } from "@/components/project/ProjectMilestoneTrack";
 import {
   categoryLabel,
   dossierFromRow,
   projectLocation,
   projectMetrics,
-  statusLabel,
   type ProjectRecord,
 } from "@/lib/projectDossier";
+import { projectTypeLabel } from "@/lib/taxonomy";
 
 const coverFallback =
   "data:image/svg+xml;utf8," +
@@ -18,7 +19,9 @@ const coverFallback =
 export const ProjectCard = ({ row }: { row: any }) => {
   const navigate = useNavigate();
   const project: ProjectRecord = dossierFromRow(row);
-  const metrics = projectMetrics(project);
+  const metrics = projectMetrics(project).filter(
+    (item) => item.label !== "avancement" && item.label !== "réalisé",
+  );
   const place = projectLocation(project);
 
   return (
@@ -30,13 +33,21 @@ export const ProjectCard = ({ row }: { row: any }) => {
       }}
       className="flex w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-sm transition hover:border-neutral-300"
     >
-      <span className="relative block aspect-[16/10] bg-neutral-100">
-        <img src={project.image || coverFallback} alt="" className="h-full w-full object-cover" />
+      <span className="relative block aspect-[16/10] w-full overflow-hidden bg-neutral-100">
+        <img
+          src={project.image || coverFallback}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
         {project.subtype || project.category ? (
-          <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-[11px] font-semibold text-neutral-800 shadow-sm">
-            {project.subtype || categoryLabel(project.category)}
+          <span className="absolute left-3 top-3 max-w-[48%] truncate rounded-md bg-white/95 px-2 py-1 text-[11px] font-semibold text-neutral-800 shadow-sm">
+            {projectTypeLabel(project.subtype) || project.subtype || categoryLabel(project.category)}
           </span>
         ) : null}
+        <ProjectCommercialTag
+          commercialStatus={project.commercialStatus}
+          className="absolute right-3 top-3 max-w-[48%] bg-white/95 shadow-sm"
+        />
       </span>
       <span className="flex flex-col gap-2 px-3.5 py-3">
         <span className="text-[17px] font-semibold leading-tight text-neutral-950">{project.title}</span>
@@ -46,15 +57,11 @@ export const ProjectCard = ({ row }: { row: any }) => {
             {place}
           </span>
         ) : null}
-        <span className="flex items-center gap-2 text-xs font-medium text-[#174f43]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#174f43]" />
-          {statusLabel(project.status)}
-          <span className="text-neutral-400">·</span>
-          <span>{project.progress || 0} %</span>
+
+        <span className="mt-1 block px-0.5">
+          <ProjectMilestoneTrack project={project} />
         </span>
-        <span className="h-1 overflow-hidden rounded-full bg-neutral-200">
-          <span className="block h-full bg-[#174f43]" style={{ width: `${Math.min(100, project.progress || 0)}%` }} />
-        </span>
+
         {metrics.length ? (
           <span className="mt-1 grid grid-cols-4 gap-1 border-t border-neutral-100 pt-2">
             {metrics.map((item) => (

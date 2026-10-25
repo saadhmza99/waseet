@@ -22,10 +22,10 @@ import {
   formatSurface,
   labelOf,
   PROPERTY_CONDITIONS,
-  PROPERTY_KINDS,
   PROPERTY_STANDINGS,
   PROPERTY_STATUSES,
   PropertyDetails,
+  propertyKindLabel,
   toWhatsAppNumber,
 } from "@/lib/propertyListing";
 
@@ -173,7 +173,7 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
                     className="h-full w-full object-cover"
                   />
                   <span className="absolute left-2 top-2 rounded bg-black/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                    {item.postType === "property" ? labelOf(PROPERTY_KINDS, details.propertyKind) || "Bien" : "Projet"}
+                    {item.postType === "property" ? propertyKindLabel(details.propertyKind) || "Bien" : "Projet"}
                   </span>
                 </div>
                 <div className="p-3 sm:p-4">
@@ -266,7 +266,7 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
                   </p>
                   <h4 className="mt-4 mb-2 text-sm font-semibold">General Characteristics</h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    <Characteristic label="Type of property" value={labelOf(PROPERTY_KINDS, selected.details?.propertyKind)} />
+                    <Characteristic label="Type of property" value={propertyKindLabel(selected.details?.propertyKind)} />
                     <Characteristic label="Plot surface" value={formatSurface(selected.details?.plotSurface)} />
                     <Characteristic label="Condition" value={labelOf(PROPERTY_CONDITIONS, selected.details?.condition)} />
                     <Characteristic label="Standing" value={labelOf(PROPERTY_STANDINGS, selected.details?.standing)} />

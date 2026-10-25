@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { toast } from '@/components/ui/use-toast';
 
 const RECOVERY_STORAGE_KEY = "sifarah:password-recovery";
 
@@ -36,6 +37,9 @@ interface AuthContextType {
     password: string,
     metadata?: Record<string, string>
   ) => Promise<{ error: AuthError | null; needsEmailConfirmation: boolean }>;
+  signInWithOAuth: (provider: "google" | "apple") => Promise<{ error: AuthError | null }>;
+  verifySignupOtp: (email: string, token: string) => Promise<{ error: AuthError | null }>;
+  resendSignupEmail: (email: string) => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
@@ -70,6 +74,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   );
   const user = authUser && !isParticulier ? authUser : null;
   const visitorUser = isParticulier && !visitorPending ? authUser : null;
+  // Guards against notifying twice when several auth checks drop the same
+  // dead session; reset whenever a live session is applied again.
+  const sessionEndedNotified = useRef(false);
   const [loading, setLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(readStoredRecovery);
 
@@ -85,8 +92,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const applySession = (next: Session | null) => {
+      if (next) sessionEndedNotified.current = false;
       setSession(next);
       setAuthUser(next?.user ?? null);
+    };
+
+    // When a stored session turns out to be dead server-side we drop it and
+    // fall back to guest; tell real accounts why they were logged off.
+    // Anonymous visitor sessions end silently (they just re-register).
+    const dropDeadSession = async (current: Session | null) => {
+      await supabase.auth.signOut({ scope: "local" });
+      if (!current || current.user.is_anonymous || sessionEndedNotified.current) return;
+      sessionEndedNotified.current = true;
+      toast({
+        title: "Session expirée",
+        description: "Vous avez été déconnecté. Veuillez vous reconnecter pour continuer.",
+        duration: 8000,
+      });
     };
 
     // Each visit renews the visitor's 30-day window; once it has lapsed the
@@ -108,7 +130,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (expiresAtMs > Date.now() + 15_000) return current;
       const { data, error } = await supabase.auth.refreshSession();
       if (error || !data.session) {
-        await supabase.auth.signOut();
+        await dropDeadSession(current);
+        return null;
+      }
+      return data.session;
+    };
+
+    // A stored session can look unexpired locally while the server already
+    // rejects its token (revoked session, project restore, rotated JWT
+    // secret). PostgREST then answers 401 to every authed request while
+    // anon/guest requests keep working — the app looks logged in but every
+    // list stays empty. Validate the token against GoTrue once on load:
+    // refresh if possible, otherwise drop to guest instead of staying stuck.
+    const ensureValidSession = async (current: Session | null) => {
+      const fresh = await ensureFreshSession(current);
+      if (!fresh) return null;
+      // Never let a hanging network call block the app: on timeout keep the
+      // stored session as-is.
+      const validation = await Promise.race([
+        supabase.auth.getUser().then(({ error }) => error),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+      ]);
+      if (!validation) return fresh;
+      const error = validation;
+      // Only treat explicit auth rejections as a dead session; on network
+      // errors keep the stored session and let queries retry later.
+      if (error.status && error.status !== 401 && error.status !== 403) return fresh;
+      const { data, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !data.session) {
+        await dropDeadSession(fresh);
         return null;
       }
       return data.session;
@@ -116,7 +166,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     supabase.auth.getSession().then(async ({ data: { session: initial } }) => {
       if (urlLooksLikeRecovery()) markPasswordRecovery();
-      applySession(await ensureActiveVisitor(await ensureFreshSession(initial)));
+      applySession(await ensureActiveVisitor(await ensureValidSession(initial)));
       setLoading(false);
     });
 
@@ -143,7 +193,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return;
       }
       void (async () => {
-        applySession(await ensureFreshSession(nextSession));
+        applySession(await ensureValidSession(nextSession));
         setLoading(false);
       })();
     });
@@ -195,10 +245,41 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       password,
       options: {
         data: metadata,
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${window.location.origin}/create-profile?verified=1`,
       },
     });
     return { error, needsEmailConfirmation: !data.session };
+  };
+
+  const signInWithOAuth = async (provider: "google" | "apple") => {
+    await dropVisitorSession();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/create-profile?oauth=1`,
+      },
+    });
+    return { error };
+  };
+
+  const verifySignupOtp = async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: "signup",
+    });
+    return { error };
+  };
+
+  const resendSignupEmail = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/create-profile?verified=1`,
+      },
+    });
+    return { error };
   };
 
   const resetPassword = async (email: string) => {
@@ -234,6 +315,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isPasswordRecovery,
     signIn,
     signUp,
+    signInWithOAuth,
+    verifySignupOtp,
+    resendSignupEmail,
     resetPassword,
     clearPasswordRecovery,
     signOut,
