@@ -30,6 +30,7 @@ import { PropertyCard } from "@/components/property/PropertyCard";
 import { SHOWCASE_POSTS } from "@/lib/showcasePosts";
 import { offerFromRow } from "@/lib/serviceOffer";
 import { serviceFirmName, serviceFeedTags, serviceService, type ServiceRow } from "@/services/serviceService";
+import { realisationService } from "@/services/realisationService";
 import { PROJECT_TYPES, PROPERTY_TYPES, feedCategoryBySlug, feedCategoryLabel, matchesFeedCategory, normalizePropertyKind } from "@/lib/taxonomy";
 import archIcon from "@/assets/sifarah-arch-icon-clean.png";
 
@@ -58,7 +59,7 @@ const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
   { id: "riad-patio", image_url: "/feed-banners/riad-patio.jpg", alt: "Patio de riad avec piscine" },
 ];
 
-type FeedView = "all" | "projets" | "biens" | "services";
+type FeedView = "all" | "projets" | "biens" | "services" | "marche";
 
 type TaxonomyPost = {
   post_type?: string | null;
@@ -90,13 +91,14 @@ const Index = () => {
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
   const [searchParams, setSearchParams] = useSearchParams();
   const vue = searchParams.get("vue");
-  const feedView: FeedView = vue === "projets" || vue === "biens" || vue === "services" ? vue : "all";
+  const feedView: FeedView =
+    vue === "projets" || vue === "biens" || vue === "services" || vue === "marche" ? vue : "all";
   const [category, setCategory] = useState<string | null>(null);
   const [subCategory, setSubCategory] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const selectedCategory = feedCategoryBySlug(category);
-  const showCategories = feedView !== "biens" && feedView !== "projets";
+  const showCategories = feedView !== "biens" && feedView !== "projets" && feedView !== "marche";
   const matchesPost = (post: TaxonomyPost) =>
     (!showCategories || matchesFeedCategory(category, subCategory, post)) && matchesFeedView(feedView, typeFilter, post);
 
@@ -367,8 +369,19 @@ const Index = () => {
               ? "Publié sur le fil."
               : "Ajouté au fil et au portfolio.",
         });
+      } else if (postData.postType === "realisation") {
+        await realisationService.create(user.id, {
+          title: (postData.title || "").trim() || (postData.text || "").trim().slice(0, 80) || "Réalisation",
+          description: postData.text,
+          images: postData.images || [],
+          cover: postData.singleImage || postData.images?.[0] || null,
+          city,
+        });
+        toast({
+          title: "Réalisation publiée",
+          description: "Ajoutée à votre onglet Réalisations.",
+        });
       } else {
-      const isRealisation = postData.postType === "realisation";
       await postService.createPost(user.id, {
         title: postData.title || "",
         description: postData.text,
@@ -376,7 +389,7 @@ const Index = () => {
         after_image_url: postData.afterImage,
         single_image_url: postData.singleImage,
         images: postData.images || [],
-        post_type: isRealisation ? "realisation" : "standard",
+        post_type: "standard",
         price: postData.price || null,
         surface: postData.surface || null,
         beds: postData.beds ?? null,
@@ -385,10 +398,8 @@ const Index = () => {
         city,
       });
       toast({
-        title: isRealisation ? "Réalisation publiée" : "Post publié",
-        description: isRealisation
-          ? "Ajoutée à votre onglet Réalisations."
-          : "Votre post a été publié avec succès.",
+        title: "Post publié",
+        description: "Votre post a été publié avec succès.",
       });
       }
         feedGeneration.current += 1;
@@ -547,11 +558,13 @@ const Index = () => {
             {[
               { id: "all" as const, label: "Accueil" },
               { id: "projets" as const, label: "Projets" },
-              { id: "biens" as const, label: "Biens" },
+              { id: "marche" as const, label: "Marché" },
               { id: "services" as const, label: "Services" },
               { id: "opportunites" as const, label: "Business", mobileOnly: true },
             ].map((item) => {
-              const active = item.id !== "opportunites" && feedView === item.id;
+              const active =
+                item.id !== "opportunites" &&
+                (feedView === item.id || (item.id === "marche" && feedView === "biens"));
               return (
                 <button
                   key={item.id}
@@ -567,7 +580,7 @@ const Index = () => {
                       next.delete("vue");
                       setCategory(null);
                       setSubCategory(null);
-                    } else if (feedView === item.id) {
+                    } else if (feedView === item.id || (item.id === "marche" && feedView === "biens")) {
                       next.delete("vue");
                     } else {
                       next.set("vue", item.id);
@@ -664,8 +677,36 @@ const Index = () => {
         />
 
         {/* Feed with posts and sponsored banners */}
+        {feedView === "marche" ? (
+          <div className="grid grid-cols-1 gap-3 px-3 pb-6 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2 lg:gap-4 lg:px-0">
+            <button
+              type="button"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("vue", "biens");
+                setSearchParams(next, { replace: true });
+              }}
+              className="rounded-2xl border border-neutral-200 bg-white p-5 text-left shadow-sm transition hover:border-[#174f43]/40 hover:shadow-md"
+            >
+              <p className="text-lg font-semibold text-neutral-950">Propriétés</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-neutral-600">
+                Parcourez les biens immobiliers publiés sur Sifarah — appartements, villas, terrains et locaux.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/produits")}
+              className="rounded-2xl border border-neutral-200 bg-white p-5 text-left shadow-sm transition hover:border-[#174f43]/40 hover:shadow-md"
+            >
+              <p className="text-lg font-semibold text-neutral-950">Matériaux et fournisseurs</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-neutral-600">
+                Catalogue Sifarah Matériaux : produits BTP et fournisseurs pour vos chantiers.
+              </p>
+            </button>
+          </div>
+        ) : null}
         {feedView === "projets" || feedView === "biens" ? (
-          <div className="px-3 pb-[1.2vh] lg:px-0">
+          <div className="px-3 pb-[1.2vh] lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:px-0">
             <FilterChips
               options={[
                 { id: null, label: "Tout" },
@@ -705,24 +746,29 @@ const Index = () => {
           </div>
         ) : null}
         {feedView === "biens" ? (
-          <div className="grid gap-3 px-3 pb-4">
+          <div className="grid grid-cols-1 items-start gap-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2 lg:px-0">
             {filteredProperties.map((row) => (
               <PropertyCard key={row.id} row={propertyViewFromRow(row)} />
             ))}
             {!filteredProperties.length ? (
-              <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground">Aucun bien dans cette rubrique pour le moment.</p>
+              <p className="col-span-full py-[2vh] text-center text-[1.6vh] text-muted-foreground">Aucun bien dans cette rubrique pour le moment.</p>
             ) : null}
           </div>
         ) : null}
 
         {loading ? (
           <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-        ) : feedView !== "services" && feedView !== "projets" && feedView !== "biens" && feedView !== "all" && allPosts.length === 0 ? (
+        ) : feedView !== "services" &&
+          feedView !== "projets" &&
+          feedView !== "biens" &&
+          feedView !== "marche" &&
+          feedView !== "all" &&
+          allPosts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">Aucun post pour le moment</div>
-        ) : (
+        ) : feedView === "marche" || feedView === "biens" || feedView === "projets" || feedView === "services" ? null : (
           buildFeed()
         )}
-        {!loading && feedView !== "services" ? (
+        {!loading && feedView !== "services" && feedView !== "marche" && feedView !== "biens" && feedView !== "projets" ? (
           <InfiniteScrollSentinel hasMore={hasMorePosts} loading={loadingMore} onLoadMore={loadMorePosts} />
         ) : null}
         </div>

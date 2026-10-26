@@ -2,8 +2,10 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ExternalLink, MapPin } from "lucide-react";
 import InquiryDialog from "@/components/InquiryDialog";
+import { SafeImage } from "@/components/SafeImage";
 import {
   priceLabel,
+  SERVICE_COVER_FALLBACK,
   serviceCoverIsLogo,
   serviceMainImage,
   servicePhotos,
@@ -88,8 +90,9 @@ const ServicePage = () => {
                 logoCover ? "bg-[#eef2ef]" : "bg-neutral-100"
               }`}
             >
-              <img
+              <SafeImage
                 src={mainImage}
+                fallback={SERVICE_COVER_FALLBACK}
                 alt=""
                 className={
                   logoCover
@@ -188,7 +191,13 @@ const ServicePage = () => {
             {galleryPhotos.length ? (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {galleryPhotos.map((url) => (
-                  <img key={url} src={url} alt="" className="aspect-[4/3] w-full rounded-lg object-cover" />
+                  <SafeImage
+                    key={url}
+                    src={url}
+                    fallback={SERVICE_COVER_FALLBACK}
+                    alt=""
+                    className="aspect-[4/3] w-full rounded-lg object-cover"
+                  />
                 ))}
               </div>
             ) : null}

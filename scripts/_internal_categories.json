@@ -1,0 +1,992 @@
+[
+  {
+    "code": "1.1.7",
+    "detailed_sub_category": "Location courte durée",
+    "id": 1
+  },
+  {
+    "code": "1.1.6",
+    "detailed_sub_category": "Location longue durée",
+    "id": 2
+  },
+  {
+    "code": "1.1.5",
+    "detailed_sub_category": "Location",
+    "id": 3
+  },
+  {
+    "code": "1.1.4",
+    "detailed_sub_category": "Commercialisation immobilière",
+    "id": 4
+  },
+  {
+    "code": "1.1.3",
+    "detailed_sub_category": "Courtage immobilier",
+    "id": 5
+  },
+  {
+    "code": "1.1.2",
+    "detailed_sub_category": "Agent immobilier indépendant",
+    "id": 6
+  },
+  {
+    "code": "1.1.1",
+    "detailed_sub_category": "Agence immobilière",
+    "id": 7
+  },
+  {
+    "code": "1.2.4",
+    "detailed_sub_category": "Opérateur immobilier",
+    "id": 8
+  },
+  {
+    "code": "1.2.3",
+    "detailed_sub_category": "Marchand de biens",
+    "id": 9
+  },
+  {
+    "code": "1.2.2",
+    "detailed_sub_category": "Développeur immobilier",
+    "id": 10
+  },
+  {
+    "code": "1.2.1",
+    "detailed_sub_category": "Promoteur immobilier",
+    "id": 11
+  },
+  {
+    "code": "1.3.7",
+    "detailed_sub_category": "Conciergerie",
+    "id": 12
+  },
+  {
+    "code": "1.3.6",
+    "detailed_sub_category": "Syndic",
+    "id": 13
+  },
+  {
+    "code": "1.3.5",
+    "detailed_sub_category": "Facility management",
+    "id": 14
+  },
+  {
+    "code": "1.3.4",
+    "detailed_sub_category": "Asset management",
+    "id": 15
+  },
+  {
+    "code": "1.3.3",
+    "detailed_sub_category": "Property management",
+    "id": 16
+  },
+  {
+    "code": "1.3.2",
+    "detailed_sub_category": "Gestion locative",
+    "id": 17
+  },
+  {
+    "code": "1.3.1",
+    "detailed_sub_category": "Gestion immobilière",
+    "id": 18
+  },
+  {
+    "code": "1.4.5",
+    "detailed_sub_category": "Conseil en commercialisation",
+    "id": 19
+  },
+  {
+    "code": "1.4.4",
+    "detailed_sub_category": "Conseil en investissement immobilier",
+    "id": 20
+  },
+  {
+    "code": "1.4.3",
+    "detailed_sub_category": "Évaluation immobilière",
+    "id": 21
+  },
+  {
+    "code": "1.4.2",
+    "detailed_sub_category": "Expertise immobilière",
+    "id": 22
+  },
+  {
+    "code": "1.4.1",
+    "detailed_sub_category": "Conseil immobilier",
+    "id": 23
+  },
+  {
+    "code": "3.1.6",
+    "detailed_sub_category": "Charpente",
+    "id": 24
+  },
+  {
+    "code": "3.1.5",
+    "detailed_sub_category": "Maçonnerie",
+    "id": 25
+  },
+  {
+    "code": "3.1.4",
+    "detailed_sub_category": "Béton",
+    "id": 26
+  },
+  {
+    "code": "3.1.3",
+    "detailed_sub_category": "Structure",
+    "id": 27
+  },
+  {
+    "code": "3.1.2",
+    "detailed_sub_category": "Terrassement bâtiment",
+    "id": 28
+  },
+  {
+    "code": "3.1.1",
+    "detailed_sub_category": "Fondations",
+    "id": 29
+  },
+  {
+    "code": "3.2.9",
+    "detailed_sub_category": "Ascenseurs",
+    "id": 30
+  },
+  {
+    "code": "3.2.8",
+    "detailed_sub_category": "Sécurité incendie",
+    "id": 31
+  },
+  {
+    "code": "3.2.7",
+    "detailed_sub_category": "Isolation",
+    "id": 32
+  },
+  {
+    "code": "3.2.6",
+    "detailed_sub_category": "Étanchéité",
+    "id": 33
+  },
+  {
+    "code": "3.2.5",
+    "detailed_sub_category": "Chauffage",
+    "id": 34
+  },
+  {
+    "code": "3.2.4",
+    "detailed_sub_category": "Ventilation",
+    "id": 35
+  },
+  {
+    "code": "3.2.3",
+    "detailed_sub_category": "Climatisation",
+    "id": 36
+  },
+  {
+    "code": "3.2.2",
+    "detailed_sub_category": "Plomberie",
+    "id": 37
+  },
+  {
+    "code": "3.2.1",
+    "detailed_sub_category": "Électricité",
+    "id": 38
+  },
+  {
+    "code": "3.4.6",
+    "detailed_sub_category": "Coordination de chantier",
+    "id": 39
+  },
+  {
+    "code": "3.4.5",
+    "detailed_sub_category": "Économie de la construction",
+    "id": 40
+  },
+  {
+    "code": "3.4.4",
+    "detailed_sub_category": "Contrôle technique",
+    "id": 41
+  },
+  {
+    "code": "3.4.3",
+    "detailed_sub_category": "Études techniques",
+    "id": 42
+  },
+  {
+    "code": "3.4.2",
+    "detailed_sub_category": "Bureau d’études",
+    "id": 43
+  },
+  {
+    "code": "3.4.1",
+    "detailed_sub_category": "Génie civil / structure",
+    "id": 44
+  },
+  {
+    "code": "3.3.6",
+    "detailed_sub_category": "Serrurerie",
+    "id": 45
+  },
+  {
+    "code": "3.3.5",
+    "detailed_sub_category": "Métallerie",
+    "id": 46
+  },
+  {
+    "code": "3.3.4",
+    "detailed_sub_category": "Menuiserie",
+    "id": 47
+  },
+  {
+    "code": "3.3.3",
+    "detailed_sub_category": "Façades",
+    "id": 48
+  },
+  {
+    "code": "3.3.2",
+    "detailed_sub_category": "Peinture",
+    "id": 49
+  },
+  {
+    "code": "3.3.1",
+    "detailed_sub_category": "Revêtements",
+    "id": 50
+  },
+  {
+    "code": "3.5.4",
+    "detailed_sub_category": "Fournisseurs spécialisés",
+    "id": 51
+  },
+  {
+    "code": "3.5.3",
+    "detailed_sub_category": "Équipements techniques",
+    "id": 52
+  },
+  {
+    "code": "3.5.2",
+    "detailed_sub_category": "Équipements de chantier",
+    "id": 53
+  },
+  {
+    "code": "3.5.1",
+    "detailed_sub_category": "Matériaux de construction",
+    "id": 54
+  },
+  {
+    "code": "4.1.7",
+    "detailed_sub_category": "Rénovation énergétique",
+    "id": 55
+  },
+  {
+    "code": "4.1.6",
+    "detailed_sub_category": "Restauration",
+    "id": 56
+  },
+  {
+    "code": "4.1.5",
+    "detailed_sub_category": "Réhabilitation",
+    "id": 57
+  },
+  {
+    "code": "4.1.4",
+    "detailed_sub_category": "Rénovation de façade",
+    "id": 58
+  },
+  {
+    "code": "4.1.3",
+    "detailed_sub_category": "Rénovation extérieure",
+    "id": 59
+  },
+  {
+    "code": "4.1.2",
+    "detailed_sub_category": "Rénovation intérieure",
+    "id": 60
+  },
+  {
+    "code": "4.1.1",
+    "detailed_sub_category": "Rénovation complète",
+    "id": 61
+  },
+  {
+    "code": "4.2.6",
+    "detailed_sub_category": "Dressing",
+    "id": 62
+  },
+  {
+    "code": "4.2.4",
+    "detailed_sub_category": "Salle de bain",
+    "id": 63
+  },
+  {
+    "code": "4.2.3",
+    "detailed_sub_category": "Cuisine",
+    "id": 64
+  },
+  {
+    "code": "4.2.1",
+    "detailed_sub_category": "Aménagement intérieur",
+    "id": 65
+  },
+  {
+    "code": "4.3.5",
+    "detailed_sub_category": "Aménagement extérieur",
+    "id": 66
+  },
+  {
+    "code": "4.3.4",
+    "detailed_sub_category": "Piscine",
+    "id": 67
+  },
+  {
+    "code": "4.3.3",
+    "detailed_sub_category": "Terrasse",
+    "id": 68
+  },
+  {
+    "code": "4.3.2",
+    "detailed_sub_category": "Paysagisme",
+    "id": 69
+  },
+  {
+    "code": "4.3.1",
+    "detailed_sub_category": "Jardin",
+    "id": 70
+  },
+  {
+    "code": "4.2.7",
+    "detailed_sub_category": "Éclairage",
+    "id": 71
+  },
+  {
+    "code": "4.2.5",
+    "detailed_sub_category": "Mobilier",
+    "id": 72
+  },
+  {
+    "code": "4.2.2",
+    "detailed_sub_category": "Décoration",
+    "id": 73
+  },
+  {
+    "code": "4.4.6",
+    "detailed_sub_category": "Isolation",
+    "id": 74
+  },
+  {
+    "code": "4.4.5",
+    "detailed_sub_category": "Électricité",
+    "id": 75
+  },
+  {
+    "code": "4.4.4",
+    "detailed_sub_category": "Plomberie",
+    "id": 76
+  },
+  {
+    "code": "4.4.3",
+    "detailed_sub_category": "Menuiserie",
+    "id": 77
+  },
+  {
+    "code": "4.4.2",
+    "detailed_sub_category": "Revêtement",
+    "id": 78
+  },
+  {
+    "code": "4.4.1",
+    "detailed_sub_category": "Peinture",
+    "id": 79
+  },
+  {
+    "code": "5.5.5",
+    "detailed_sub_category": "Coordination",
+    "id": 80
+  },
+  {
+    "code": "5.5.4",
+    "detailed_sub_category": "Assistance à maîtrise d’ouvrage",
+    "id": 81
+  },
+  {
+    "code": "5.5.3",
+    "detailed_sub_category": "Maîtrise d’œuvre",
+    "id": 82
+  },
+  {
+    "code": "5.5.2",
+    "detailed_sub_category": "Plans",
+    "id": 83
+  },
+  {
+    "code": "5.5.1",
+    "detailed_sub_category": "Conception",
+    "id": 84
+  },
+  {
+    "code": "5.1.6",
+    "detailed_sub_category": "Architecture patrimoniale",
+    "id": 85
+  },
+  {
+    "code": "5.1.5",
+    "detailed_sub_category": "Architecture touristique",
+    "id": 86
+  },
+  {
+    "code": "5.1.4",
+    "detailed_sub_category": "Architecture industrielle",
+    "id": 87
+  },
+  {
+    "code": "5.1.3",
+    "detailed_sub_category": "Architecture commerciale",
+    "id": 88
+  },
+  {
+    "code": "5.1.2",
+    "detailed_sub_category": "Architecture résidentielle",
+    "id": 89
+  },
+  {
+    "code": "5.1.1",
+    "detailed_sub_category": "Architecture",
+    "id": 90
+  },
+  {
+    "code": "5.2.1",
+    "detailed_sub_category": "Architecture intérieure",
+    "id": 91
+  },
+  {
+    "code": "5.2.3",
+    "detailed_sub_category": "Décoration",
+    "id": 92
+  },
+  {
+    "code": "5.2.2",
+    "detailed_sub_category": "Design intérieur",
+    "id": 93
+  },
+  {
+    "code": "5.3.3",
+    "detailed_sub_category": "Paysagisme",
+    "id": 94
+  },
+  {
+    "code": "5.3.2",
+    "detailed_sub_category": "Aménagement urbain",
+    "id": 95
+  },
+  {
+    "code": "5.3.1",
+    "detailed_sub_category": "Urbanisme",
+    "id": 96
+  },
+  {
+    "code": "5.4.5",
+    "detailed_sub_category": "Réalité virtuelle",
+    "id": 97
+  },
+  {
+    "code": "5.4.4",
+    "detailed_sub_category": "Rendu 3D",
+    "id": 98
+  },
+  {
+    "code": "5.4.3",
+    "detailed_sub_category": "Visualisation architecturale",
+    "id": 99
+  },
+  {
+    "code": "5.4.2",
+    "detailed_sub_category": "Modélisation 3D",
+    "id": 100
+  },
+  {
+    "code": "5.4.1",
+    "detailed_sub_category": "BIM",
+    "id": 101
+  },
+  {
+    "code": "6.1.8",
+    "detailed_sub_category": "Lotissement",
+    "id": 102
+  },
+  {
+    "code": "6.1.7",
+    "detailed_sub_category": "Aménagement foncier",
+    "id": 103
+  },
+  {
+    "code": "6.1.6",
+    "detailed_sub_category": "Conseil foncier",
+    "id": 104
+  },
+  {
+    "code": "6.1.5",
+    "detailed_sub_category": "Gestion foncière",
+    "id": 105
+  },
+  {
+    "code": "6.1.4",
+    "detailed_sub_category": "Valorisation foncière",
+    "id": 106
+  },
+  {
+    "code": "6.1.3",
+    "detailed_sub_category": "Acquisition foncière",
+    "id": 107
+  },
+  {
+    "code": "6.1.2",
+    "detailed_sub_category": "Développement foncier",
+    "id": 108
+  },
+  {
+    "code": "6.1.1",
+    "detailed_sub_category": "Stratégie foncière",
+    "id": 109
+  },
+  {
+    "code": "6.4.5",
+    "detailed_sub_category": "Médiation / arbitrage",
+    "id": 110
+  },
+  {
+    "code": "6.4.3",
+    "detailed_sub_category": "Conseil juridique",
+    "id": 111
+  },
+  {
+    "code": "6.4.2",
+    "detailed_sub_category": "Avocat",
+    "id": 112
+  },
+  {
+    "code": "6.3.10",
+    "detailed_sub_category": "Contentieux immobilier",
+    "id": 113
+  },
+  {
+    "code": "6.3.9",
+    "detailed_sub_category": "Succession immobilière",
+    "id": 114
+  },
+  {
+    "code": "6.3.8",
+    "detailed_sub_category": "Indivision",
+    "id": 115
+  },
+  {
+    "code": "6.3.7",
+    "detailed_sub_category": "Servitudes",
+    "id": 116
+  },
+  {
+    "code": "6.3.6",
+    "detailed_sub_category": "Urbanisme & construction",
+    "id": 117
+  },
+  {
+    "code": "6.3.5",
+    "detailed_sub_category": "Baux",
+    "id": 118
+  },
+  {
+    "code": "6.3.4",
+    "detailed_sub_category": "Copropriété",
+    "id": 119
+  },
+  {
+    "code": "6.3.3",
+    "detailed_sub_category": "Titres fonciers",
+    "id": 120
+  },
+  {
+    "code": "6.3.2",
+    "detailed_sub_category": "Droit foncier",
+    "id": 121
+  },
+  {
+    "code": "6.3.1",
+    "detailed_sub_category": "Droit immobilier",
+    "id": 122
+  },
+  {
+    "code": "6.4.4",
+    "detailed_sub_category": "Adoul",
+    "id": 123
+  },
+  {
+    "code": "6.4.1",
+    "detailed_sub_category": "Notaire",
+    "id": 124
+  },
+  {
+    "code": "6.5.5",
+    "detailed_sub_category": "Conseil fiscal",
+    "id": 125
+  },
+  {
+    "code": "6.5.4",
+    "detailed_sub_category": "Fiscalité des transactions",
+    "id": 126
+  },
+  {
+    "code": "6.5.3",
+    "detailed_sub_category": "Fiscalité locative",
+    "id": 127
+  },
+  {
+    "code": "6.5.2",
+    "detailed_sub_category": "Fiscalité foncière",
+    "id": 128
+  },
+  {
+    "code": "6.5.1",
+    "detailed_sub_category": "Fiscalité immobilière",
+    "id": 129
+  },
+  {
+    "code": "6.2.6",
+    "detailed_sub_category": "Études de terrain",
+    "id": 130
+  },
+  {
+    "code": "6.2.5",
+    "detailed_sub_category": "Cadastre",
+    "id": 131
+  },
+  {
+    "code": "6.2.4",
+    "detailed_sub_category": "Topographie",
+    "id": 132
+  },
+  {
+    "code": "6.2.3",
+    "detailed_sub_category": "Géomètre-topographe",
+    "id": 133
+  },
+  {
+    "code": "6.2.2",
+    "detailed_sub_category": "Études foncières",
+    "id": 134
+  },
+  {
+    "code": "6.2.1",
+    "detailed_sub_category": "Expertise foncière",
+    "id": 135
+  },
+  {
+    "code": "7.6.4",
+    "detailed_sub_category": "Investissement immobilier",
+    "id": 136
+  },
+  {
+    "code": "7.6.3",
+    "detailed_sub_category": "Financement",
+    "id": 137
+  },
+  {
+    "code": "7.6.2",
+    "detailed_sub_category": "Paiement",
+    "id": 138
+  },
+  {
+    "code": "7.6.1",
+    "detailed_sub_category": "FinTech immobilière",
+    "id": 139
+  },
+  {
+    "code": "7.2.6",
+    "detailed_sub_category": "3D / VR / AR",
+    "id": 140
+  },
+  {
+    "code": "7.2.5",
+    "detailed_sub_category": "Visite virtuelle",
+    "id": 141
+  },
+  {
+    "code": "7.2.4",
+    "detailed_sub_category": "Signature électronique",
+    "id": 142
+  },
+  {
+    "code": "7.2.3",
+    "detailed_sub_category": "Transaction digitale",
+    "id": 143
+  },
+  {
+    "code": "7.2.2",
+    "detailed_sub_category": "Listing immobilier",
+    "id": 144
+  },
+  {
+    "code": "7.2.1",
+    "detailed_sub_category": "Marketplace",
+    "id": 145
+  },
+  {
+    "code": "7.1.6",
+    "detailed_sub_category": "Gestion commerciale",
+    "id": 146
+  },
+  {
+    "code": "7.1.5",
+    "detailed_sub_category": "Gestion de projets",
+    "id": 147
+  },
+  {
+    "code": "7.1.4",
+    "detailed_sub_category": "Gestion de copropriété",
+    "id": 148
+  },
+  {
+    "code": "7.1.3",
+    "detailed_sub_category": "Gestion locative",
+    "id": 149
+  },
+  {
+    "code": "7.1.2",
+    "detailed_sub_category": "Gestion immobilière",
+    "id": 150
+  },
+  {
+    "code": "7.1.1",
+    "detailed_sub_category": "CRM immobilier",
+    "id": 151
+  },
+  {
+    "code": "7.3.6",
+    "detailed_sub_category": "Reality capture",
+    "id": 152
+  },
+  {
+    "code": "7.3.5",
+    "detailed_sub_category": "Suivi de chantier",
+    "id": 153
+  },
+  {
+    "code": "7.3.4",
+    "detailed_sub_category": "Planification",
+    "id": 154
+  },
+  {
+    "code": "7.3.3",
+    "detailed_sub_category": "Gestion de chantier",
+    "id": 155
+  },
+  {
+    "code": "7.3.2",
+    "detailed_sub_category": "BIM",
+    "id": 156
+  },
+  {
+    "code": "7.3.1",
+    "detailed_sub_category": "Construction management",
+    "id": 157
+  },
+  {
+    "code": "7.4.5",
+    "detailed_sub_category": "Market intelligence",
+    "id": 158
+  },
+  {
+    "code": "7.4.4",
+    "detailed_sub_category": "Valuation",
+    "id": 159
+  },
+  {
+    "code": "7.4.3",
+    "detailed_sub_category": "Intelligence artificielle",
+    "id": 160
+  },
+  {
+    "code": "7.4.2",
+    "detailed_sub_category": "Analytics",
+    "id": 161
+  },
+  {
+    "code": "7.4.1",
+    "detailed_sub_category": "Data immobilière",
+    "id": 162
+  },
+  {
+    "code": "7.5.6",
+    "detailed_sub_category": "Maintenance intelligente",
+    "id": 163
+  },
+  {
+    "code": "7.5.5",
+    "detailed_sub_category": "Sécurité intelligente",
+    "id": 164
+  },
+  {
+    "code": "7.5.4",
+    "detailed_sub_category": "Gestion énergétique",
+    "id": 165
+  },
+  {
+    "code": "7.5.3",
+    "detailed_sub_category": "BMS",
+    "id": 166
+  },
+  {
+    "code": "7.5.2",
+    "detailed_sub_category": "Domotique",
+    "id": 167
+  },
+  {
+    "code": "7.5.1",
+    "detailed_sub_category": "IoT",
+    "id": 168
+  },
+  {
+    "code": "8.2.3",
+    "detailed_sub_category": "Assurance professionnelle",
+    "id": 169
+  },
+  {
+    "code": "8.2.2",
+    "detailed_sub_category": "Assurance construction",
+    "id": 170
+  },
+  {
+    "code": "8.2.1",
+    "detailed_sub_category": "Assurance immobilière",
+    "id": 171
+  },
+  {
+    "code": "8.1.5",
+    "detailed_sub_category": "Investissement",
+    "id": 172
+  },
+  {
+    "code": "8.1.4",
+    "detailed_sub_category": "Courtage financier",
+    "id": 173
+  },
+  {
+    "code": "8.1.3",
+    "detailed_sub_category": "Financement",
+    "id": 174
+  },
+  {
+    "code": "8.1.2",
+    "detailed_sub_category": "Crédit immobilier",
+    "id": 175
+  },
+  {
+    "code": "8.1.1",
+    "detailed_sub_category": "Banque",
+    "id": 176
+  },
+  {
+    "code": "8.3.6",
+    "detailed_sub_category": "Formation",
+    "id": 177
+  },
+  {
+    "code": "8.3.5",
+    "detailed_sub_category": "Recrutement",
+    "id": 178
+  },
+  {
+    "code": "8.3.4",
+    "detailed_sub_category": "Ressources humaines",
+    "id": 179
+  },
+  {
+    "code": "8.3.3",
+    "detailed_sub_category": "Conseil aux entreprises",
+    "id": 180
+  },
+  {
+    "code": "8.3.2",
+    "detailed_sub_category": "Expertise comptable",
+    "id": 181
+  },
+  {
+    "code": "8.3.1",
+    "detailed_sub_category": "Comptabilité",
+    "id": 182
+  },
+  {
+    "code": "8.4.5",
+    "detailed_sub_category": "Médias",
+    "id": 183
+  },
+  {
+    "code": "8.4.4",
+    "detailed_sub_category": "Vidéo",
+    "id": 184
+  },
+  {
+    "code": "8.4.3",
+    "detailed_sub_category": "Photographie",
+    "id": 185
+  },
+  {
+    "code": "8.4.2",
+    "detailed_sub_category": "Communication",
+    "id": 186
+  },
+  {
+    "code": "8.4.1",
+    "detailed_sub_category": "Marketing immobilier",
+    "id": 187
+  },
+  {
+    "code": "8.5.5",
+    "detailed_sub_category": "Produits spécialisés",
+    "id": 188
+  },
+  {
+    "code": "8.5.4",
+    "detailed_sub_category": "Matériaux",
+    "id": 189
+  },
+  {
+    "code": "8.5.3",
+    "detailed_sub_category": "Équipements",
+    "id": 190
+  },
+  {
+    "code": "8.5.2",
+    "detailed_sub_category": "Mobilier",
+    "id": 191
+  },
+  {
+    "code": "8.5.1",
+    "detailed_sub_category": "Fournitures professionnelles",
+    "id": 192
+  },
+  {
+    "code": "8.6.6",
+    "detailed_sub_category": "Énergie",
+    "id": 193
+  },
+  {
+    "code": "8.6.5",
+    "detailed_sub_category": "Transport",
+    "id": 194
+  },
+  {
+    "code": "8.6.4",
+    "detailed_sub_category": "Déménagement",
+    "id": 195
+  },
+  {
+    "code": "8.6.3",
+    "detailed_sub_category": "Sécurité",
+    "id": 196
+  },
+  {
+    "code": "8.6.2",
+    "detailed_sub_category": "Maintenance",
+    "id": 197
+  },
+  {
+    "code": "8.6.1",
+    "detailed_sub_category": "Nettoyage",
+    "id": 198
+  }
+]

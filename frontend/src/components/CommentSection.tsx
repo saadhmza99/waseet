@@ -74,7 +74,7 @@ const CommentSection = ({ comments, onAddComment }: CommentSectionProps) => {
               <img 
                 src={c.avatar || getDefaultAvatar("individual")} 
                 alt={c.username} 
-                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" 
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl object-cover" 
               />
             </button>
             <div className="flex-1 min-w-0">

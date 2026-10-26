@@ -156,7 +156,7 @@ const ListingCard = ({
             }}
             className="mb-1 flex max-w-full items-center gap-2"
           >
-            <img src={avatar} alt={username} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+            <img src={avatar} alt={username} className="h-8 w-8 shrink-0 rounded-2xl object-cover" />
             <span className="truncate text-[15px] font-semibold text-card-foreground">{username}</span>
             <VerifiedBadge verified={isVerified} className="h-4 w-4" />
           </button>
@@ -218,7 +218,7 @@ const ListingCard = ({
           <img
             src={avatar}
             alt={username}
-            className={`rounded-full object-cover flex-shrink-0 ${isLarge ? 'w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12' : 'w-8 h-8 sm:w-10 sm:h-10'}`}
+            className={`rounded-2xl object-cover flex-shrink-0 ${isLarge ? 'w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12' : 'w-8 h-8 sm:w-10 sm:h-10'}`}
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">

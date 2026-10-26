@@ -307,19 +307,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to automatically create profile on user signup
+-- Default profile photo (Sifarah PRO hard-hat) in Storage: images/avatars/default-pro.jpg
 CREATE OR REPLACE FUNCTION public.get_default_avatar_url(profile_kind TEXT)
 RETURNS TEXT AS $$
-DECLARE
-  svg TEXT;
 BEGIN
-  IF profile_kind = 'enterprise' THEN
-    svg := '<svg xmlns=''http://www.w3.org/2000/svg'' viewBox=''0 0 120 120''><rect width=''120'' height=''120'' fill=''#e5e7eb''/><circle cx=''60'' cy=''44'' r=''22'' fill=''#9ca3af''/><path d=''M20 108c6-22 22-34 40-34s34 12 40 34'' fill=''#9ca3af''/><path d=''M38 42c6-16 16-20 22-20s16 4 22 20'' fill=''none'' stroke=''#9ca3af'' stroke-width=''8''/></svg>';
-  ELSE
-    svg := '<svg xmlns=''http://www.w3.org/2000/svg'' viewBox=''0 0 120 120''><rect width=''120'' height=''120'' fill=''#e5e7eb''/><circle cx=''60'' cy=''40'' r=''22'' fill=''#9ca3af''/><path d=''M18 108c8-24 24-34 42-34s34 10 42 34'' fill=''#9ca3af''/></svg>';
-  END IF;
-
-  RETURN 'data:image/svg+xml;utf8,' || replace(replace(svg, '#', '%23'), ' ', '%20');
+  -- Same branded mark for all profile kinds; kept as a function for triggers / backfills.
+  RETURN 'https://auusinntfgmoneqhjcbe.supabase.co/storage/v1/object/public/images/avatars/default-pro.jpg';
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
@@ -3830,6 +3823,59 @@ ALTER TABLE public.services
 
 CREATE INDEX IF NOT EXISTS services_internal_category_idx
   ON public.services (internal_category_id);
+
+-- Réalisations: dedicated portfolio works (title, description, images) — not posts.
+CREATE TABLE IF NOT EXISTS public.realisations (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT '',
+  description TEXT,
+  images JSONB NOT NULL DEFAULT '[]'::jsonb,
+  cover TEXT,
+  city TEXT,
+  internal_category_id INTEGER REFERENCES public.internal_categories(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TIMEZONE('utc'::text, NOW()),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TIMEZONE('utc'::text, NOW()),
+  CONSTRAINT realisations_title_not_blank CHECK (length(btrim(title)) > 0),
+  CONSTRAINT realisations_images_is_array CHECK (jsonb_typeof(images) = 'array')
+);
+
+CREATE INDEX IF NOT EXISTS realisations_user_created_idx
+  ON public.realisations (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS realisations_internal_category_idx
+  ON public.realisations (internal_category_id);
+CREATE INDEX IF NOT EXISTS realisations_city_idx
+  ON public.realisations (city);
+
+ALTER TABLE public.realisations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Realisations are viewable by everyone" ON public.realisations;
+CREATE POLICY "Realisations are viewable by everyone"
+  ON public.realisations FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can create their own realisations" ON public.realisations;
+CREATE POLICY "Users can create their own realisations"
+  ON public.realisations FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own realisations" ON public.realisations;
+CREATE POLICY "Users can update their own realisations"
+  ON public.realisations FOR UPDATE
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own realisations" ON public.realisations;
+CREATE POLICY "Users can delete their own realisations"
+  ON public.realisations FOR DELETE
+  USING (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS update_realisations_updated_at ON public.realisations;
+CREATE TRIGGER update_realisations_updated_at
+  BEFORE UPDATE ON public.realisations
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+GRANT SELECT ON public.realisations TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.realisations TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
 

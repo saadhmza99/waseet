@@ -1,0 +1,186 @@
+[
+  {
+    "id": "bfeb4f57-d596-5589-93ec-fdf3c4089beb",
+    "username": "atlas-confort-et-securite",
+    "full_name": "ATLAS CONFORT ET SECURITE",
+    "profession": "Climatisation / Chauffage",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.5",
+        "label": "Chauffage"
+      },
+      {
+        "code": "3.2.3",
+        "label": "Climatisation"
+      },
+      {
+        "code": "8.6.3",
+        "label": "Sécurité"
+      }
+    ],
+    "website_url": "https://www.atlas-cs.ma",
+    "seed_len": 1200,
+    "about_seed": "Nous (ACS) est un spécialiste des lots techniques du bâtiment, offrant des solutions complètes en Climatisation et traitement de l'air, fluides ainsi qu’une expertise multi technique.\r\n\r\nNous assurons la fourniture, l’installation et la maintenance de systèmes de climatisation, ventilation et désenfumage, réfrigération, plomberie, électricité et courants faibles, protection incendie et piscines. Grâce à notre savoir-faire, nous accompagnons nos clients avec des solutions sur mesure, garantissant performance, confort et sécurité. Faites confiance à notre expertise pour vos projets techniques, qu’ils soient industriels, tertiaires ou résidentiels.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 25 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication cl"
+  },
+  {
+    "id": "2aa9c8db-5060-5540-aa5f-ee4b42c774a3",
+    "username": "awrach",
+    "full_name": "Awrach",
+    "profession": "Structural work",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/awrach",
+    "seed_len": 148,
+    "about_seed": "Fondée il y a plus de 50 ans, AWRACh est une entreprise de construction marocaine reconnue pour son savoir-faire, sa fiabilité et la qualité de ses…"
+  },
+  {
+    "id": "2fd5d3d9-2f8b-5ff6-ad1a-2c335f9b9401",
+    "username": "badryteam-sarl",
+    "full_name": "BADRYTEAM SARL",
+    "profession": "Vidéo et photo immobilière",
+    "location": "Tanger",
+    "specialties": [
+      {
+        "code": "5.1.1",
+        "label": "Architecture"
+      }
+    ],
+    "website_url": "https://www.badryteam.ma/",
+    "seed_len": 1064,
+    "about_seed": "Nous sommes une société de production audiovisuelle basée à Tanger, spécialisée dans la réalisation de contenus photo et vidéo pour le secteur immobilier.\r\n\r\nDepuis plus de 8 ans, nous accompagnons les promoteurs, agences et architectes dans la valorisation de leurs biens à travers des services sur mesure : prises de vue photo haute définition, vidéos immersives, visites virtuelles, captations par drone et montages promotionnels. Notre objectif est de sublimer chaque projet immobilier pour en renforcer l’impact visuel et accélérer la commercialisation.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 8 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou "
+  },
+  {
+    "id": "ff742c20-0951-5af2-a8d6-b9429bcc781e",
+    "username": "becomar",
+    "full_name": "BECOMAR",
+    "profession": "Matériaux de construction",
+    "location": "Berrechid",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://www.becomar.org",
+    "seed_len": 1200,
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans la production et la commercialisation de solutions béton innovantes et de qualité supérieure.\r\n\r\nFondée pour répondre aux besoins croissants du marché de la construction, elle s'appuie sur une expertise technique pointue et des moyens de production modernes pour offrir à nos clients des produits fiables et durables. L’offre de BECOMAR couvre une large gamme de produits en béton préfabriqué, allant des agglos, poutrelles et hourdis certifiés aux normes marocaines, aux solutions de post-tension, en passant par les éléments précontraints et les produits spéciaux conçus sur mesure pour les projets les plus exigeants. Nous met un point d’honneur à innover en permanence, investissant dans la recherche et le…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 32 anné"
+  },
+  {
+    "id": "a9897970-cd7d-50c6-96f5-a298ae55e101",
+    "username": "bilss-elec",
+    "full_name": "Bilss'elec",
+    "profession": "Matériel électrique",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/bilss-elec",
+    "seed_len": 93,
+    "about_seed": "Société spécialisée dans l'installation électrique pour maisons neuves, villas et résidences."
+  },
+  {
+    "id": "86127ee0-5687-5634-a2a1-13ddd94ae442",
+    "username": "brs-energie",
+    "full_name": "BRS ENERGIE",
+    "profession": "Installation électrique",
+    "location": "Salé",
+    "specialties": [
+      {
+        "code": "3.2.3",
+        "label": "Climatisation"
+      },
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "4.3.4",
+        "label": "Piscine"
+      },
+      {
+        "code": "8.6.6",
+        "label": "Énergie"
+      }
+    ],
+    "website_url": "https://brsenergie.ma",
+    "seed_len": 837,
+    "about_seed": "\"BRS ENERGIE est une entreprise spécialisée dans les travaux divers: Climatisation, Ventilation, Désenfumage, Plomberie, Piscine, Energie Solaire, etc.\r\n\r\nNous vous accompagnons dans vos projets en vous apportant des solutions parfaitement adaptées à vos besoins.\".\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Salé est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en installation électrique.\r\n\r\nDomaines d'expertise : Climatisation, Plomberie, Piscine, Énergie."
+  },
+  {
+    "id": "28f68172-39bb-53e5-9ff8-d394a870fe65",
+    "username": "casatransmateriaux",
+    "full_name": "Casatransmateriaux",
+    "profession": "Aggregates",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/casatransmateriaux",
+    "seed_len": 48,
+    "about_seed": "Casatransmateriaux. 35 ans à bâtir la confiance."
+  },
+  {
+    "id": "2a0723c9-ab85-56d7-a9a6-f77deaaa296d",
+    "username": "ceratube",
+    "full_name": "Ceratube",
+    "profession": "Salle de bain / Sanitaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.4",
+        "label": "Salle de bain"
+      },
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      }
+    ],
+    "website_url": "https://www.ceratube.ma/",
+    "seed_len": 1200,
+    "about_seed": "Nous sommes une entreprise spécialisée dans la distribution d’appareils sanitaires, de matériel électrique, de quincaillerie ainsi que dans le négoce de produits industriels, agricoles, artisanaux et divers.\r\n\r\nForte d’une expertise reconnue, CERATUBE propose un large éventail de produits de qualité destinés aux professionnels comme aux particuliers. Nous distribuons notamment des produits de la marque ROBIMED, reconnue pour sa fiabilité et ses performances. Nous s’engage à offrir à nos clients des solutions techniques durables, un service personnalisé, et un accompagnement professionnel, pour répondre aux exigences des projets les plus complexes dans les secteurs du bâtiment, de la rénovation et de l’industrie.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 29 années d’expérience, nous mettons l’accent sur l"
+  },
+  {
+    "id": "f5edc905-e0c0-55fa-a655-049e2a582dd5",
+    "username": "chilivin",
+    "full_name": "Chilivin",
+    "profession": "Architecte",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "5.1.1",
+        "label": "Architecture"
+      }
+    ],
+    "website_url": "https://chilivin.com/",
+    "seed_len": 843,
+    "about_seed": "Chi’Livin est une agence d’architecture, de design d’intérieur et de construction qui offre un service clé en main, créant des espaces uniques alliant esthétique, fonctionnalité et durabilité pour transformer vos projets en expériences de vie.\r\n\r\nCasablanca · Architecte, Architecte d'intérieur. Prestataire BTP professionnel au Maroc ... Instagram · LinkedIn · Site web. | 0 ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en architecture."
+  },
+  {
+    "id": "9aee86ff-d895-5a51-a02e-94f63e2668b0",
+    "username": "clenz",
+    "full_name": "CLENZ",
+    "profession": "EPI",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://www.clenz.ma",
+    "seed_len": 1200,
+    "about_seed": "Nous sommes une entreprise marocaine fondée en 2022, spécialisée dans la distribution d’Équipements de Protection Individuelle (EPI), de consommables et de produits d’hygiène à usage professionnel.\r\n\r\nNous accompagnons les entreprises soucieuses de préserver la sécurité, la santé et la propreté dans leurs espaces de travail, à travers des solutions fiables, durables et adaptées à chaque secteur d’activité. Notre offre s’adresse principalement aux industries, aux établissements de santé, aux collectivités, au BTP et à l’agroalimentaire. Grâce à un réseau de partenaires rigoureusement sélectionnés, CLENZ garantit des produits conformes aux normes en vigueur, un excellent rapport qualité/prix et un service logistique rapide et efficace.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 4 années d’expérience, nous m"
+  }
+]

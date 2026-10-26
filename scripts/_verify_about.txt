@@ -1,0 +1,32 @@
+[
+  {
+    "a": "Située dans la zone industrielle de Ain Atiq, 6PO Industrie est une société spécialisée dans la fabrication de tubes en PVC et PEHD, destinés à la distribution ",
+    "b": "Située dans la zone industrielle de Ain Atiq, 6PO Industrie est une société spécialisée dans la fabr",
+    "username": "6po-industrie"
+  },
+  {
+    "a": "Nous réalisons des projets sur mesure, de la conception à la livraison Basés à Marrakech.\r\n\r\nNous construisons des villas riads et restaurant alliant solidité e",
+    "b": "Nous réalisons des projets sur mesure, de la conception à la livraison Basés à Marrakech. Nous const",
+    "username": "ags-groupe"
+  },
+  {
+    "a": "une société spécialisée en installation électrique et domotique, videosurveillance, avec une belle equipe qui a travaillé sur des grands projets que sa…\r\n\r\nDoma",
+    "b": "une société spécialisée en installation électrique et domotique, videosurveillance, avec une belle e",
+    "username": "aifox-services"
+  },
+  {
+    "a": "Anir Carreaux incarne l'élégance et l'excellence dans l'univers du carrelage, de la robinetterie et du sanitaire haut de gamme.\r\n\r\nDomaines d'expertise : Plombe",
+    "b": "Anir Carreaux incarne l'élégance et l'excellence dans l'univers du carrelage, de la robinetterie et ",
+    "username": "anir-carreaux"
+  },
+  {
+    "a": "Nous sommes une entreprise marocaine spécialisée dans l’aménagement intérieur sous toutes ses formes, avec une expérience terrain de 25 ans.\r\n\r\nNous proposons d",
+    "b": "Nous sommes une entreprise marocaine spécialisée dans l’aménagement intérieur sous toutes ses formes",
+    "username": "castlewood"
+  },
+  {
+    "a": "Maîtrisez chaque détail du terrain avec GEOMATRIX.\r\n\r\nExperts en ingénierie et topographie à Agadir, nous donnons vie à vos projets avec précision et innovation",
+    "b": "Maîtrisez chaque détail du terrain avec GEOMATRIX. Experts en ingénierie et topographie à Agadir, no",
+    "username": "geomatrix"
+  }
+]

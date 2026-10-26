@@ -140,6 +140,12 @@ export type ProfileSectionVisibility = {
 };
 
 /**
+ * Kill-switch: hide Réalisations everywhere while keeping list/create/schema code.
+ * Flip to true when the feature is ready to ship again.
+ */
+export const REALISATIONS_ENABLED = false;
+
+/**
  * Everyone: Posts.
  * Group A (1.1.1–1.1.7, Marchand 1.2.3, 1.3.1–1.3.7, 8.4.1–8.4.5):
  *   Posts + Biens; hide Réalisations, Projets, Produits, Services.
@@ -213,21 +219,27 @@ export const profileSectionsForInternalCode = (code?: string | null): ProfileSec
 
   return {
     showPosts: true,
-    showRealisations: !noRealisations,
+    // Feature flag — logic kept; hidden until REALISATIONS_ENABLED is true.
+    showRealisations: REALISATIONS_ENABLED && !noRealisations,
     showProjets: false,
     showBiens: false,
-    showServices: true,
+    // Fournisseurs (8.5.1–8.5.5) sell products, not services.
+    showServices: !isFournisseur,
     showProduits: isMateriaux || isFournisseur,
   };
 };
 
-/** Union section visibility across multiple internal category codes (enterprises). */
+/**
+ * Multi-specialty profiles unlock the union of each code’s sections
+ * (e.g. agence + artisan → Biens + Services when Réalisations are off).
+ * Primary specialty only affects feed placement, not which tabs exist.
+ */
 export const profileSectionsForInternalCodes = (
   codes?: Array<string | null | undefined> | null
 ): ProfileSectionVisibility => {
   const list = (codes || []).map((c) => (c || "").trim()).filter(Boolean);
   if (!list.length) return profileSectionsForInternalCode(null);
-  return list.map((code) => profileSectionsForInternalCode(code)).reduce((acc, next) => ({
+  const merged = list.map((code) => profileSectionsForInternalCode(code)).reduce((acc, next) => ({
     showPosts: true,
     showRealisations: acc.showRealisations || next.showRealisations,
     showProjets: acc.showProjets || next.showProjets,
@@ -235,6 +247,7 @@ export const profileSectionsForInternalCodes = (
     showServices: acc.showServices || next.showServices,
     showProduits: acc.showProduits || next.showProduits,
   }));
+  return { ...merged, showRealisations: REALISATIONS_ENABLED && merged.showRealisations };
 };
 
 export type CategoryTagged = {

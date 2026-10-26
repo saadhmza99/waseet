@@ -1,0 +1,170 @@
+[
+  {
+    "id": "1654a8d5-a27b-548d-a50f-a51789c06895",
+    "username": "lahlou-workers",
+    "full_name": "LAHLOU WORKERS",
+    "profession": "Gros œuvre",
+    "location": "Agadir",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://lahlou-workers.com/",
+    "seed_len": 1126,
+    "about_seed": "LAHLOU WORKERS, entreprise de construction fondée en 2022, s'appuie sur une solide expérience internationale dans la réalisation d'ouvrages de prestige.\r\n\r\nSpécialisés dans les hôtels de luxe, complexes résidentiels haut de gamme et immeubles de bureaux, nous avons développé une expertise reconnue auprès d'une clientèle internationale exigeante. Notre savoir-faire s'étend de la conception à la livraison, en maîtrisant les standards internationaux les plus élevés. Chaque projet reflète notre engagement envers l'excellence, alliant techniques de construction innovantes, matériaux nobles et finitions irréprochables.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 4 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQ"
+  },
+  {
+    "id": "6eaffd4d-fac0-5f44-b5bc-c149acc27cca",
+    "username": "legbtp",
+    "full_name": "LEGBTP",
+    "profession": "Laboratoire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://legbtp.ma",
+    "seed_len": 1014,
+    "about_seed": "Depuis notre création en 2007, LEGBTP se veut être un laboratoire géotechnique leader dans le domaine du BTP au Maroc.\r\n\r\nEn effet, il a développé Notre champ d’activités au fur et à mesure de son évolution. Celui-ci englobe actuellement les études géotechniques dans leur sens le plus large, conformément à la norme NF P 94-500, les études hydrologiques, hydrogéologiques et géophysiques, les expertises géotechniques et structurelles, ainsi que le contrôle de la qualité des travaux et des matériaux de construction.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 19 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Ca"
+  },
+  {
+    "id": "542b5ae1-7783-55f0-a3f4-902e5c5165f2",
+    "username": "livingspace-ma",
+    "full_name": "LivingSpace.ma",
+    "profession": "Vidéo et photo immobilière",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.5",
+        "label": "Mobilier"
+      }
+    ],
+    "website_url": "https://www.livingspace.ma/",
+    "seed_len": 603,
+    "about_seed": "Agence de marketing digital 360° spécialisée dans l'immobilier au Maroc.\r\n\r\nNous transformons vos projets en succès digitaux.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en vidéo et photo immobilière."
+  },
+  {
+    "id": "2b5322ae-f2a9-56be-8fb6-d60541b72794",
+    "username": "locaziz-location-de-materiel-et-outillag",
+    "full_name": "Locaziz - Location de matériel et outillage",
+    "profession": "Location d'engins de chantier",
+    "location": "Salé",
+    "specialties": [
+      {
+        "code": "3.5.2",
+        "label": "Équipements de chantier"
+      }
+    ],
+    "website_url": "https://locaziz.com/",
+    "seed_len": 731,
+    "about_seed": "Sur Locaziz, trouvez tout ce dont vous avez besoin en quelques clics : échelles, outillage, et bien plus encore.\r\n\r\nLocaziz – Location de matériel et outillage à Rabat/Salé ... Matériel de Chantier & Échafaudages de Façade.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Salé est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en location d'engins de chantier."
+  },
+  {
+    "id": "a74c6002-b4c8-5a0c-ad17-c1122c5f740e",
+    "username": "ma-industry",
+    "full_name": "MA industry",
+    "profession": "Thermal insulation",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/ma-industry",
+    "seed_len": 70,
+    "about_seed": "MA industry /Andross entreprise italienne plus 35ans dans le domaine ."
+  },
+  {
+    "id": "7b50b45f-ce3d-5de0-af66-9e846943c8a8",
+    "username": "mall-zellij-distribution",
+    "full_name": "Mall Zellij DIstribution",
+    "profession": "Salle de bain / Sanitaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.4",
+        "label": "Salle de bain"
+      },
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "3.3.1",
+        "label": "Revêtements"
+      }
+    ],
+    "website_url": "https://mallzellij.com",
+    "seed_len": 1200,
+    "about_seed": "Un acteur majeur dans l'importation et la distribution de carrelage, sanitaire et accessoires au Maroc.\r\n\r\nMallZellij se concentre essentiellement sur l’importation et la vente en B2B et B2C de carreaux et sanitaires provenant principalement d'Italie, d’Espagne, et de la Turquie afin de vous proposer les dernières tendances du marché. Forts de nos partenariats avec des usines renommées, nous offrons une large gamme de produits de qualité supérieure pour répondre aux besoins des particuliers et des professionnels. Avec un vaste stock et des références disponibles en continu, nous apportons des solutions esthétiques et durables pour tous vos projets, qu'il s'agisse de rénovation ou de nouvelles constructions.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 14 années d’expérience, nous mettons l’accent sur la qua"
+  },
+  {
+    "id": "c5ed677b-dce5-5569-8f6a-684a78513031",
+    "username": "maroc-modulaire-steel",
+    "full_name": "MAROC MODULAIRE STEEL",
+    "profession": "Bâtiment modulaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.6.3",
+        "label": "Sécurité"
+      }
+    ],
+    "website_url": "https://www.marocmodulairesteel.com",
+    "seed_len": 780,
+    "about_seed": "Nous somme societé specialisé dans le domaine de fabrication bâtiment modulaire sur mesure Bureau de chantier bureau de vente Guérite de gardiennage Etc........\r\n\r\nNous sommes une SARL créée en 2024, active dans le secteur « Bâtiments préfabriqués et modulaires » à Casablanca.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 13 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en bâtiment modulaire."
+  },
+  {
+    "id": "3819c6c5-2522-51b1-80f4-c3e3ef484065",
+    "username": "matra-equipement",
+    "full_name": "Matra Equipement",
+    "profession": "Matériel de chantier",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/matra-equipement",
+    "seed_len": 149,
+    "about_seed": "Ste Matra est une entreprise spécialisée dans la vente et la distribution de matériel de construction, notamment des pompes à projeter, des pompes à…"
+  },
+  {
+    "id": "750cca8a-ae5b-568d-966b-2c49f5101a43",
+    "username": "menage-pro",
+    "full_name": "MÉNAGE-PRO",
+    "profession": "Nettoyage de chantier",
+    "location": "Safi",
+    "specialties": [
+      {
+        "code": "8.6.1",
+        "label": "Nettoyage"
+      }
+    ],
+    "website_url": "https://menageprosafi.com/",
+    "seed_len": 756,
+    "about_seed": "SAFI • EL JADIDA • MARRAKECH www.menage-pro.ma.\r\n\r\nNous proposons des prestations de nettoyage de chantier adaptées aux besoins des particuliers, entreprises et professionnels du bâtiment. Chaque mission est cadrée sur devis, avec un suivi clair des étapes.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 3 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Safi est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en nettoyage de chantier."
+  },
+  {
+    "id": "d624e5a9-5a96-5793-af30-c77e5b93ee45",
+    "username": "metalnov",
+    "full_name": "METALNOV",
+    "profession": "Aménagement extérieur",
+    "location": "Fès",
+    "specialties": [
+      {
+        "code": "8.5.2",
+        "label": "Mobilier"
+      }
+    ],
+    "website_url": "https://Www.metalnov.ma",
+    "seed_len": 880,
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans le mobilier urbain, la fonderie et les travaux métalliques.\r\n\r\nNous fabriquons et posons des bancs, poubelles, poteaux d’éclairage, pièces en fonte pour réseaux d’eau et structures métalliques sur mesure. Notre mission est d’offrir des solutions durables, esthétiques et innovantes pour les collectivités et les projets publics.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Fès est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en aménagement extérieur."
+  }
+]

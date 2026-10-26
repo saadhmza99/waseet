@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { AlignLeft, ArrowLeft, Image as ImageIcon, MapPin, Plus, Trash2, Type, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
+import { DEFAULT_PRO_AVATAR_STORAGE_URL } from "@/lib/avatar";
 import { serviceService } from "@/services/serviceService";
+import { profileService } from "@/services/profileService";
 import { partitionByUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { RegionSelect } from "@/components/CityPicker";
 import { allMoroccoCities } from "@/lib/moroccoPlaces";
@@ -72,6 +74,26 @@ const CreateServiceForm = () => {
     if (draft && (draft.title || draft.description || draft.category || draft.internalCategoryId)) {
       setOffer({ ...emptyOffer(), ...draft, internalCategoryId: draft.internalCategoryId ?? null });
     }
+  }, [user]);
+
+  // Default cover = firm logo (profile avatar).
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    profileService
+      .getProfile(user.id)
+      .then((profile) => {
+        if (cancelled || !profile) return;
+        const logo = (profile.avatar_url || "").trim() || DEFAULT_PRO_AVATAR_STORAGE_URL;
+        setOffer((current) => {
+          if (current.cover || current.gallery.length) return current;
+          return { ...current, cover: logo, gallery: [logo] };
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   useEffect(() => {

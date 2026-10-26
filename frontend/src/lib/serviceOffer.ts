@@ -141,6 +141,12 @@ export const sanitizeOffer = (offer: ServiceOffer): ServiceOffer => {
 export const servicePhotos = (offer: Pick<ServiceOffer, "gallery">): string[] =>
   (offer.gallery || []).map((url) => String(url || "").trim()).filter(Boolean);
 
+export const SERVICE_COVER_FALLBACK =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400"><rect width="640" height="400" fill="#e7ebe8"/><text x="50%" y="50%" text-anchor="middle" fill="#8b948e" font-family="sans-serif" font-size="18">Service</text></svg>`
+  );
+
 /** Logo-only covers (no gallery photos) stay contained; photo services use gallery. */
 export const serviceCoverIsLogo = (offer: Pick<ServiceOffer, "cover" | "gallery">) =>
   Boolean(String(offer.cover || "").trim() && !servicePhotos(offer).length);

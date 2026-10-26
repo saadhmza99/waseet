@@ -1,3 +1,4 @@
+import { isMissingAvatarUrl } from "@/lib/avatar";
 import { clampBio } from "@/lib/bio";
 import { supabase } from '@/lib/supabase';
 
@@ -21,6 +22,66 @@ const withClampedBio = <T extends { bio?: string | null } | null>(row: T): T => 
   if (!row || row.bio == null) return row;
   const next = clampBio(row.bio);
   return next === row.bio ? row : { ...row, bio: next };
+};
+
+/** Specialty / category key used to interleave Discover "tout" results. */
+const discoverMixKey = (row: Record<string, unknown>) => {
+  const pics = row.profile_internal_categories;
+  const list = Array.isArray(pics) ? pics : pics ? [pics] : [];
+  const primary =
+    list.find((item) => Boolean((item as { is_primary?: boolean })?.is_primary)) || list[0];
+  const nested = (primary as { internal_categories?: Record<string, unknown> } | undefined)
+    ?.internal_categories;
+  const code = String(nested?.code || "").trim();
+  if (code) return code;
+  const feed = nested?.feed_sub_categories as
+    | { slug?: string; categories?: { slug?: string } }
+    | { slug?: string; categories?: { slug?: string } }[]
+    | undefined;
+  const feedOne = Array.isArray(feed) ? feed[0] : feed;
+  const sub = String(feedOne?.slug || "").trim();
+  if (sub) return sub;
+  const cat = String(feedOne?.categories?.slug || "").trim();
+  if (cat) return cat;
+  const legacy = row.internal_categories as { code?: string } | null | undefined;
+  return String(legacy?.code || row.profession || "_").trim() || "_";
+};
+
+/** Round-robin rows across specialty buckets so "tout" isn't one field then the next. */
+const interleaveByMixKey = <T extends Record<string, unknown>>(rows: T[]) => {
+  const buckets = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = discoverMixKey(row);
+    const list = buckets.get(key);
+    if (list) list.push(row);
+    else buckets.set(key, [row]);
+  }
+  const queues = [...buckets.values()];
+  const out: T[] = [];
+  let guard = 0;
+  while (out.length < rows.length && guard < rows.length * 4) {
+    for (const queue of queues) {
+      if (!queue.length) continue;
+      out.push(queue.shift()!);
+      if (out.length >= rows.length) break;
+    }
+    guard += 1;
+  }
+  return out;
+};
+
+/**
+ * Browse ranking (no text search): real avatars first, then specialty mix for "tout".
+ * Text search keeps DB order so relevance isn't reshuffled.
+ */
+const rankDiscoverBrowse = <T extends { avatar_url?: string | null } & Record<string, unknown>>(
+  rows: T[],
+  { mixCategories }: { mixCategories: boolean },
+) => {
+  const withPhoto = rows.filter((row) => !isMissingAvatarUrl(row.avatar_url));
+  const withoutPhoto = rows.filter((row) => isMissingAvatarUrl(row.avatar_url));
+  if (!mixCategories) return [...withPhoto, ...withoutPhoto];
+  return [...interleaveByMixKey(withPhoto), ...interleaveByMixKey(withoutPhoto)];
 };
 
 export const profileService = {
@@ -75,8 +136,68 @@ export const profileService = {
     return withClampedBio(data);
   },
 
-  async listProfessionals(limit = 120, offset = 0, filters?: { city?: string | null }) {
+  async listProfessionals(
+    limit = 24,
+    offset = 0,
+    filters?: {
+      city?: string | null;
+      /** Free-text name / username / profession search (server-side). */
+      query?: string | null;
+      /** Feed category slug (e.g. construction-btp). Ignored when promoteur/fournisseur. */
+      feedCategory?: string | null;
+      feedSubCategory?: string | null;
+      promoteurOnly?: boolean;
+      fournisseurOnly?: boolean;
+    },
+  ): Promise<{ rows: any[]; nextOffset: number }> {
     const city = (filters?.city || "").trim();
+    const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
+    const feedCategory = (filters?.feedCategory || "").trim();
+    const feedSubCategory = (filters?.feedSubCategory || "").trim();
+    const promoteurOnly = Boolean(filters?.promoteurOnly);
+    const fournisseurOnly = Boolean(filters?.fournisseurOnly);
+    const needsCodeFilter = promoteurOnly || fournisseurOnly;
+    const needsFeedFilter = Boolean(feedSubCategory || (feedCategory && feedCategory !== "tout"));
+    const needsTaxonomyFilter = needsCodeFilter || needsFeedFilter;
+
+    const picEmbed = needsFeedFilter
+      ? `profile_internal_categories!inner (
+          is_primary,
+          internal_categories!inner (
+            code,
+            feed_sub_categories!inner (
+              slug,
+              categories!inner ( slug )
+            )
+          )
+        )`
+      : needsCodeFilter
+        ? `profile_internal_categories!inner (
+          is_primary,
+          internal_categories!inner (
+            code,
+            feed_sub_categories ( slug, categories ( slug ) )
+          )
+        )`
+        : `profile_internal_categories (
+          is_primary,
+          internal_categories (
+            code,
+            feed_sub_categories ( slug, categories ( slug ) )
+          )
+        )`;
+
+    const taxonomyEmbed = `
+        internal_categories!profiles_internal_category_id_fkey (
+          code,
+          feed_sub_categories ( slug, categories ( slug ) )
+        ),
+        ${picEmbed}
+      `;
+
+    const browsing = !queryText;
+    const mixCategories = browsing && !needsTaxonomyFilter;
+
     let query = supabase
       .from("profiles")
       .select(
@@ -87,31 +208,60 @@ export const profileService = {
         avatar_url,
         location,
         profession,
-        internal_categories!profiles_internal_category_id_fkey (
-          code,
-          feed_sub_categories (
-            slug,
-            categories ( slug )
-          )
-        ),
-        profile_internal_categories (
-          is_primary,
-          internal_categories (
-            code,
-            feed_sub_categories (
-              slug,
-              categories ( slug )
-            )
-          )
-        )
+        created_at,
+        ${taxonomyEmbed}
       `,
       )
       .not("username", "is", null)
-      .order("created_at", { ascending: false });
+      // UUID order mixes seed batches better than created_at for "tout" browse.
+      .order(mixCategories ? "id" : "created_at", { ascending: mixCategories ? true : false });
+
     if (city) query = query.ilike("location", `%${city}%`);
-    const { data, error } = await query.range(offset, offset + Math.max(limit - 1, 0));
+    if (queryText) {
+      const needle = `"%${queryText}%"`;
+      query = query.or(
+        `full_name.ilike.${needle},username.ilike.${needle},profession.ilike.${needle},location.ilike.${needle}`,
+      );
+    }
+
+    if (promoteurOnly) {
+      query = query.eq("profile_internal_categories.internal_categories.code", "1.2.1");
+    } else if (fournisseurOnly) {
+      query = query.like("profile_internal_categories.internal_categories.code", "8.5.%");
+    } else if (feedSubCategory) {
+      query = query.eq(
+        "profile_internal_categories.internal_categories.feed_sub_categories.slug",
+        feedSubCategory,
+      );
+    } else if (feedCategory && feedCategory !== "tout") {
+      query = query.eq(
+        "profile_internal_categories.internal_categories.feed_sub_categories.categories.slug",
+        feedCategory,
+      );
+    }
+
+    // Wider window: taxonomy !inner duplicates, and browse reorders for mix / real avatars.
+    const window = browsing || needsTaxonomyFilter
+      ? Math.min(Math.max(limit * (mixCategories ? 5 : 3), limit), mixCategories ? 120 : 48)
+      : limit;
+    const { data, error } = await query.range(offset, offset + Math.max(window - 1, 0));
     if (error) throw error;
-    return data || [];
+    const raw = data || [];
+    const seen = new Set<string>();
+    const unique: typeof raw = [];
+    for (const row of raw) {
+      const id = String((row as { id?: string }).id || "");
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      unique.push(row);
+    }
+    const ranked = browsing
+      ? rankDiscoverBrowse(unique as Array<{ avatar_url?: string | null } & Record<string, unknown>>, {
+          mixCategories,
+        })
+      : unique;
+    const rows = ranked.slice(0, limit);
+    return { rows, nextOffset: offset + raw.length };
   },
 
   // Update profile and keep auth.users user_metadata in step (no full_name column there).

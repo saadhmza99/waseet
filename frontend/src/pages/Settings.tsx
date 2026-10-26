@@ -16,6 +16,7 @@ import { visitorService } from "@/services/visitorService";
 import { supabase } from "@/lib/supabase";
 import { isWithinUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { getDefaultAvatar } from "@/lib/avatar";
+import { USERNAMES_ENABLED, profileMemberLabel } from "@/lib/profileHandle";
 import { toast } from "@/components/ui/use-toast";
 import { userSettingsService } from "@/services/userSettingsService";
 import { muteService, type MutedAccount } from "@/services/muteService";
@@ -299,7 +300,7 @@ const Settings = () => {
         : extraSites.join("\n") || null;
 
       await profileService.updateProfile(user.id, {
-        username: username.trim() || profile.username,
+        username: USERNAMES_ENABLED ? username.trim() || profile.username : profile.username,
         full_name: fullName.trim(),
         bio: bio.slice(0, MAX_BIO_LENGTH),
         profession: profile.profession,
@@ -416,7 +417,7 @@ const Settings = () => {
               <img
                 src={avatarPreview}
                 alt="Avatar"
-                className="w-16 h-16 rounded-full object-cover border border-border"
+                className="w-16 h-16 rounded-2xl object-cover border border-border"
               />
               <div className="flex gap-2">
                 <label className="cursor-pointer">
@@ -474,17 +475,19 @@ const Settings = () => {
               />
             ) : null}
 
-            <div>
-              <Label htmlFor="username" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
-                Username
-              </Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Votre username"
-              />
-            </div>
+            {USERNAMES_ENABLED ? (
+              <div>
+                <Label htmlFor="username" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
+                  Username
+                </Label>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Votre username"
+                />
+              </div>
+            ) : null}
 
             <div>
               <Label htmlFor="fullname" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
@@ -558,12 +561,15 @@ const Settings = () => {
 
             <div>
               <Label htmlFor="bio" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
-                Bio
+                Bio (accroche courte)
               </Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Courte phrase sous votre nom. La présentation longue se rédige dans « À propos » sur le profil.
+              </p>
               <div className="relative">
                 <Textarea
                   id="bio"
-                  placeholder="Tell us about yourself..."
+                  placeholder="Accroche courte : métier, ville, spécialité…"
                   value={bio}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -600,8 +606,8 @@ const Settings = () => {
           <div className="space-y-4 sm:space-y-5">
             <p className="text-xs sm:text-sm text-muted-foreground">
               {allowsMultipleCategories
-                ? "Les entreprises peuvent ajouter plusieurs spécialités. La première (principale) place vos publications dans le fil."
-                : "Votre catégorie place vos publications dans le fil. Si vous la changez, vos anciennes publications restent dans leur catégorie d'origine."}
+                ? "Les entreprises peuvent ajouter plusieurs spécialités. Chaque spécialité débloque ses onglets profil (Biens, Projets, Réalisations, Services, Produits) ; la première (principale) place seulement vos publications dans le fil."
+                : "Votre catégorie place vos publications dans le fil et définit les onglets de votre profil. Si vous la changez, vos anciennes publications restent dans leur catégorie d'origine."}
             </p>
             {selectedCategoryRows.length ? (
               <ul className="space-y-2">
@@ -825,10 +831,12 @@ const Settings = () => {
                   <img
                     src={row.avatarUrl || getDefaultAvatar(row.profileType || undefined)}
                     alt=""
-                    className="h-10 w-10 rounded-full object-cover"
+                    className="h-10 w-10 rounded-2xl object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{profileHandle(row.username)}</p>
+                    <p className="truncate font-semibold">
+                      {profileMemberLabel(row.fullName, row.username)}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {row.mutePosts && row.muteServices
                         ? "Posts and services"

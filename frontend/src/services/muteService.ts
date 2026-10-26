@@ -5,6 +5,7 @@ export type MuteScope = "posts" | "services" | "both";
 export type MutedAccount = {
   mutedId: string;
   username: string;
+  fullName: string;
   avatarUrl: string | null;
   profileType?: string | null;
   mutePosts: boolean;
@@ -47,6 +48,7 @@ export const muteService = {
         created_at,
         profiles:muted_id (
           username,
+          full_name,
           avatar_url,
           profile_type
         )
@@ -62,6 +64,7 @@ export const muteService = {
       return {
         mutedId: row.muted_id,
         username: profile?.username || "",
+        fullName: profile?.full_name || "",
         avatarUrl: profile?.avatar_url || null,
         profileType: profile?.profile_type || null,
         mutePosts: Boolean(row.mute_posts),

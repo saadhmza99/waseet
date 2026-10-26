@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useNavigate, useParams, useSearchParams, Navigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import ProfileHeader from "@/components/ProfileHeader";
+import ProfileHeader, { COVER_PHOTOS_ENABLED } from "@/components/ProfileHeader";
 import ProfilePageSkeleton, { ProfileMediaGridSkeleton } from "@/components/ProfilePageSkeleton";
 import ReviewCard from "@/components/ReviewCard";
 import FeedPost from "@/components/FeedPost";
@@ -34,6 +34,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -48,11 +49,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
-import { getDefaultAvatar } from "@/lib/avatar";
+import { getDefaultAvatar, resolveAvatarUrl } from "@/lib/avatar";
 import { cityFromPost } from "@/lib/feedLocation";
 import { contactPhone } from "@/lib/propertyListing";
 import { catalogService } from "@/services/catalogService";
-import { profileHandle } from "@/lib/profileHandle";
+import { USERNAMES_ENABLED, profileMemberLabel } from "@/lib/profileHandle";
 import AboutRichEditor from "@/components/AboutRichEditor";
 import { aboutHtmlIsEmpty, sanitizeAboutHtml, toAboutHtml } from "@/lib/aboutHtml";
 import PortfolioGrid from "@/components/PortfolioGrid";
@@ -74,6 +75,8 @@ import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import { profileSectionsForInternalCodes } from "@/lib/taxonomy";
 import { MAX_BIO_LENGTH } from "@/lib/bio";
+import { realisationService, type RealisationRow } from "@/services/realisationService";
+import FullScreenPopup from "@/components/FullScreenPopup";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
 
 const tabs = ["Infos", "Posts", "Réalisations", "Projets", "Biens", "Services", "Produits"] as const;
@@ -105,21 +108,50 @@ const queryToTab: Record<string, ProfileTab> = {
   reels: "Posts",
 };
 
-const internalCategoryCodesOf = (profile: any): string[] => {
+const internalCategoryLinksOf = (profile: any) => {
   const links = Array.isArray(profile?.profile_internal_categories)
     ? profile.profile_internal_categories
     : [];
   const fromLinks = links
     .map((link: any) => {
       const cat = link?.internal_categories ?? link?.internal_category;
-      if (Array.isArray(cat)) return cat[0]?.code;
-      return cat?.code;
+      const row = Array.isArray(cat) ? cat[0] : cat;
+      if (!row?.code) return null;
+      return {
+        code: String(row.code),
+        label: String(row.detailed_sub_category || row.code).trim(),
+        isPrimary: Boolean(link?.is_primary),
+      };
     })
-    .filter(Boolean) as string[];
-  if (fromLinks.length) return Array.from(new Set(fromLinks));
+    .filter(Boolean) as { code: string; label: string; isPrimary: boolean }[];
+  if (fromLinks.length) {
+    return [...fromLinks].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
+  }
   const raw = profile?.internal_category;
-  const single = Array.isArray(raw) ? raw[0]?.code : raw?.code;
-  return single ? [single] : [];
+  const single = Array.isArray(raw) ? raw[0] : raw;
+  if (!single?.code) return [];
+  return [
+    {
+      code: String(single.code),
+      label: String(single.detailed_sub_category || single.code).trim(),
+      isPrimary: true,
+    },
+  ];
+};
+
+const internalCategoryCodesOf = (profile: any): string[] =>
+  Array.from(new Set(internalCategoryLinksOf(profile).map((row) => row.code)));
+
+const internalCategoryLabelsOf = (profile: any): string[] => {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const row of internalCategoryLinksOf(profile)) {
+    const label = row.label.trim();
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    labels.push(label);
+  }
+  return labels;
 };
 
 const PAGE = {
@@ -129,6 +161,7 @@ const PAGE = {
   products: 12,
   properties: 12,
   projects: 10,
+  realisations: 12,
 } as const;
 
 const takePage = <T,>(rows: T[] | null | undefined, limit: number) => {
@@ -326,7 +359,7 @@ const PhotoEditControl = ({
       ) : (
         <div className="flex items-center gap-3">
           {previewSrc ? (
-            <img src={previewSrc} alt="" className="h-20 w-20 rounded-full object-cover bg-muted" />
+            <img src={previewSrc} alt="" className="h-20 w-20 rounded-2xl object-cover bg-muted" />
           ) : (
             <div className="h-20 w-20 rounded-full bg-muted" />
           )}
@@ -377,11 +410,13 @@ const Profile = () => {
     () => posts.filter((post) => !post?.post_type || post.post_type === "standard"),
     [posts]
   );
-  const realisationPosts = useMemo(
-    () => posts.filter((post) => post?.post_type === "realisation"),
-    [posts]
-  );
-  const tabPosts = activeTab === "Réalisations" ? realisationPosts : standardPosts;
+  const tabPosts = standardPosts;
+  const [realisations, setRealisations] = useState<RealisationRow[]>([]);
+  const [realisationsHasMore, setRealisationsHasMore] = useState(false);
+  const [loadingMoreRealisations, setLoadingMoreRealisations] = useState(false);
+  const [realisationsCount, setRealisationsCount] = useState<number | null>(null);
+  const [realisationsReady, setRealisationsReady] = useState(false);
+  const [selectedRealisation, setSelectedRealisation] = useState<RealisationRow | null>(null);
   const [listings, setListings] = useState<any[]>(bootBundle?.listings ?? []);
   const [listingsHasMore, setListingsHasMore] = useState(Boolean(bootBundle?.listingsHasMore));
   const [loadingMoreListings, setLoadingMoreListings] = useState(false);
@@ -562,6 +597,9 @@ const Profile = () => {
       setProjectsCount(bundle.projectsCount ?? bundle.projectItems.length);
       setListingsCount(bundle.listingsCount);
       setProductsCount(bundle.productsCount ?? bundle.products?.length ?? 0);
+      setRealisations(bundle.realisations || []);
+      setRealisationsHasMore(Boolean(bundle.realisationsHasMore));
+      setRealisationsCount(bundle.realisationsCount ?? bundle.realisations?.length ?? 0);
       setFollowers(bundle.followers);
       setIsBlockedProfile(bundle.isBlockedProfile);
       setIsFollowing(bundle.isFollowing);
@@ -571,6 +609,7 @@ const Profile = () => {
       setPortfolioReady(true);
       setServicesReady(true);
       setProductsReady(true);
+      setRealisationsReady(true);
     },
     [user?.id, user?.email]
   );
@@ -594,11 +633,13 @@ const Profile = () => {
       setPortfolioReady(false);
       setServicesReady(false);
       setProductsReady(false);
+      setRealisationsReady(false);
       setPostsCount(null);
       setPropertiesCount(null);
       setProjectsCount(null);
       setListingsCount(null);
       setProductsCount(null);
+      setRealisationsCount(null);
     }
   }, [id, applyBundle]);
 
@@ -630,8 +671,10 @@ const Profile = () => {
         setReelsReady(false);
         setPortfolioReady(false);
         setServicesReady(false);
+        setRealisationsReady(false);
         setProfile(null);
         setPosts([]);
+        setRealisations([]);
         setPropertyItems([]);
         setProjectItems([]);
         setListings([]);
@@ -642,6 +685,7 @@ const Profile = () => {
         setPropertiesCount(null);
         setProjectsCount(null);
         setListingsCount(null);
+        setRealisationsCount(null);
 
         let profileData = null;
         if (slug) {
@@ -664,6 +708,7 @@ const Profile = () => {
           setPortfolioReady(true);
           setServicesReady(true);
           setProductsReady(true);
+          setRealisationsReady(true);
           return;
         }
 
@@ -691,6 +736,20 @@ const Profile = () => {
             setPostsHasMore(page.hasMore);
             setPostsCount(count);
             setPostsReady(true);
+          }
+          return { page, count };
+        });
+        const realisationsTask = settle(
+          realisationService.listByUser(profileData.id, PAGE.realisations, 0),
+          Object.assign([], { totalCount: 0 }),
+        ).then((rows) => {
+          const page = takePage(rows, PAGE.realisations);
+          const count = totalCountOf(rows);
+          if (alive()) {
+            setRealisations(page.items);
+            setRealisationsHasMore(page.hasMore);
+            setRealisationsCount(count);
+            setRealisationsReady(true);
           }
           return { page, count };
         });
@@ -773,9 +832,10 @@ const Profile = () => {
           return following;
         });
 
-        const [postsResult, listingsResult, productsResult, reelsPage, propertiesPage, projectsPage, reviews, followers, isBlocked, following] =
+        const [postsResult, realisationsResult, listingsResult, productsResult, reelsPage, propertiesPage, projectsPage, reviews, followers, isBlocked, following] =
           await Promise.all([
             postsTask,
+            realisationsTask,
             listingsTask,
             productsTask,
             reelsTask,
@@ -809,6 +869,9 @@ const Profile = () => {
           projectsCount: projectsTotal,
           listingsCount: listingsResult.count,
           productsCount: productsResult.count,
+          realisations: realisationsResult.page.items,
+          realisationsHasMore: realisationsResult.page.hasMore,
+          realisationsCount: realisationsResult.count,
           followers,
           isBlockedProfile: isBlocked,
           isFollowing: following,
@@ -827,6 +890,7 @@ const Profile = () => {
         setPortfolioReady(true);
         setServicesReady(true);
         setProductsReady(true);
+        setRealisationsReady(true);
       }
     };
 
@@ -897,8 +961,8 @@ const Profile = () => {
           profile.username &&
           String(currentProfile.username).toLowerCase() === String(profile.username).toLowerCase()))
   );
-  const profileAvatar = profile?.avatar_url || getDefaultAvatar(profile?.profile_type);
-  const memberLabel = profileHandle(profile?.username);
+  const profileAvatar = resolveAvatarUrl(profile?.avatar_url, profile?.profile_type);
+  const memberLabel = profileMemberLabel(profile?.full_name, profile?.username);
 
   const loadMorePosts = async () => {
     if (!profile?.id || loadingMorePosts || !postsHasMore) return;
@@ -1154,13 +1218,16 @@ const Profile = () => {
     if (!user || !isOwnProfile) return;
     setSavingProfile(true);
     try {
-      const nextUsername = editForm.username.trim().toLowerCase();
-      if (nextUsername && nextUsername !== (profile.username || "").toLowerCase()) {
-        const existingProfile = await profileService.getProfileByUsername(nextUsername).catch(() => null);
-        if (existingProfile && existingProfile.id !== user.id) {
-          toast({ title: "Username indisponible", description: "Ce username est deja pris." });
-          setSavingProfile(false);
-          return;
+      let nextUsername = profile.username;
+      if (USERNAMES_ENABLED) {
+        nextUsername = editForm.username.trim().toLowerCase();
+        if (nextUsername && nextUsername !== (profile.username || "").toLowerCase()) {
+          const existingProfile = await profileService.getProfileByUsername(nextUsername).catch(() => null);
+          if (existingProfile && existingProfile.id !== user.id) {
+            toast({ title: "Username indisponible", description: "Ce username est deja pris." });
+            setSavingProfile(false);
+            return;
+          }
         }
       }
       let avatarUrl: string | null = profile.avatar_url || null;
@@ -1169,20 +1236,23 @@ const Profile = () => {
       } else if (profileImageFile) {
         avatarUrl = await storageService.uploadImage(profileImageFile, "avatars");
       }
-      let coverPhotoUrl: string | null = profile.cover_photo_url || null;
-      if (removeCover) {
-        coverPhotoUrl = null;
-      } else if (coverImageFile) {
-        coverPhotoUrl = await storageService.uploadImage(coverImageFile, "covers");
-      }
-      const updated = await profileService.updateProfile(user.id, {
+      const profilePatch: Parameters<typeof profileService.updateProfile>[1] = {
         username: nextUsername || profile.username,
         full_name: editForm.fullName.trim() || profile.full_name,
         bio: editForm.bio.slice(0, MAX_BIO_LENGTH),
         profile_type: profile.profile_type,
         avatar_url: avatarUrl,
-        cover_photo_url: coverPhotoUrl,
-      });
+      };
+      if (COVER_PHOTOS_ENABLED) {
+        let coverPhotoUrl: string | null = profile.cover_photo_url || null;
+        if (removeCover) {
+          coverPhotoUrl = null;
+        } else if (coverImageFile) {
+          coverPhotoUrl = await storageService.uploadImage(coverImageFile, "covers");
+        }
+        profilePatch.cover_photo_url = coverPhotoUrl;
+      }
+      const updated = await profileService.updateProfile(user.id, profilePatch);
       setProfile(updated);
       setEditingAbout(false);
       setShowEditProfileModal(false);
@@ -1216,7 +1286,7 @@ const Profile = () => {
 
       const updated = await profileService.updateProfile(user.id, {
         phone: editForm.phone.trim() || null,
-        email: editForm.email.trim() || null,
+        location: editForm.location.trim() || null,
         website_url,
       });
       setProfile(updated);
@@ -1332,9 +1402,10 @@ const Profile = () => {
         avatar={profileAvatar}
         fullName={profile.full_name || profile.username}
         username={profile.username || "Utilisateur"}
-        coverPhoto={profile.cover_photo_url}
+        coverPhoto={undefined}
         bio={profile.bio}
         ice={profile.ice}
+        specialties={internalCategoryLabelsOf(profile)}
         profession={profile.profession}
         location={profile.location}
         isOwnProfile={isOwnProfile}
@@ -1389,7 +1460,7 @@ const Profile = () => {
                     : tab === "Posts"
                       ? standardPosts.length
                       : tab === "Réalisations"
-                        ? realisationPosts.length
+                        ? realisationsCount ?? realisations.length
                       : tab === "Projets"
                         ? projectsCount
                         : tab === "Biens"
@@ -1440,7 +1511,6 @@ const Profile = () => {
                   <ProfileDetailsFields
                     profile={profile}
                     isOwnProfile={isOwnProfile}
-                    userEmail={user?.email}
                     onEdit={openInfosEditor}
                   />
                 </div>
@@ -1471,7 +1541,7 @@ const Profile = () => {
               </div>
 
               <section className="px-4 sm:px-6 md:px-8">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
                   <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
                     À propos
                   </h3>
@@ -1621,7 +1691,138 @@ const Profile = () => {
             </div>
           )}
 
-          {!showReviews && (activeTab === "Posts" || activeTab === "Réalisations") && (
+          {!showReviews && activeTab === "Réalisations" && (
+            <div>
+              <div className="mb-1 flex items-center justify-end gap-1 border-b border-border px-1 py-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copySectionLink("Réalisations", "Réalisations")}
+                  className="h-8 w-8 shrink-0"
+                  aria-label="Partager les réalisations"
+                  title="Partager les réalisations"
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
+              {!realisationsReady ? (
+                <ProfileMediaGridSkeleton />
+              ) : realisations.length === 0 ? (
+                <div className="py-10 text-center text-base text-muted-foreground">
+                  Aucune réalisation publiée.
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {realisations.map((item) => {
+                      const cover =
+                        item.cover ||
+                        (Array.isArray(item.images) ? item.images[0] : "") ||
+                        "";
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setSelectedRealisation(item)}
+                          className="group overflow-hidden rounded-lg border border-border bg-card text-left"
+                        >
+                          <div className="aspect-[4/3] overflow-hidden bg-muted">
+                            {cover ? (
+                              <RetryImage
+                                src={cover}
+                                alt={item.title}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                                Photo
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-0.5 p-2.5">
+                            <p className="line-clamp-2 text-sm font-semibold text-card-foreground">
+                              {item.title}
+                            </p>
+                            {item.city ? (
+                              <p className="truncate text-xs text-muted-foreground">{item.city}</p>
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {realisationsHasMore ? (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={loadingMoreRealisations}
+                        onClick={async () => {
+                          if (!profile?.id || loadingMoreRealisations) return;
+                          setLoadingMoreRealisations(true);
+                          try {
+                            const rows = await realisationService.listByUser(
+                              profile.id,
+                              PAGE.realisations,
+                              realisations.length,
+                            );
+                            const page = takePage(rows, PAGE.realisations);
+                            setRealisations((prev) => [...prev, ...page.items]);
+                            setRealisationsHasMore(page.hasMore);
+                          } catch (error) {
+                            console.error(error);
+                          } finally {
+                            setLoadingMoreRealisations(false);
+                          }
+                        }}
+                      >
+                        {loadingMoreRealisations ? "Chargement..." : "Charger plus"}
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              <FullScreenPopup
+                open={Boolean(selectedRealisation)}
+                onClose={() => setSelectedRealisation(null)}
+              >
+                {selectedRealisation ? (
+                  <div className="h-full overflow-y-auto">
+                    <div className="space-y-4 px-4 pb-8 pt-12 sm:px-6">
+                      <h2 className="text-xl font-semibold text-card-foreground">
+                        {selectedRealisation.title}
+                      </h2>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(selectedRealisation.images?.length
+                          ? selectedRealisation.images
+                          : selectedRealisation.cover
+                            ? [selectedRealisation.cover]
+                            : []
+                        ).map((src) => (
+                          <RetryImage
+                            key={src}
+                            src={src}
+                            alt={selectedRealisation.title}
+                            className="w-full rounded-lg object-cover"
+                          />
+                        ))}
+                      </div>
+                      {selectedRealisation.city ? (
+                        <p className="text-sm text-muted-foreground">{selectedRealisation.city}</p>
+                      ) : null}
+                      {selectedRealisation.description ? (
+                        <p className="whitespace-pre-wrap text-base leading-relaxed text-card-foreground">
+                          {selectedRealisation.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </FullScreenPopup>
+            </div>
+          )}
+
+          {!showReviews && activeTab === "Posts" && (
             <div>
               <div className="mb-1 flex items-center justify-end gap-1 border-b border-border px-1 py-1">
                 <div className="inline-flex rounded-md border border-border p-0.5">
@@ -1676,7 +1877,7 @@ const Profile = () => {
                     <ProfileMediaGridSkeleton />
                   ) : tabPosts.length === 0 ? (
                     <div className="py-10 text-center text-base text-muted-foreground">
-                      {activeTab === "Réalisations" ? "Aucune réalisation publiée." : "Aucun post publié."}
+                      Aucun post publié.
                     </div>
                   ) : feedPostId ? (
                     <div className="scroll-mt-2">
@@ -2000,7 +2201,7 @@ const Profile = () => {
                 reviews.map((review) => (
                   <div key={review.id} className="overflow-hidden border-t border-border bg-card sm:rounded-lg sm:border">
                     <ReviewCard
-                      avatar={review.reviewer?.avatar_url || getDefaultAvatar("individual")}
+                      avatar={resolveAvatarUrl(review.reviewer?.avatar_url, "individual")}
                       username={review.reviewer?.username || "Utilisateur"}
                       isVerified={Boolean(review.reviewer?.is_verified)}
                       timeAgo={formatTimeAgo(review.created_at)}
@@ -2037,12 +2238,12 @@ const Profile = () => {
                   }}
                 >
                   <img
-                    src={follower.profiles?.avatar_url || getDefaultAvatar("individual")}
-                    alt={follower.profiles?.username || "Follower"}
-                    className="w-10 h-10 rounded-full object-cover"
+                    src={resolveAvatarUrl(follower.profiles?.avatar_url, "individual")}
+                    alt={profileMemberLabel(follower.profiles?.full_name, follower.profiles?.username)}
+                    className="w-10 h-10 rounded-2xl object-cover"
                   />
                   <p className="inline-flex items-center gap-1 font-medium text-card-foreground">
-                    @{follower.profiles?.username || "utilisateur"}
+                    {profileMemberLabel(follower.profiles?.full_name, follower.profiles?.username)}
                     <VerifiedBadge verified={follower.profiles?.is_verified} className="h-4 w-4" />
                   </p>
                 </button>
@@ -2069,30 +2270,32 @@ const Profile = () => {
             <DialogTitle>Edit profile</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <PhotoEditControl
-              label="Photo de couverture"
-              layout="cover"
-              previewSrc={
-                coverImageFile
-                  ? URL.createObjectURL(coverImageFile)
-                  : removeCover
-                    ? ""
-                    : profile.cover_photo_url || ""
-              }
-              canRemove={Boolean(coverImageFile || (profile.cover_photo_url && !removeCover))}
-              onTake={(file) => {
-                setCoverImageFile(file);
-                setRemoveCover(false);
-              }}
-              onLibrary={(file) => {
-                setCoverImageFile(file);
-                setRemoveCover(false);
-              }}
-              onRemove={() => {
-                setCoverImageFile(null);
-                setRemoveCover(true);
-              }}
-            />
+            {COVER_PHOTOS_ENABLED ? (
+              <PhotoEditControl
+                label="Photo de couverture"
+                layout="cover"
+                previewSrc={
+                  coverImageFile
+                    ? URL.createObjectURL(coverImageFile)
+                    : removeCover
+                      ? ""
+                      : profile.cover_photo_url || ""
+                }
+                canRemove={Boolean(coverImageFile || (profile.cover_photo_url && !removeCover))}
+                onTake={(file) => {
+                  setCoverImageFile(file);
+                  setRemoveCover(false);
+                }}
+                onLibrary={(file) => {
+                  setCoverImageFile(file);
+                  setRemoveCover(false);
+                }}
+                onRemove={() => {
+                  setCoverImageFile(null);
+                  setRemoveCover(true);
+                }}
+              />
+            ) : null}
 
             <PhotoEditControl
               label="Photo de profil"
@@ -2124,19 +2327,30 @@ const Profile = () => {
               onChange={(e) => setEditForm((prev) => ({ ...prev, fullName: e.target.value }))}
               placeholder="Nom complet"
             />
-            <Input
-              value={editForm.username}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, username: e.target.value }))}
-              placeholder="Nom d'utilisateur"
-            />
-            <Textarea
-              value={editForm.bio}
-              onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value.slice(0, MAX_BIO_LENGTH) }))}
-              rows={6}
-              maxLength={MAX_BIO_LENGTH}
-              placeholder="Bio"
-            />
-            <p className="text-xs text-muted-foreground text-right">{editForm.bio.length}/{MAX_BIO_LENGTH}</p>
+            {USERNAMES_ENABLED ? (
+              <Input
+                value={editForm.username}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, username: e.target.value }))}
+                placeholder="Nom d'utilisateur"
+              />
+            ) : null}
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-bio" className="text-sm font-medium">
+                Bio (accroche courte)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Visible sous votre nom. Distinct de la présentation « À propos ».
+              </p>
+              <Textarea
+                id="edit-bio"
+                value={editForm.bio}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value.slice(0, MAX_BIO_LENGTH) }))}
+                rows={4}
+                maxLength={MAX_BIO_LENGTH}
+                placeholder="Accroche courte : métier, ville, spécialité…"
+              />
+              <p className="text-xs text-muted-foreground text-right">{editForm.bio.length}/{MAX_BIO_LENGTH}</p>
+            </div>
 
             <div className="flex justify-end">
               <Button onClick={handleSaveProfile} disabled={savingProfile}>
@@ -2159,24 +2373,24 @@ const Profile = () => {
             <DialogTitle>
               {infosEditField === "all"
                 ? "Modifier les infos"
-                : infosEditField === "email"
-                  ? "Ajouter un email"
+                : infosEditField === "location"
+                  ? "Ajouter une adresse"
                   : infosEditField === "phone"
                     ? "Ajouter un téléphone"
                     : "Ajouter un site web"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {infosEditField === "all" || infosEditField === "email" ? (
+            {infosEditField === "all" || infosEditField === "location" ? (
             <div className="space-y-1.5">
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="Email de contact"
+              <Textarea
+                value={editForm.location}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
+                placeholder="Adresse (une ligne par lieu)"
+                rows={3}
               />
               <p className="text-xs leading-snug text-muted-foreground">
-                Email public affiché dans Infos. Il ne change pas l'email de connexion — celui-ci se gère dans Paramètres.
+                Adresse affichée dans Infos. Une ligne par lieu si vous en avez plusieurs.
               </p>
             </div>
             ) : null}

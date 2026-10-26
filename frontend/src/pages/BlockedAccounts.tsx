@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { moderationService } from "@/services/moderationService";
 import { getDefaultAvatar } from "@/lib/avatar";
-import { profileHandle } from "@/lib/profileHandle";
+import { profileMemberLabel } from "@/lib/profileHandle";
 import { toast } from "@/components/ui/use-toast";
 import BlockMemberModal from "@/components/BlockMemberModal";
 
@@ -90,10 +90,12 @@ const BlockedAccounts = () => {
                 <img
                   src={row.avatarUrl || getDefaultAvatar(row.profileType || undefined)}
                   alt=""
-                  className="h-12 w-12 shrink-0 rounded-full border border-border object-cover"
+                  className="h-12 w-12 shrink-0 rounded-2xl border border-border object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-card-foreground">{profileHandle(row.username)}</p>
+                  <p className="truncate font-semibold text-card-foreground">
+                    {profileMemberLabel(row.fullName, row.username)}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     Bloqué {formatDistanceToNow(new Date(row.blockedAt), { addSuffix: true, locale: fr })}
                   </p>

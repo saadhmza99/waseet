@@ -530,16 +530,14 @@ const Products = () => {
     </div>
   );
 
-  // Widen the rail when the left filter is open so the product grid keeps the same card width.
-  const railContentClass = selectedCategory
-    ? "mx-auto w-full px-4 lg:w-[min(84rem,calc(100vw-18rem))] lg:max-w-none lg:px-5"
-    : "mx-auto w-full px-4 lg:w-[min(64rem,calc(100vw-18rem))] lg:max-w-none lg:px-5";
+  // Full remaining width beside the desktop rail (Marché → Matériaux).
+  const railContentClass = "mx-auto w-full max-w-none px-4 lg:px-6 lg:pr-8";
 
   if (categoriesOpen) {
     return (
       <DesktopRailFrame
         className="min-h-screen bg-white pb-20 lg:pb-0"
-        contentClassName="mx-auto w-full px-4 lg:w-[min(64rem,calc(100vw-18rem))] lg:max-w-none lg:px-5"
+        contentClassName={railContentClass}
       >
         <div className="mx-auto w-full pt-4 lg:pt-0">
           <CategoryPicker
@@ -689,13 +687,12 @@ const Products = () => {
                           <img
                             src={pro.avatar_url || getDefaultAvatar("enterprise")}
                             alt=""
-                            className="h-12 w-12 shrink-0 rounded-full object-cover sm:h-14 sm:w-14"
+                            className="h-12 w-12 shrink-0 rounded-2xl object-cover sm:h-14 sm:w-14"
                           />
                           <span className="min-w-0">
                             <span className="block truncate text-base font-semibold text-neutral-950 sm:text-lg">
-                              {pro.full_name || `@${username}`}
+                              {pro.full_name || "Professionnel"}
                             </span>
-                            <span className="block truncate text-sm text-neutral-500 sm:text-base">@{username}</span>
                           </span>
                         </button>
                         <button

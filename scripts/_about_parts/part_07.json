@@ -1,0 +1,169 @@
+[
+  {
+    "id": "1f80216a-2af9-5321-a077-19333d178155",
+    "username": "priority-fire-equipment",
+    "full_name": "PRIORITY FIRE EQUIPMENT",
+    "profession": "Incendie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.8",
+        "label": "Sécurité incendie"
+      }
+    ],
+    "website_url": "https://www..priorityfire.ma",
+    "seed_len": 770,
+    "about_seed": "Bonjour, Nous PRIORITY FIRE EQUIPMENT est spécialisée dans l’étude, la fourniture, l’installation, la maintenance et la formation dans le domaine des systèmes de protection incendie.\r\n\r\nNous proposons des solutions fiables, performantes et conformes aux normes internationales.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 13 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en incendie."
+  },
+  {
+    "id": "9346c29f-3ff9-5d74-9fdb-039cee3ef96d",
+    "username": "propoly-industry",
+    "full_name": "Propoly Industry",
+    "profession": "Aménagement extérieur",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.3.5",
+        "label": "Aménagement extérieur"
+      }
+    ],
+    "website_url": "https://propolyindustry.com/",
+    "seed_len": 1200,
+    "about_seed": "Nous sommes une société marocaine spécialisée dans la fabrication et la transformation de matières plastiques.\r\n\r\nBasée à Casablanca, l’entreprise met à disposition son savoir-faire et ses équipements industriels modernes pour répondre aux besoins du secteur du bâtiment, de l’aménagement extérieur et de la construction légère. Grâce à sa machine de production dédiée, Propoly Industry fabrique des tôles en polyester de haute qualité, résistantes aux intempéries et adaptées à de multiples usages comme la couverture et le bardage de bâtiments, la réalisation d’abris, hangars et structures modulaires, mais aussi des solutions d’étanchéité et d’isolation ainsi que différentes applications dans l’aménagement extérieur et…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 4 années d’expérience, nous mettons l’accent su"
+  },
+  {
+    "id": "34ca4eb1-299b-5ec1-8011-bd4d994972f8",
+    "username": "quincaillerie-global",
+    "full_name": "Quincaillerie Global‭",
+    "profession": "Hard hat",
+    "location": "",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/quincaillerie-global",
+    "seed_len": 85,
+    "about_seed": "Distributeur d'EPI, quicaillerie, matériaux de construction et chantier à Casablanca."
+  },
+  {
+    "id": "2558db51-c880-4487-b597-d0ab273f48fc",
+    "username": "realestate",
+    "full_name": "Dakimm",
+    "profession": "Realtor",
+    "location": "Agadir, Souss Massa, Morocco\nRabat, Rabat Settat, Morocco",
+    "specialties": [],
+    "website_url": null,
+    "seed_len": 118,
+    "about_seed": "Nous sommes enterprise de Realtors.\r\nYour trusted partner for real estate in Agadir\r\nVillas | Appartements| Investment"
+  },
+  {
+    "id": "d4cb5d4a-6d99-514b-912d-17c94bcd8666",
+    "username": "rosaver",
+    "full_name": "Rosaver",
+    "profession": "Peinture",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.2",
+        "label": "Peinture"
+      }
+    ],
+    "website_url": "https://rennermaroc.com/",
+    "seed_len": 871,
+    "about_seed": "Importation et distribution des vernis (polyuréthane, nitrocellulosique, acrylique, polyester, hudro pour intérieur à extérieur), peintures (préparation RAL, couleur system), mastic en couleurs, effets spéciaux (craquelet,fluorescent, filant, effet marbre,....) lasures pour extérieur et colorants pour bois.\r\n\r\nImportation et distribution des diluants pour vernis et peinture .\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en peinture."
+  },
+  {
+    "id": "22cecb76-7288-5352-a9a1-04e25e0645bc",
+    "username": "s2g",
+    "full_name": "S2G",
+    "profession": "Laboratoire",
+    "location": "Mohammedia",
+    "specialties": [
+      {
+        "code": "3.4.2",
+        "label": "Bureau d’études"
+      }
+    ],
+    "website_url": "http://s2g.ma/",
+    "seed_len": 948,
+    "about_seed": "Nous sommes une société spécialisée dans les domaines de géotechnique, hydrogéologie et géophysique, Ingénierie des sols et matériaux, expertise technique, contrôle de qualité des travaux, contrôle NDT, investigation maritimes, Ingénierie de soudage, environnement et formation continue.\r\n\r\nNos spécialistes géotechniciens diagnostiquent les conditions d’un site donné et proposent, d’une façon optimale, des solutions pour y adopter l’ouvrage projeté.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 25 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Mohammedia est à votre écoute pour étudier votre besoin et vous prop"
+  },
+  {
+    "id": "e99227e7-babc-5237-be6f-4186d0e6d9b2",
+    "username": "saniramar-sarl",
+    "full_name": "SANIRAMAR SARL",
+    "profession": "Plomberie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      }
+    ],
+    "website_url": "https://www.saniramar.ma/",
+    "seed_len": 838,
+    "about_seed": "Nous sommes une société spécialisée dans la distribution des produits industriels et bâtiments depuis 2001, avec une large gamme de produits et des solutions adaptées à vos besoins.\r\n\r\nTEL : 05 22 24 91 07-94 01 EMAIL: a.saniramar@gmail.com ADRESSE: Casablanca ... Pour plus d'informations, @saniramar.sarl met tout en œuvre pour répondre à ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 24 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en plomberie."
+  },
+  {
+    "id": "87aaa768-a6cb-5093-aad2-e02b11fdce85",
+    "username": "santaire-2000-orobath",
+    "full_name": "Santaire 2000 Orobath",
+    "profession": "Bathroom furniture",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "3.3.1",
+        "label": "Revêtements"
+      }
+    ],
+    "website_url": "https://sanitaire2000.ma/",
+    "seed_len": 189,
+    "about_seed": "Depuis 1987, Sanitaire 2000 s'engage à offrir des solutions de carrelage et de sanitaire alliant qualité exceptionnelle et design innovant.\r\n\r\nDomaines d'expertise : Plomberie, Revêtements."
+  },
+  {
+    "id": "7c85ceee-b192-5cb5-a5be-f595f59b93de",
+    "username": "sbtp-smart-building-technologies-power",
+    "full_name": "SBTP (SMART BUILDING TECHNOLOGIES POWER )",
+    "profession": "Peinture",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.2",
+        "label": "Peinture"
+      },
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      },
+      {
+        "code": "7.5.2",
+        "label": "Domotique"
+      }
+    ],
+    "website_url": "https://www.smartpower.ma",
+    "seed_len": 1175,
+    "about_seed": "SBTP (SMART BUILDING TECHNOLOGIES POWER) est une entreprise marocaine spécialisée dans la fabrication et la commercialisation de solutions techniques pour le secteur du BTP.\r\n\r\nÀ travers sa marque POWER, SBTP propose une gamme complète de produits destinés à la construction, à la rénovation et à la finition : mortiers, colles, enduits, peintures, imperméabilisants, adjuvants et solutions techniques. Avec un savoir-faire marocain et une approche orientée performance, qualité et accompagnement, SBTP – POWER répond aux besoins des professionnels du bâtiment en proposant des solutions adaptées aux exigences des chantiers.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs."
+  },
+  {
+    "id": "4df4e655-ec70-5f13-bfb7-d826e727c68a",
+    "username": "sevolta",
+    "full_name": "Sevolta",
+    "profession": "Électricien",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/sevolta",
+    "seed_len": 141,
+    "about_seed": "Sté Electro Volt Ampère ( Sevolta ) expert en Electricité générale à Casablanca, Maroc. Contactez nous pour découvrez nos services de qualité"
+  }
+]

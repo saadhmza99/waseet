@@ -23,6 +23,9 @@ export type ProfileBufferBundle = {
   projectsCount?: number;
   listingsCount: number;
   productsCount: number;
+  realisations?: any[];
+  realisationsHasMore?: boolean;
+  realisationsCount?: number;
   followers: any[];
   isBlockedProfile: boolean;
   isFollowing: boolean;

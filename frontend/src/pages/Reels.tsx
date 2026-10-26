@@ -469,7 +469,9 @@ const Reels = () => {
     feedFrom === "saved"
       ? "Reels favoris"
       : feedFrom === "profile"
-      ? `Reels de ${playableReels[0]?.profiles?.username ? `@${playableReels[0].profiles.username}` : "ce profil"}`
+      ? `Reels de ${
+          (playableReels[0]?.profiles?.full_name || "").trim() || "ce profil"
+        }`
       : "";
 
   const activePlayableReelId =
@@ -681,7 +683,7 @@ const Reels = () => {
                     <img
                       src={reelProfile.avatar_url || getDefaultAvatar(reelProfile.profile_type)}
                       alt={reelProfile.username || ""}
-                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-white object-cover cursor-pointer"
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-white object-cover cursor-pointer"
                       onClick={() => navigate(`/profile/${reelProfile.username || ""}`)}
                     />
                     <div className="flex min-w-0 items-center gap-1">

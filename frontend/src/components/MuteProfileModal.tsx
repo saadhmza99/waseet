@@ -7,6 +7,7 @@ import type { MuteScope } from "@/services/muteService";
 type MuteProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  /** Display name (full name preferred; not @username). */
   handle: string;
   submitting?: boolean;
   onConfirm: (scope: MuteScope) => void | Promise<void>;

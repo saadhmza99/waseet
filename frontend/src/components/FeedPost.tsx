@@ -23,7 +23,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { savedToast } from "@/lib/savedToast";
 import { getDefaultAvatar } from "@/lib/avatar";
-import { profileHandle } from "@/lib/profileHandle";
+import { USERNAMES_ENABLED, profileMemberLabel } from "@/lib/profileHandle";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
 import { RetryImage } from "@/components/RetryImage";
 import ReportAbuseModal from "@/components/ReportAbuseModal";
@@ -181,7 +181,8 @@ const FeedPost = ({
   };
   const postHref = postId ? postPath(postId) : "";
   const isStandalonePost = Boolean(postId && pathname === postHref);
-  const displayName = (fullName || "").trim() || username;
+  const displayName =
+    (fullName || "").trim() || (USERNAMES_ENABLED ? username : "") || "Membre";
 
   useEffect(() => {
     setDisplayDescription(description || "");
@@ -548,7 +549,7 @@ const FeedPost = ({
     try {
       await moderationService.blockUser(user.id, postUserId);
       setShowBlockModal(false);
-      blockedAccountsToast(profileHandle(username));
+      blockedAccountsToast(profileMemberLabel(fullName, username));
       setIsHidden(true);
     } catch (error) {
       console.error("Error blocking profile:", error);
@@ -613,7 +614,7 @@ const FeedPost = ({
       {/* User Info */}
       <div className="flex items-center gap-2.5 pl-2.5 pr-3 pb-3 pt-4">
         <button onClick={handleProfileClick} className="shrink-0 hover:opacity-80 transition-opacity">
-          <img src={avatar || getDefaultAvatar("individual")} alt={displayName} className="h-11 w-11 rounded-full object-cover" />
+          <img src={avatar || getDefaultAvatar("individual")} alt={displayName} className="h-11 w-11 rounded-2xl object-cover" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
@@ -917,7 +918,7 @@ const FeedPost = ({
                   <img
                     src={avatar || getDefaultAvatar("individual")}
                     alt={displayName}
-                    className="h-11 w-11 rounded-full border-2 border-white object-cover"
+                    className="h-11 w-11 rounded-2xl border-2 border-white object-cover"
                   />
                 </button>
                 <div className="flex min-w-0 items-center gap-1">
@@ -1119,7 +1120,7 @@ const FeedPost = ({
                   <img
                     src={avatar || getDefaultAvatar("individual")}
                     alt={displayName}
-                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl object-cover"
                   />
                   <div>
                     <div className="flex items-center gap-1">
@@ -1180,7 +1181,7 @@ const FeedPost = ({
       <BlockMemberModal
         isOpen={showBlockModal}
         onClose={() => setShowBlockModal(false)}
-        message={`Bloquer ${profileHandle(username)} ? Vous ne verrez plus ce profil.`}
+        message={`Bloquer ${profileMemberLabel(fullName, username)} ? Vous ne verrez plus ce profil.`}
         submitting={blockSubmitting}
         onConfirm={confirmBlockProfile}
       />

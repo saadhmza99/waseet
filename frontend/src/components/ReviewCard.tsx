@@ -25,7 +25,7 @@ const ReviewCard = ({ avatar, username, isVerified, timeAgo, rating, text }: Rev
           onClick={handleProfileClick}
           className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
         >
-          <img src={avatar} alt={username} className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full object-cover" />
+          <img src={avatar} alt={username} className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-2xl object-cover" />
           <span className="inline-flex items-center gap-1 font-semibold text-sm sm:text-base md:text-lg text-card-foreground">
             {username}
             <VerifiedBadge verified={isVerified} className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />

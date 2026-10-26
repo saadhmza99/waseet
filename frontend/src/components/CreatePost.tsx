@@ -107,6 +107,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
   const [postType, setPostType] = useState<CreateKind>("standard");
   const [publishTo, setPublishTo] = useState<PublishDestination>("both");
   const [postText, setPostText] = useState("");
+  const [title, setTitle] = useState("");
   const [city, setCity] = useState("");
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -172,6 +173,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
   const resetForm = () => {
     setPostText("");
+    setTitle("");
     setCity("");
     setSelectedImages([]);
     setSelectedFiles([]);
@@ -217,7 +219,16 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
       toast({ title: "Bien", description: "Complétez les étapes du bien." });
       return;
     }
-    if (!postText.trim() && selectedImages.length === 0) {
+    if (postType === "realisation") {
+      if (!title.trim()) {
+        toast({ title: "Titre requis", description: "Donnez un titre à cette réalisation." });
+        return;
+      }
+      if (selectedFiles.length === 0 && selectedImages.length === 0) {
+        toast({ title: "Photo requise", description: "Ajoutez au moins une photo." });
+        return;
+      }
+    } else if (!postText.trim() && selectedImages.length === 0) {
       toast({ title: "Contenu requis", description: "Ajoute un texte ou une photo." });
       return;
     }
@@ -238,11 +249,15 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
     try {
       let uploadedImageUrls: string[] = [];
       if (selectedFiles.length > 0) {
-        uploadedImageUrls = await storageService.uploadImages(selectedFiles, "posts");
+        uploadedImageUrls = await storageService.uploadImages(
+          selectedFiles,
+          postType === "realisation" ? "realisations" : "posts",
+        );
       }
 
       onPostCreated?.({
         text: postText,
+        title: title.trim() || undefined,
         images: uploadedImageUrls,
         singleImage: uploadedImageUrls[0],
         postType,
@@ -496,13 +511,32 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
             />
           ) : (
             <>
+              {postType === "realisation" ? (
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-card-foreground">Titre</p>
+                  <Input
+                    value={title}
+                    maxLength={120}
+                    onChange={(e) => setTitle(e.target.value.slice(0, 120))}
+                    placeholder="Ex. Villa moderne — Marrakech"
+                    className="h-11"
+                  />
+                </div>
+              ) : null}
+
               <div>
-                <p className="mb-2 text-sm font-semibold text-card-foreground">Légende</p>
+                <p className="mb-2 text-sm font-semibold text-card-foreground">
+                  {postType === "realisation" ? "Description" : "Légende"}
+                </p>
                 <textarea
                   value={postText}
                   maxLength={1500}
                   onChange={(e) => setPostText(e.target.value.slice(0, 1500))}
-                  placeholder="Écrivez une légende…"
+                  placeholder={
+                    postType === "realisation"
+                      ? "Décrivez cette réalisation…"
+                      : "Écrivez une légende…"
+                  }
                   rows={5}
                   className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#174f43]"
                 />

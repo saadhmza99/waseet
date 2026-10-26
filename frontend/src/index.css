@@ -112,9 +112,6 @@
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
-}
-
-.about-content {
   overflow: hidden;
 }
 
@@ -238,6 +235,37 @@
 
 .about-content p {
   margin-bottom: 0.75rem;
+}
+
+.about-content h2 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #174f43;
+}
+
+.about-content h3 {
+  margin: 1rem 0 0.4rem;
+  font-size: 1.1rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: #1a3d36;
+}
+
+.about-content strong,
+.about-content b {
+  font-weight: 700;
+}
+
+.about-content ul {
+  margin: 0.5rem 0 0.85rem;
+  padding-left: 1.35rem;
+  list-style: disc;
+}
+
+.about-content li {
+  margin-bottom: 0.35rem;
 }
 
 .about-editor .tiptap a,

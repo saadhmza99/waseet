@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import logoDetailed from "@/assets/sifarah-logo-detailed.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService } from "@/services/profileService";
-import { getDefaultAvatar } from "@/lib/avatar";
+import { getDefaultAvatar, resolveAvatarUrl } from "@/lib/avatar";
 import { readVisitorContact } from "@/lib/visitorContact";
 
 const FeedDesktopRail = () => {
@@ -32,7 +32,7 @@ const FeedDesktopRail = () => {
         if (cancelled || !profile) return;
         const metaName = String(account.user_metadata?.full_name || account.user_metadata?.name || "").trim();
         setFullName((profile.full_name || "").trim() || metaName || (profile.username || "").trim());
-        setAvatarUrl(profile.avatar_url || null);
+        setAvatarUrl(resolveAvatarUrl(profile.avatar_url, profile.profile_type));
       })
       .catch(() => {
         if (cancelled) return;
@@ -157,9 +157,9 @@ const FeedDesktopRail = () => {
           className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2 pl-3 pr-2 text-left hover:bg-neutral-100"
         >
           <img
-            src={avatarUrl || getDefaultAvatar(user ? "individual" : "enterprise")}
+            src={resolveAvatarUrl(avatarUrl, user ? "individual" : "enterprise")}
             alt=""
-            className="h-10 w-10 shrink-0 rounded-full object-cover"
+            className="h-10 w-10 shrink-0 rounded-2xl object-cover"
           />
           <span className="min-w-0 truncate text-sm font-semibold text-neutral-900">{displayName}</span>
         </button>

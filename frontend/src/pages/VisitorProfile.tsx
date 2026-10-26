@@ -489,7 +489,7 @@ const VisitorProfile = () => {
                     <img
                       src={profile.avatarUrl || getDefaultAvatar("individual")}
                       alt={profile.fullName}
-                      className="h-11 w-11 rounded-full object-cover"
+                      className="h-11 w-11 rounded-2xl object-cover"
                     />
                     <span className="inline-flex min-w-0 items-center gap-1 font-semibold text-neutral-900">
                       <span className="truncate">{profile.fullName}</span>
@@ -597,7 +597,7 @@ const VisitorProfile = () => {
                     <img
                       src={previewUrl || avatarUrl || getDefaultAvatar("enterprise")}
                       alt=""
-                      className="h-24 w-24 rounded-full object-cover"
+                      className="h-24 w-24 rounded-2xl object-cover"
                     />
                     <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#174f43] text-white shadow">
                       <Camera className="h-4 w-4" />

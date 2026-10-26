@@ -1,4 +1,4 @@
-import { Mail, Phone } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
 
 export const websiteLinksFrom = (value?: string | null) =>
   (value || "")
@@ -17,16 +17,11 @@ export const locationsFrom = (value?: string | null) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-export type InfosField = "email" | "phone" | "website";
-
-/** Synthetic signup / import emails — never show in public Contact. */
-const isPlaceholderEmail = (value?: string | null) =>
-  /@?sifarah\.local\b/i.test((value || "").trim());
+export type InfosField = "location" | "phone" | "website";
 
 export const ProfileDetailsFields = ({
   profile,
   isOwnProfile,
-  userEmail,
   onEdit,
 }: {
   profile: any;
@@ -34,8 +29,7 @@ export const ProfileDetailsFields = ({
   userEmail?: string | null;
   onEdit: (field?: InfosField) => void;
 }) => {
-  const rawEmail = (profile.email || (isOwnProfile ? userEmail : "") || "").trim();
-  const email = isPlaceholderEmail(rawEmail) ? "" : rawEmail;
+  const addresses = locationsFrom(profile.location);
 
   return (
     <div className="min-w-0 break-words text-lg">
@@ -43,17 +37,21 @@ export const ProfileDetailsFields = ({
         <h3 className="mb-3 text-base font-semibold uppercase tracking-wide text-muted-foreground">Contact</h3>
         <ul className="space-y-3 text-card-foreground">
           <li className="flex items-start gap-2.5">
-            <Mail className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
-            {email ? (
-              <a href={`mailto:${email}`} className={`break-all ${INFO_LINK_CLASS}`}>
-                {email}
-              </a>
+            <MapPin className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
+            {addresses.length ? (
+              <div className="min-w-0 space-y-1">
+                {addresses.map((line) => (
+                  <p key={line} className="break-words">
+                    {line}
+                  </p>
+                ))}
+              </div>
             ) : isOwnProfile ? (
-              <button type="button" onClick={() => onEdit("email")} className="text-left text-accent hover:underline">
-                Ajouter un email
+              <button type="button" onClick={() => onEdit("location")} className="text-left text-accent hover:underline">
+                Ajouter une adresse
               </button>
             ) : (
-              <span className="text-muted-foreground">Email non renseigné</span>
+              <span className="text-muted-foreground">Adresse non renseignée</span>
             )}
           </li>
           <li className="flex items-start gap-2.5">

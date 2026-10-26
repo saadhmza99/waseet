@@ -52,7 +52,7 @@ const CommentRow = ({
   when: string;
 }) => (
   <div className="flex gap-3 border-b border-border py-3 last:border-b-0">
-    <img src={avatar || getDefaultAvatar("individual")} alt="" className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover sm:h-10 sm:w-10" />
+    <img src={avatar || getDefaultAvatar("individual")} alt="" className="mt-0.5 h-8 w-8 shrink-0 rounded-2xl object-cover sm:h-10 sm:w-10" />
     <div className="min-w-0 flex-1">
       <div className="mb-1 flex items-baseline gap-2">
         <span className="inline-flex min-w-0 items-center gap-1 text-sm font-semibold text-card-foreground sm:text-base">

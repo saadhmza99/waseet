@@ -1,0 +1,1685 @@
+[
+  {
+    "id": "a48ab3d8-3035-5222-af53-87fba7cb529b",
+    "username": "6po-industrie",
+    "full_name": "6PO Industrie",
+    "profession": "Plomberie",
+    "location": "Skhirat",
+    "specialties": [
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      }
+    ],
+    "website_url": "https://6po-industrie.ma/",
+    "about_seed": "Située dans la zone industrielle de Ain Atiq, 6PO Industrie est une société spécialisée dans la fabrication de tubes en PVC et PEHD, destinés à la distribution et adduction d’eau potable, à l’irrigation, l’évacuation des eaux, l’assainissement ou encore au drainage agricole.\r\n\r\nCréée en 1996, 6PO INDUSTRIE est une société spécialisée dans l'extrusion des tubes en Polychlorure de Vinyle (PVC) et en Polyéthylène (PEHD et PEBD), ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 26 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Skhirat est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en plomberie.",
+    "bio": "Située dans la zone industrielle de Ain Atiq, 6PO Industrie est une société spécialisée dans la fabrication de tubes en PVC et PEHD, destinés à la distribution et adduction d’eau potable, à l’irrigation, l’évacuation des eaux, l’assainissement ou…"
+  },
+  {
+    "id": "1fd00041-d9b0-5890-851e-dd2bfa52f900",
+    "username": "abrar-industrie",
+    "full_name": "Abrar industrie",
+    "profession": "Matériaux de construction",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://abrarindustrie.ma/",
+    "about_seed": "Une entreprise de premier plan engagée dans la construction, la production, et l'exploitation des ressources nécessaires à l'essor de l'industrie.\r\n\r\nAvec nos filiales Bitumed, Moja Préfa et Sud Gravette, nous couvrons divers aspects de l'industrie, allant des travaux de construction aux produits préfabriqués et à l'exploitation de carrières.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 6 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en matériaux de construction.",
+    "bio": "Une entreprise de premier plan engagée dans la construction, la production, et l'exploitation des ressources nécessaires à l'essor de l'industrie. Avec nos filiales Bitumed, Moja Préfa et Sud Gravette, nous couvrons divers aspects de l'industrie…"
+  },
+  {
+    "id": "92538cce-f47d-5e45-b82d-bbbeab990081",
+    "username": "adli-menage",
+    "full_name": "adli menage",
+    "profession": "Oven",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/adli-menage",
+    "about_seed": "Notre entreprise est spécialisée dans l'importation et la distribution du matériel électroménager de cuisine (trio four +plaque+hotte) avec notre propre…",
+    "bio": "Notre entreprise est spécialisée dans l'importation et la distribution du matériel électroménager de cuisine (trio four +plaque+hotte) avec notre propre…"
+  },
+  {
+    "id": "9905df39-f4ef-5a6f-ab9d-9ff7371412a6",
+    "username": "afrique-decoupe-laser",
+    "full_name": "Afrique Découpe Laser",
+    "profession": "Ferronnerie / Métallurgie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.5",
+        "label": "Métallerie"
+      }
+    ],
+    "website_url": "https://afriquedecoupelaser.com/",
+    "about_seed": "Nous sommes une société marocaine spécialisée dans la découpe laser de tôles et de tubes, le pliage, le roulage, la soudure argon.\r\n\r\nNous offrons des solutions métalliques précises et innovantes pour les secteurs industriel, automobile et architectural, en alliant qualité, rapidité et expertise technique.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en ferronnerie / métallurgie.",
+    "bio": "Nous sommes une société marocaine spécialisée dans la découpe laser de tôles et de tubes, le pliage, le roulage, la soudure argon. Nous offrons des solutions métalliques précises et innovantes pour les secteurs industriel, automobile et…"
+  },
+  {
+    "id": "f7e9d9f9-7fc8-511a-ae40-0a6538dadf25",
+    "username": "agtm",
+    "full_name": "AGTM",
+    "profession": "Topographe",
+    "location": "Mohammedia",
+    "specialties": [
+      {
+        "code": "6.2.3",
+        "label": "Géomètre-topographe"
+      }
+    ],
+    "website_url": "https://www.agtm.ma/",
+    "about_seed": "Nous sommes le fruit de l’association de deux Ingénieurs Géomètres Topographes lauréats de IAV Hassan II, une association complémentaire qui permet au cabinet de proposer à nos clients une multitude de compétences dans divers domaines d’activités. - Dossiers techniques Cadastraux - Etudes topographiques (Plan côté, plan parcellaire, plan de délimitation) - Suivi de chantiers - Prise d'images drones - Expertise foncière - Accompagnement foncier - Relevé de l'existant - Scanner Laser 3D.\r\n\r\nBureau d'ingénieurs géomètres topographes.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Mohammedia est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en topographie.",
+    "bio": "Nous sommes le fruit de l’association de deux Ingénieurs Géomètres Topographes lauréats de IAV Hassan II, une association complémentaire qui permet au cabinet de proposer à nos clients une multitude de compétences dans divers domaines d’activités. -…"
+  },
+  {
+    "id": "ce476ff9-0c52-5d1a-b861-a9dc1ff1a586",
+    "username": "alfatech-ascenseur",
+    "full_name": "ALFATECH ASCENSEUR",
+    "profession": "Automation",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.2.9",
+        "label": "Ascenseurs"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/alfatech-ascenseur",
+    "about_seed": "ALFATECH ASCENSEUR est spécialisée dans les installations des ascenseurs et des montes charges de toute catégorie en fourniture et pose clé en main.",
+    "bio": "ALFATECH ASCENSEUR est spécialisée dans les installations des ascenseurs et des montes charges de toute catégorie en fourniture et pose clé en main."
+  },
+  {
+    "id": "da6e7f67-d5a5-577b-82f3-6af1a1837ac5",
+    "username": "alomrane-holding",
+    "full_name": "AlOmrane holding",
+    "profession": "Promotion immobilière",
+    "location": "Rabat",
+    "specialties": [
+      {
+        "code": "1.2.1",
+        "label": "Promoteur immobilier"
+      }
+    ],
+    "website_url": "https://alomrane.gov.ma/",
+    "about_seed": "Promoteur immobilier au Maroc — 9 projet(s) référencé(s) sur Sifarah.",
+    "bio": "Promoteur immobilier au Maroc — 9 projet(s) référencé(s) sur Sifarah."
+  },
+  {
+    "id": "889aca52-b16a-5050-9670-843f578b543d",
+    "username": "amastroy-engineering-consulting",
+    "full_name": "Amastroy Engineering & Consulting",
+    "profession": "Bureau d'étude",
+    "location": "Oujda",
+    "specialties": [
+      {
+        "code": "3.4.2",
+        "label": "Bureau d’études"
+      }
+    ],
+    "website_url": "https://amastroy.com",
+    "about_seed": "Chez AMASTROY ENGINEERING & CONSULTING, nous proposons une gamme complète de services couvrant tous les besoins en ingénierie du bâtiment et des infrastructures.\r\n\r\nFaites appel à Amastroy Engineering & Consulting, votre bureau d'études de confiance ! 🏗️ Spécialisés dans : ✔️ Structures béton armé & charpente ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Oujda est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en ingénierie et études techniques.",
+    "bio": "Chez AMASTROY ENGINEERING & CONSULTING, nous proposons une gamme complète de services couvrant tous les besoins en ingénierie du bâtiment et des infrastructures. Faites appel à Amastroy Engineering & Consulting, votre bureau d'études de confiance !…"
+  },
+  {
+    "id": "5f80b2de-a026-50e6-a178-1056dca3cfaf",
+    "username": "anouar-almostakbal",
+    "full_name": "Anouar AlMostakbal",
+    "profession": "Promotion immobilière",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "1.2.1",
+        "label": "Promoteur immobilier"
+      }
+    ],
+    "website_url": "https://anouar-almostakbal.ma/",
+    "about_seed": "Promoteur immobilier au Maroc — 2 projet(s) référencé(s) sur Sifarah.",
+    "bio": "Promoteur immobilier au Maroc — 2 projet(s) référencé(s) sur Sifarah."
+  },
+  {
+    "id": "0dcd8631-274c-5149-a10b-814c9928fa22",
+    "username": "arnoss-cuisine",
+    "full_name": "Arnoss cuisine",
+    "profession": "Pose de cuisine",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "http://arnossdesign.com/",
+    "about_seed": "Nous sommes une entreprise spécialisée dans la conception, l'aménagement et la fabrication de meubles de cuisine, dressing et de meubles spécialisés.\r\n\r\nNous — Pose de cuisine Casablanca · Facebook · Instagram · LinkedIn · Site web.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en pose de cuisine.",
+    "bio": "Nous sommes une entreprise spécialisée dans la conception, l'aménagement et la fabrication de meubles de cuisine, dressing et de meubles spécialisés. Nous — Pose de cuisine Casablanca · Facebook · Instagram · LinkedIn · Site web. Notre objectif est…"
+  },
+  {
+    "id": "bfeb4f57-d596-5589-93ec-fdf3c4089beb",
+    "username": "atlas-confort-et-securite",
+    "full_name": "ATLAS CONFORT ET SECURITE",
+    "profession": "Climatisation / Chauffage",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.5",
+        "label": "Chauffage"
+      },
+      {
+        "code": "3.2.3",
+        "label": "Climatisation"
+      },
+      {
+        "code": "8.6.3",
+        "label": "Sécurité"
+      }
+    ],
+    "website_url": "https://www.atlas-cs.ma",
+    "about_seed": "Nous (ACS) est un spécialiste des lots techniques du bâtiment, offrant des solutions complètes en Climatisation et traitement de l'air, fluides ainsi qu’une expertise multi technique.\r\n\r\nNous assurons la fourniture, l’installation et la maintenance de systèmes de climatisation, ventilation et désenfumage, réfrigération, plomberie, électricité et courants faibles, protection incendie et piscines. Grâce à notre savoir-faire, nous accompagnons nos clients avec des solutions sur mesure, garantissant performance, confort et sécurité. Faites confiance à notre expertise pour vos projets techniques, qu’ils soient industriels, tertiaires ou résidentiels.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 25 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en climatisation / chauffage.\r\n\r\nDomaines d'expertise : Chauffage,",
+    "bio": "Nous (ACS) est un spécialiste des lots techniques du bâtiment, offrant des solutions complètes en Climatisation et traitement de l'air, fluides ainsi qu’une expertise multi technique. Nous assurons la fourniture, l’installation et la maintenance de…"
+  },
+  {
+    "id": "2aa9c8db-5060-5540-aa5f-ee4b42c774a3",
+    "username": "awrach",
+    "full_name": "Awrach",
+    "profession": "Structural work",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/awrach",
+    "about_seed": "Fondée il y a plus de 50 ans, AWRACh est une entreprise de construction marocaine reconnue pour son savoir-faire, sa fiabilité et la qualité de ses…",
+    "bio": "Fondée il y a plus de 50 ans, AWRACh est une entreprise de construction marocaine reconnue pour son savoir-faire, sa fiabilité et la qualité de ses…"
+  },
+  {
+    "id": "2fd5d3d9-2f8b-5ff6-ad1a-2c335f9b9401",
+    "username": "badryteam-sarl",
+    "full_name": "BADRYTEAM SARL",
+    "profession": "Vidéo et photo immobilière",
+    "location": "Tanger",
+    "specialties": [
+      {
+        "code": "5.1.1",
+        "label": "Architecture"
+      }
+    ],
+    "website_url": "https://www.badryteam.ma/",
+    "about_seed": "Nous sommes une société de production audiovisuelle basée à Tanger, spécialisée dans la réalisation de contenus photo et vidéo pour le secteur immobilier.\r\n\r\nDepuis plus de 8 ans, nous accompagnons les promoteurs, agences et architectes dans la valorisation de leurs biens à travers des services sur mesure : prises de vue photo haute définition, vidéos immersives, visites virtuelles, captations par drone et montages promotionnels. Notre objectif est de sublimer chaque projet immobilier pour en renforcer l’impact visuel et accélérer la commercialisation.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 8 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Tanger est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en vidéo et photo immobilière.",
+    "bio": "Nous sommes une société de production audiovisuelle basée à Tanger, spécialisée dans la réalisation de contenus photo et vidéo pour le secteur immobilier. Depuis plus de 8 ans, nous accompagnons les promoteurs, agences et architectes dans la…"
+  },
+  {
+    "id": "ff742c20-0951-5af2-a8d6-b9429bcc781e",
+    "username": "becomar",
+    "full_name": "BECOMAR",
+    "profession": "Matériaux de construction",
+    "location": "Berrechid",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://www.becomar.org",
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans la production et la commercialisation de solutions béton innovantes et de qualité supérieure.\r\n\r\nFondée pour répondre aux besoins croissants du marché de la construction, elle s'appuie sur une expertise technique pointue et des moyens de production modernes pour offrir à nos clients des produits fiables et durables. L’offre de BECOMAR couvre une large gamme de produits en béton préfabriqué, allant des agglos, poutrelles et hourdis certifiés aux normes marocaines, aux solutions de post-tension, en passant par les éléments précontraints et les produits spéciaux conçus sur mesure pour les projets les plus exigeants. Nous met un point d’honneur à innover en permanence, investissant dans la recherche et le…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 32 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Berrechid est à votre écoute pour étudier votre besoin ",
+    "bio": "Nous sommes une entreprise marocaine spécialisée dans la production et la commercialisation de solutions béton innovantes et de qualité supérieure. Fondée pour répondre aux besoins croissants du marché de la construction, elle s'appuie sur une…"
+  },
+  {
+    "id": "a9897970-cd7d-50c6-96f5-a298ae55e101",
+    "username": "bilss-elec",
+    "full_name": "Bilss'elec",
+    "profession": "Matériel électrique",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/bilss-elec",
+    "about_seed": "Société spécialisée dans l'installation électrique pour maisons neuves, villas et résidences.",
+    "bio": "Société spécialisée dans l'installation électrique pour maisons neuves, villas et résidences."
+  },
+  {
+    "id": "86127ee0-5687-5634-a2a1-13ddd94ae442",
+    "username": "brs-energie",
+    "full_name": "BRS ENERGIE",
+    "profession": "Installation électrique",
+    "location": "Salé",
+    "specialties": [
+      {
+        "code": "3.2.3",
+        "label": "Climatisation"
+      },
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "4.3.4",
+        "label": "Piscine"
+      },
+      {
+        "code": "8.6.6",
+        "label": "Énergie"
+      }
+    ],
+    "website_url": "https://brsenergie.ma",
+    "about_seed": "\"BRS ENERGIE est une entreprise spécialisée dans les travaux divers: Climatisation, Ventilation, Désenfumage, Plomberie, Piscine, Energie Solaire, etc.\r\n\r\nNous vous accompagnons dans vos projets en vous apportant des solutions parfaitement adaptées à vos besoins.\".\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Salé est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en installation électrique.\r\n\r\nDomaines d'expertise : Climatisation, Plomberie, Piscine, Énergie.",
+    "bio": "\"BRS ENERGIE est une entreprise spécialisée dans les travaux divers: Climatisation, Ventilation, Désenfumage, Plomberie, Piscine, Energie Solaire, etc. Nous vous accompagnons dans vos projets en vous apportant des solutions parfaitement adaptées à…"
+  },
+  {
+    "id": "28f68172-39bb-53e5-9ff8-d394a870fe65",
+    "username": "casatransmateriaux",
+    "full_name": "Casatransmateriaux",
+    "profession": "Aggregates",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/casatransmateriaux",
+    "about_seed": "Casatransmateriaux. 35 ans à bâtir la confiance.",
+    "bio": "Casatransmateriaux. 35 ans à bâtir la confiance."
+  },
+  {
+    "id": "2a0723c9-ab85-56d7-a9a6-f77deaaa296d",
+    "username": "ceratube",
+    "full_name": "Ceratube",
+    "profession": "Salle de bain / Sanitaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.4",
+        "label": "Salle de bain"
+      },
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      }
+    ],
+    "website_url": "https://www.ceratube.ma/",
+    "about_seed": "Nous sommes une entreprise spécialisée dans la distribution d’appareils sanitaires, de matériel électrique, de quincaillerie ainsi que dans le négoce de produits industriels, agricoles, artisanaux et divers.\r\n\r\nForte d’une expertise reconnue, CERATUBE propose un large éventail de produits de qualité destinés aux professionnels comme aux particuliers. Nous distribuons notamment des produits de la marque ROBIMED, reconnue pour sa fiabilité et ses performances. Nous s’engage à offrir à nos clients des solutions techniques durables, un service personnalisé, et un accompagnement professionnel, pour répondre aux exigences des projets les plus complexes dans les secteurs du bâtiment, de la rénovation et de l’industrie.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 29 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adapté",
+    "bio": "Nous sommes une entreprise spécialisée dans la distribution d’appareils sanitaires, de matériel électrique, de quincaillerie ainsi que dans le négoce de produits industriels, agricoles, artisanaux et divers. Forte d’une expertise reconnue, CERATUBE…"
+  },
+  {
+    "id": "f5edc905-e0c0-55fa-a655-049e2a582dd5",
+    "username": "chilivin",
+    "full_name": "Chilivin",
+    "profession": "Architecte",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "5.1.1",
+        "label": "Architecture"
+      }
+    ],
+    "website_url": "https://chilivin.com/",
+    "about_seed": "Chi’Livin est une agence d’architecture, de design d’intérieur et de construction qui offre un service clé en main, créant des espaces uniques alliant esthétique, fonctionnalité et durabilité pour transformer vos projets en expériences de vie.\r\n\r\nCasablanca · Architecte, Architecte d'intérieur. Prestataire BTP professionnel au Maroc ... Instagram · LinkedIn · Site web. | 0 ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en architecture.",
+    "bio": "Chi’Livin est une agence d’architecture, de design d’intérieur et de construction qui offre un service clé en main, créant des espaces uniques alliant esthétique, fonctionnalité et durabilité pour transformer vos projets en expériences de vie…"
+  },
+  {
+    "id": "9aee86ff-d895-5a51-a02e-94f63e2668b0",
+    "username": "clenz",
+    "full_name": "CLENZ",
+    "profession": "EPI",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://www.clenz.ma",
+    "about_seed": "Nous sommes une entreprise marocaine fondée en 2022, spécialisée dans la distribution d’Équipements de Protection Individuelle (EPI), de consommables et de produits d’hygiène à usage professionnel.\r\n\r\nNous accompagnons les entreprises soucieuses de préserver la sécurité, la santé et la propreté dans leurs espaces de travail, à travers des solutions fiables, durables et adaptées à chaque secteur d’activité. Notre offre s’adresse principalement aux industries, aux établissements de santé, aux collectivités, au BTP et à l’agroalimentaire. Grâce à un réseau de partenaires rigoureusement sélectionnés, CLENZ garantit des produits conformes aux normes en vigueur, un excellent rapport qualité/prix et un service logistique rapide et efficace.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 4 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la so",
+    "bio": "Nous sommes une entreprise marocaine fondée en 2022, spécialisée dans la distribution d’Équipements de Protection Individuelle (EPI), de consommables et de produits d’hygiène à usage professionnel. Nous accompagnons les entreprises soucieuses de…"
+  },
+  {
+    "id": "ed7747fb-9601-533d-bbc1-3a9fe859bc46",
+    "username": "comptoir-ouhassou",
+    "full_name": "Comptoir Ouhassou",
+    "profession": "Peinture",
+    "location": "Tanger",
+    "specialties": [
+      {
+        "code": "3.3.2",
+        "label": "Peinture"
+      },
+      {
+        "code": "4.3.4",
+        "label": "Piscine"
+      }
+    ],
+    "website_url": "https://xn--la-palette-idale-nqb.my.canva.site/oil-painting-watercolour-oil-pastels",
+    "about_seed": "Bienvenue dans notre magasin spécialisé dans divers types de peintures pour bâtiments, carrosseries, piscines et bien plus encore.\r\n\r\nNous offrons des produits de haute qualité qui répondent à tous vos besoins en matière de peinture. Notre équipe d'experts s'engage à fournir les meilleures solutions pour vos projets.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 26 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Tanger est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en peinture.\r\n\r\nDomaines d'expertise : Peinture, Piscine.",
+    "bio": "Bienvenue dans notre magasin spécialisé dans divers types de peintures pour bâtiments, carrosseries, piscines et bien plus encore. Nous offrons des produits de haute qualité qui répondent à tous vos besoins en matière de peinture. Notre équipe…"
+  },
+  {
+    "id": "8eeded93-c56f-5e6d-81f7-df2deb7a18d3",
+    "username": "creatrend",
+    "full_name": "creatrend",
+    "profession": "Salle de bain / Sanitaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "4.2.4",
+        "label": "Salle de bain"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/creatrend",
+    "about_seed": "Creatrend assure l'importation des produits sanitaires et de Mitigeur de plusieurs pays en Europe et en Asie, principalement la Turquie et la Chine.\r\n\r\nDomaines d'expertise : Plomberie, Salle de bain.",
+    "bio": "Creatrend assure l'importation des produits sanitaires et de Mitigeur de plusieurs pays en Europe et en Asie, principalement la Turquie et la Chine. Domaines d'expertise : Plomberie, Salle de bain."
+  },
+  {
+    "id": "9a449819-22a1-5446-adce-b9be61cc3ee1",
+    "username": "dari-btp-sarl-au",
+    "full_name": "DARI BTP SARL AU",
+    "profession": "Gros œuvre",
+    "location": "Khouribga",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://www.daribtp.com",
+    "about_seed": "Nous sommes une société dans le domaine du bâtiment et travaux public, on offre comme service la réalisation des travaux tous corps d'etat el les travaux d'aménagement.\r\n\r\nNous DARI BTP qui gérée par des personnes diplômées et expérimentées dans le domaine BTP.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Khouribga est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en gros œuvre et construction.",
+    "bio": "Nous sommes une société dans le domaine du bâtiment et travaux public, on offre comme service la réalisation des travaux tous corps d'etat el les travaux d'aménagement. Nous DARI BTP qui gérée par des personnes diplômées et expérimentées dans le…"
+  },
+  {
+    "id": "642ccd06-83a9-54f6-9f51-f7673ead72dd",
+    "username": "decolag",
+    "full_name": "DECOLAG",
+    "profession": "Revêtement mural",
+    "location": "Tanger",
+    "specialties": [
+      {
+        "code": "4.4.2",
+        "label": "Revêtement"
+      }
+    ],
+    "website_url": "https://www.decolag.com",
+    "about_seed": "Nous sommes une société spécialisée dans l’aménagement et la décoration intérieure, offrant des solutions innovantes et esthétiques pour sublimer tous vos espaces.\r\n\r\nNous proposons une large gamme de produits haut de gamme : bardages PVC décoratifs, moulures élégantes, plinthes raffinées, parquets SPC 100% étanches, gazon synthétique, et peintures de qualité supérieure. Chez DECOLAG, notre mission est de transformer chaque intérieur en un lieu de confort, de style et de modernité, grâce à des matériaux durables, tendances et faciles à poser.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Tanger est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en revêtement mural.",
+    "bio": "Nous sommes une société spécialisée dans l’aménagement et la décoration intérieure, offrant des solutions innovantes et esthétiques pour sublimer tous vos espaces. Nous proposons une large gamme de produits haut de gamme : bardages PVC décoratifs…"
+  },
+  {
+    "id": "5eaf47b4-1fba-5a21-b95f-425411572000",
+    "username": "doc-tech",
+    "full_name": "DOC TECH",
+    "profession": "Système audio",
+    "location": "Marrakech",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      },
+      {
+        "code": "7.5.2",
+        "label": "Domotique"
+      }
+    ],
+    "website_url": "https://www.doctech.ma",
+    "about_seed": "Doc Tech, expert en installation de réseaux informatiques, systèmes de sécurité incendie, caméras de surveillance, électricité et domotique, propose des solutions technologiques fiables pour protéger et moderniser vos espaces.\r\n\r\n50 followers · 15 posts · Doc Tech, experts in the installation of computer networks, fire safety systems, surveillance cameras, electricity and home ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 7 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Marrakech est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en système audio.\r\n\r\nDomaines d'expertise : Électricité, Domotique.",
+    "bio": "Doc Tech, expert en installation de réseaux informatiques, systèmes de sécurité incendie, caméras de surveillance, électricité et domotique, propose des solutions technologiques fiables pour protéger et moderniser vos espaces. 50 followers · 15…"
+  },
+  {
+    "id": "814c1bbf-a285-5d7c-8cbb-eb15829d1061",
+    "username": "duo-design",
+    "full_name": "Duo Design",
+    "profession": "Installation de revêtement mural",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "https://www.threads.com/@duo_design_officiel?xmt=AQF0taVU3yohJDTLAgOG3eNus45Ggi2lv6j2B2TswZ65ZcM",
+    "about_seed": "Aménagement intérieur & mobilier sur mesure portes placards cuisines bibliothèques 2.\r\n\r\nDesign intérieur, mobilier custom et habillage mural 3. Solutions d’aménagement et décoration professionnelle 4. Mobilier sur mesure et design d’espaces commerciaux 5.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en installation de revêtement mural.",
+    "bio": "Aménagement intérieur & mobilier sur mesure portes placards cuisines bibliothèques 2. Design intérieur, mobilier custom et habillage mural 3. Solutions d’aménagement et décoration professionnelle 4. Mobilier sur mesure et design d’espaces…"
+  },
+  {
+    "id": "91964dd3-bafc-5a0a-b8bf-cbbf65354340",
+    "username": "el-wifaq-verre",
+    "full_name": "EL WIFAQ VERRE",
+    "profession": "Revêtement mural",
+    "location": "Fès",
+    "specialties": [
+      {
+        "code": "4.4.2",
+        "label": "Revêtement"
+      }
+    ],
+    "website_url": "https://elwifaqverre.ma",
+    "about_seed": "Forte de plus de deux décennies d’expérience, EL WIFAQ VERRE s’impose aujourd’hui comme une référence nationale dans la transformation, la distribution et la commercialisation de verre et matériaux associés.\r\n\r\nInstallée à Fès et dotée d’un réseau logistique couvrant l’ensemble du Maroc, notre entreprise accompagne les professionnels du BTP, les menuisiers aluminium, les architectes, les décorateurs ainsi que les particuliers exigeants. Notre mission est d’offrir des solutions sur mesure, combinant qualité certifiée, innovation et disponibilité permanente des produits, afin de répondre efficacement aux besoins du marché marocain. Nos Produits & Solutions Verre float : clair, extra-clair, coloré et réfléchissant (Stopsol) Verre trempé : sécurité, résistance et durabilité Verre feuilleté (Stadip) : protection acoustique…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre",
+    "bio": "Forte de plus de deux décennies d’expérience, EL WIFAQ VERRE s’impose aujourd’hui comme une référence nationale dans la transformation, la distribution et la commercialisation de verre et matériaux associés. Installée à Fès et dotée d’un réseau…"
+  },
+  {
+    "id": "7ca474f6-59cd-5b12-805b-c84ae2bdbc81",
+    "username": "elkron-maroc",
+    "full_name": "ELKRON MAROC",
+    "profession": "Matériel électrique",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "http://www.elkronmaroc.com",
+    "about_seed": "Nous - L'innovation au service de la sécurité depuis 1974 Filiale marocaine du groupe italien URMET, ELKRON MAROC s'impose aujourd'hui comme un acteur incontournable dans le domaine des solutions de sécurité électronique au Royaume.\r\n\r\nForte de 21 brevets, de 14 marques de qualité, et de plus de 1650 produits conçus, ELKRON totalise à ce jour plus de 27 millions d'installations dans plus de 30 pays, dont le Maroc. Les produits sont certifiés selon les normes européennes EN et françaises NF, gage de rigueur et de fiabilité. Au Maroc, ELKRON accompagne depuis plusieurs années des partenaires stratégiques de premier plan - ministères (Justice, Santé), institutions publiques (CNSS, OFPPT, SNRT), grandes entreprises (IKEA, CIH Bank) - en leur fournissant des solutions adaptées aux exigences les plus élevées.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 25 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casabl",
+    "bio": "Nous - L'innovation au service de la sécurité depuis 1974 Filiale marocaine du groupe italien URMET, ELKRON MAROC s'impose aujourd'hui comme un acteur incontournable dans le domaine des solutions de sécurité électronique au Royaume. Forte de 21…"
+  },
+  {
+    "id": "b7594017-4393-5d5f-979e-9afe6d440a32",
+    "username": "energy-panel-maroc",
+    "full_name": "Energy Panel Maroc",
+    "profession": "Fournisseur de matériaux",
+    "location": "",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/energy-panel-maroc",
+    "about_seed": "Fondée en 2012 et basée au Maroc, Energy Panel Maroc est une entreprise spécialisée dans les solutions énergétiques durables.",
+    "bio": "Fondée en 2012 et basée au Maroc, Energy Panel Maroc est une entreprise spécialisée dans les solutions énergétiques durables."
+  },
+  {
+    "id": "67d4d420-c4a2-5fe9-b67b-3c92436ade0c",
+    "username": "espace-steel",
+    "full_name": "Espace Steel",
+    "profession": "Bâtiment modulaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://espacesteel.com/",
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans la conception, la fabrication, la vente et la location de bâtiments modulaires et de structures métalliques.\r\n\r\nBasée à Médiouna (Casablanca), elle intervient principalement dans le secteur de la construction modulaire et métallique, offrant des solutions adaptées aux besoins des chantiers et projets industriels ou commerciaux. Nous se positionne comme un acteur spécialisé dans la construction modulaire, en proposant des solutions innovantes, rapides et flexibles pour répondre aux besoins de nos clients, que ce soit pour des bureaux de chantier, des abris, des guérites, des blocs sanitaires ou autres structures modulaires préfabriquées. La société met un accent particulier sur : La qualité de fabrication et l’utilisation…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 15 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour ",
+    "bio": "Nous sommes une entreprise marocaine spécialisée dans la conception, la fabrication, la vente et la location de bâtiments modulaires et de structures métalliques. Basée à Médiouna (Casablanca), elle intervient principalement dans le secteur de la…"
+  },
+  {
+    "id": "2b4262f7-cfbe-589e-bbe0-41b74dcbd3de",
+    "username": "ev-adipe",
+    "full_name": "EV.ADIPE",
+    "profession": "Aménagement extérieur",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.3.2",
+        "label": "Paysagisme"
+      },
+      {
+        "code": "4.3.1",
+        "label": "Jardin"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/ev-adipe",
+    "about_seed": "EV.ADIPE – Jardinage & Vente de Plantes, Arbres, Palmiers, Gazon & Arrosage Automatique.\r\n\r\nDomaines d'expertise : Paysagisme, Jardin.",
+    "bio": "EV.ADIPE – Jardinage & Vente de Plantes, Arbres, Palmiers, Gazon & Arrosage Automatique. Domaines d'expertise : Paysagisme, Jardin."
+  },
+  {
+    "id": "35b5578a-beef-5047-ab90-d75966eccf57",
+    "username": "ezza-btp",
+    "full_name": "EZZA BTP",
+    "profession": "Site accommodation",
+    "location": "Agadir",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://ezzabtp.com/",
+    "about_seed": "Ezza BTP est une entreprise spécialisée dans le secteur du bâtiment et des travaux publics, reconnue pour son expertise, son professionnalisme et son…",
+    "bio": "Ezza BTP est une entreprise spécialisée dans le secteur du bâtiment et des travaux publics, reconnue pour son expertise, son professionnalisme et son…"
+  },
+  {
+    "id": "2d40bf8c-25c9-5b42-812b-c355553d84d5",
+    "username": "familec-trav-sarl",
+    "full_name": "familec trav sarl",
+    "profession": "Cables & wiring",
+    "location": "Rabat",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/familec-trav-sarl",
+    "about_seed": "Familec trav est une Ste de distribution de matériel d'electricité, câblage tuyauterie, canalisation, appareillage, éclairage, et industrie.",
+    "bio": "Familec trav est une Ste de distribution de matériel d'electricité, câblage tuyauterie, canalisation, appareillage, éclairage, et industrie."
+  },
+  {
+    "id": "12cb9e66-efe1-582c-b820-841228d33eb1",
+    "username": "ficuss-jardin",
+    "full_name": "Ficuss Jardin",
+    "profession": "Aménagement extérieur",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "5.3.3",
+        "label": "Paysagisme"
+      },
+      {
+        "code": "4.3.1",
+        "label": "Jardin"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/ficuss-jardin",
+    "about_seed": "Ficus Jardin est une entreprise de paysagisme innovante, spécialisée dans la création, l'aménagement et l'entretien d'espaces extérieurs.\r\n\r\nDomaines d'expertise : Paysagisme, Jardin.",
+    "bio": "Ficus Jardin est une entreprise de paysagisme innovante, spécialisée dans la création, l'aménagement et l'entretien d'espaces extérieurs. Domaines d'expertise : Paysagisme, Jardin."
+  },
+  {
+    "id": "3e014bf1-a76c-5ff3-ba96-57487a244d60",
+    "username": "forum-diffusion",
+    "full_name": "FORUM DIFFUSION",
+    "profession": "Ameublement",
+    "location": "Rabat",
+    "specialties": [
+      {
+        "code": "8.5.2",
+        "label": "Mobilier"
+      }
+    ],
+    "website_url": "https://www.forumdiffusion.ma",
+    "about_seed": "FORUM DIFFUSION, basée à Rabat, est spécialisée dans l’aménagement et l’équipement d’espaces de travail professionnels.\r\n\r\nDepuis notre création, l’entreprise accompagne les organisations dans la conception de bureaux modernes, ergonomiques et adaptés aux besoins de leurs équipes. Nous proposons une large gamme de mobilier de bureau : bureaux individuels ou bench partagés, postes de direction, sièges ergonomiques, armoires, rangements modulables, cloisons, ainsi que des solutions pour open spaces et flex office. Chaque projet est pensé pour allier fonctionnalité, confort et esthétique, afin de créer des environnements favorisant productivité et bien-être.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 32 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Rabat est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en ameublement.",
+    "bio": "FORUM DIFFUSION, basée à Rabat, est spécialisée dans l’aménagement et l’équipement d’espaces de travail professionnels. Depuis notre création, l’entreprise accompagne les organisations dans la conception de bureaux modernes, ergonomiques et adaptés…"
+  },
+  {
+    "id": "7f04ded1-198e-586c-a1f4-8ed151fbc2ed",
+    "username": "gazouni",
+    "full_name": "Gazouni",
+    "profession": "Revêtement de sol",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.3.1",
+        "label": "Jardin"
+      }
+    ],
+    "website_url": "https://easyhydroseeding.ma/",
+    "about_seed": "Faire pousser, c’est notre métier Experts en hydroseeding au Maroc Un gazon plus dense, plus vert et plus rapide Certifié UAB & ECOCERT.\r\n\r\ngazouni.maroc's profile picture. gazouni.maroc. Gazouni. 2,656 followers. 52 following. ⚡ Hydroseeding professionnel Gazon dense, vert & rapide.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en revêtement de sol.",
+    "bio": "Faire pousser, c’est notre métier Experts en hydroseeding au Maroc Un gazon plus dense, plus vert et plus rapide Certifié UAB & ECOCERT. gazouni.maroc's profile picture. gazouni.maroc. Gazouni. 2,656 followers. 52 following. ⚡ Hydroseeding…"
+  },
+  {
+    "id": "6d1760c8-a3d9-5b87-be74-7f49755b315e",
+    "username": "geneltec",
+    "full_name": "Geneltec",
+    "profession": "Installation électrique",
+    "location": "Mohammedia",
+    "specialties": [
+      {
+        "code": "7.5.2",
+        "label": "Domotique"
+      }
+    ],
+    "website_url": "https://geneltec.ma",
+    "about_seed": "Nous – Électricité & Smart Home Solutions GENELTEC est une entreprise marocaine spécialisée dans les installations électriques complètes pour villas, bâtiments résidentiels et projets commerciaux.\r\n\r\nNous offrons des solutions modernes et intelligentes pour rendre chaque espace plus sûr, plus efficace et plus confortable. Nos domaines d’expertise : Électricité du bâtiment et industrielle – Installation, rénovation et maintenance complètes Smart Home – Commande intelligente de l’éclairage, volets, climatisation, et sécurité Serrures et portes connectées WiFi – Ouverture par empreinte, code ou carte Caméras & visiophones – Surveillance, interphonie et contrôle d’accès Énergie solaire & bornes de recharge – Solutions écologiques et durables Chez GENELTEC, nous combinons savoir-faire technique, technologie…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 3 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Mohamme",
+    "bio": "Nous – Électricité & Smart Home Solutions GENELTEC est une entreprise marocaine spécialisée dans les installations électriques complètes pour villas, bâtiments résidentiels et projets commerciaux. Nous offrons des solutions modernes et intelligentes…"
+  },
+  {
+    "id": "2a429a91-1c18-5086-9047-0961a89f7d19",
+    "username": "geomarec",
+    "full_name": "GEOMAREC",
+    "profession": "Installation de plomberie",
+    "location": "Tanger",
+    "specialties": [
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "3.2.3",
+        "label": "Climatisation"
+      },
+      {
+        "code": "3.2.5",
+        "label": "Chauffage"
+      },
+      {
+        "code": "4.3.4",
+        "label": "Piscine"
+      }
+    ],
+    "website_url": "https://www.Geomarec",
+    "about_seed": "Nous accompagnons les particuliers et les professionnels en proposant des solutions fiables, durables et adaptées à chaque besoin. Grâce à notre expertise, nous assurons des installations performantes et un service de qualité à chaque étape de votre projet, avec un objectif clair : améliorer votre confort au quotidien.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 15 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Tanger est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en installation de plomberie.\r\n\r\nDomaines d'expertise : Plomberie, Climatisation, Chauffage, Piscine.",
+    "bio": "Nous accompagnons les particuliers et les professionnels en proposant des solutions fiables, durables et adaptées à chaque besoin. Grâce à notre expertise, nous assurons des installations performantes et un service de qualité à chaque étape de votre…"
+  },
+  {
+    "id": "3cd97b0d-5a06-5590-bbde-3a9ac36d079d",
+    "username": "green-atlas-studio",
+    "full_name": "Green Atlas Studio",
+    "profession": "Paysagiste",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "5.3.3",
+        "label": "Paysagisme"
+      }
+    ],
+    "website_url": "https://www.greenatlasstudio.com",
+    "about_seed": "Nous sommes spécialisé dans la conception, l’aménagement et l’entretien des espaces verts.\r\n\r\nNous imaginons et créons des espaces extérieurs harmonieux, esthétiques et durables, adaptés à l’architecture, à l’environnement et aux besoins de chaque client. De la conception paysagère à la réalisation, nous vous accompagnons dans chaque étape de votre projet : création de jardins, choix et implantation des végétaux, plantation d’arbres et de plantes, aménagement paysager, systèmes d’irrigation et mise en valeur des espaces extérieurs. Nous proposons également des services d’entretien et de suivi régulier afin de préserver la beauté et la santé de vos espaces verts : tonte, taille, élagage, entretien des…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 15 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en paysag",
+    "bio": "Nous sommes spécialisé dans la conception, l’aménagement et l’entretien des espaces verts. Nous imaginons et créons des espaces extérieurs harmonieux, esthétiques et durables, adaptés à l’architecture, à l’environnement et aux besoins de chaque…"
+  },
+  {
+    "id": "f736cf6b-265a-5f19-9f24-a1c200b9f667",
+    "username": "gyptec-platre",
+    "full_name": "GYPTEC PLATRE",
+    "profession": "Plâtre",
+    "location": "Safi",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://www.gyptec.ma/",
+    "about_seed": "En innovant chaque jour, GYPTEC participe à l’habitat de demain : plus sain, plus sûr, plus évolutif Notre but est non seulement d’offrir des produits avec des niveaux de performance élevés, mais également des produits qui respectent l'environnement.\r\n\r\nResponsable Qualité, Environnement & Carrière | GYPTEC PLÂTRE‏ · الخبرة: ‏Gyptec Plâtre ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Safi est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en plâtre.",
+    "bio": "En innovant chaque jour, GYPTEC participe à l’habitat de demain : plus sain, plus sûr, plus évolutif Notre but est non seulement d’offrir des produits avec des niveaux de performance élevés, mais également des produits qui respectent…"
+  },
+  {
+    "id": "b10c8182-7d17-5d86-a346-e336a8c66383",
+    "username": "hatim-idrissi",
+    "full_name": "Hatim Idrissi",
+    "profession": "Fournisseur de matériaux",
+    "location": "",
+    "specialties": [
+      {
+        "code": "5.1.1",
+        "label": "Architecture"
+      }
+    ],
+    "website_url": "https://natureldesign.ma/",
+    "about_seed": "Naturel Design est un cabinet d'architecture d'intérieur basé à Casablanca, fondé et dirigé par Hatim Idrissi.",
+    "bio": "Naturel Design est un cabinet d'architecture d'intérieur basé à Casablanca, fondé et dirigé par Hatim Idrissi."
+  },
+  {
+    "id": "0c6c9d0d-d9a1-5ea2-b9ef-84916e1bff7d",
+    "username": "helpworks-building",
+    "full_name": "helpworks building",
+    "profession": "Gros œuvre",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      },
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://www.helpworks.ma",
+    "about_seed": "travaux de terrassement et voirie et reseau divers assainissement, eau potable, eclairage publics travaux de viabilisation d'une lotissement travaux de genies civils Située à Casablanca, Helpworks prend en charge tous vos travaux publics.\r\n\r\nDepuis 2017, nous vous proposons nos prestations en terrassement, assainissement, voiries et réseaux divers.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 15 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en gros œuvre et construction.\r\n\r\nDomaines d'expertise : Structure, Électricité.",
+    "bio": "travaux de terrassement et voirie et reseau divers assainissement, eau potable, eclairage publics travaux de viabilisation d'une lotissement travaux de genies civils Située à Casablanca, Helpworks prend en charge tous vos travaux publics. Depuis…"
+  },
+  {
+    "id": "360bda5a-f429-5b17-a19d-4891f9ed870a",
+    "username": "hn-bloom",
+    "full_name": "HN BLOOM",
+    "profession": "Installation domotique",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "7.5.2",
+        "label": "Domotique"
+      },
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://hnbloom.com/",
+    "about_seed": "Nous Distributeur des solutions sécurité électroniques et physiques Représentant exclusif de la marque SMART G4 CONTROL des solutions domotique.\r\n\r\nSpécialisée dans l etude ,installation et la commercialisation des solutions pour les marchés de domotique :sécurité, luminaire,sonorisation. Disposant d une expérience forte dans le marché marocain. Elle capitalise aujourd’hui sur son savoir-faire et ses compétence pour répondre aux mieux aux demandes croissantes en matière de pilotage énergétique, de gestion du confort ,de gestion de la sécurité ou encore l usage des applications multimédias dans le bâtiment résidentiel pour le petit tertiaire ou l’entreprise.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 10 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en installation domotique.\r\n\r\nDomaines d'expertise : D",
+    "bio": "Nous Distributeur des solutions sécurité électroniques et physiques Représentant exclusif de la marque SMART G4 CONTROL des solutions domotique. Spécialisée dans l etude ,installation et la commercialisation des solutions pour les marchés de…"
+  },
+  {
+    "id": "80bba3b5-50dd-5535-b5f7-3beeebc6406c",
+    "username": "icynene",
+    "full_name": "ICYNENE",
+    "profession": "Pose d'isolation / Étanchéité",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.7",
+        "label": "Isolation"
+      }
+    ],
+    "website_url": "https://www.icynene.ma/",
+    "about_seed": "Nous sommes une société spécialisée dans l'application professionnelle de mousse polyuréthane projetée pour l'isolation thermique et acoustique des bâtiments.\r\n\r\nNotre rôle est d'accompagner particuliers, professionnels et industriels avec des solutions adaptées, performantes et durables, respectueuses de l'environnement. Nous proposons des systèmes parfaitement adaptés aux besoins du marché marocain, afin d'assurer confort, efficacité énergétique et qualité de vie dans tous types de bâtiments.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 4 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en pose d'isolation / étanchéité.",
+    "bio": "Nous sommes une société spécialisée dans l'application professionnelle de mousse polyuréthane projetée pour l'isolation thermique et acoustique des bâtiments. Notre rôle est d'accompagner particuliers, professionnels et industriels avec des…"
+  },
+  {
+    "id": "31bc9652-c568-5b6a-abea-d6c626f011c4",
+    "username": "indubois",
+    "full_name": "Indubois",
+    "profession": "Menuiserie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.4",
+        "label": "Menuiserie"
+      },
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "https://Www.Indubois.com",
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans la menuiserie industrielle en bois, offrant des solutions sur mesure pour les portes, placards, dressings et cuisines.\r\n\r\nFondée en 2017, elle opère sous la forme juridique de Société à Responsabilité Limitée à Associé Unique (SARL AU) avec un capital social de 1 000 000 MAD . L’entreprise collabore avec des marques reconnues telles que Hofmat, Kronospan et Renogloss . • Site de production : KM 23, Route nationale N1, ZI Lakhyayta, Casablanca . Nous se distingue par son engagement envers la qualité, la personnalisation de ses produits et une approche centrée sur le client, offrant des solutions adaptées aux besoins spécifiques de sa clientèle.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 12 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en menuiserie.",
+    "bio": "Nous sommes une entreprise marocaine spécialisée dans la menuiserie industrielle en bois, offrant des solutions sur mesure pour les portes, placards, dressings et cuisines. Fondée en 2017, elle opère sous la forme juridique de Société à…"
+  },
+  {
+    "id": "67796985-0882-52ca-8ddf-f74af40dbb4e",
+    "username": "isodec",
+    "full_name": "ISODEC",
+    "profession": "Installation électrique",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://www.isodec.ma/",
+    "about_seed": "Nous sommes une entreprise spécialisée dans les travaux de rénovation et d’aménagement intérieur pour particuliers et professionnels.\r\n\r\nForte de plus de 25 ans d’expérience dans le domaine, notre équipe réalise des projets clés en main : cloisons et faux plafonds, revêtements de sol, peinture, électricité, menuiserie aluminium et ouvrages métalliques. Nous nous engageons sur la qualité d’exécution, le respect des délais et des solutions durables adaptées à chaque client.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 25 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en installation électrique.",
+    "bio": "Nous sommes une entreprise spécialisée dans les travaux de rénovation et d’aménagement intérieur pour particuliers et professionnels. Forte de plus de 25 ans d’expérience dans le domaine, notre équipe réalise des projets clés en main : cloisons et…"
+  },
+  {
+    "id": "a2221aee-5fee-5a83-9de5-8e0c1a640fe6",
+    "username": "itamtec",
+    "full_name": "ITAMTEC",
+    "profession": "Automatisme",
+    "location": "Rabat",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://www.itamtec.com/",
+    "about_seed": "Entretien, installation et réparation de portails, volets roulants, et portes de garage résidentielles et industrielles.\r\n\r\nFacebook · Instagram · Site web. | 0 Avis(0). Devis Message Partager Signaler Bloquer.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 15 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Rabat est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en automatisme.",
+    "bio": "Entretien, installation et réparation de portails, volets roulants, et portes de garage résidentielles et industrielles. Facebook · Instagram · Site web. | 0 Avis(0). Devis Message Partager Signaler Bloquer. Notre objectif est d’offrir un…"
+  },
+  {
+    "id": "1167c24a-ec56-5759-be2b-a7cd91658b83",
+    "username": "kaan-studio",
+    "full_name": "Kaan-Studio",
+    "profession": "Architecte d'intérieur",
+    "location": "Meknès",
+    "specialties": [
+      {
+        "code": "5.1.1",
+        "label": "Architecture"
+      }
+    ],
+    "website_url": "https://www.kaan-studio.com/",
+    "about_seed": "Agence de design spécialisé dans la projection virtuelle pour les habitations, les commerces et les industries.\r\n\r\nPromotion immobilière, Images 3D, vidéos 3D et projection avec lunettes VR.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 10 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Meknès est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en architecture.",
+    "bio": "Agence de design spécialisé dans la projection virtuelle pour les habitations, les commerces et les industries. Promotion immobilière, Images 3D, vidéos 3D et projection avec lunettes VR. Notre objectif est d’offrir un accompagnement personnalisé…"
+  },
+  {
+    "id": "08d5d6d0-fb1d-5760-abdc-5ed161802b6b",
+    "username": "kitchen-youssi-by-oqaidi",
+    "full_name": "KITCHEN YOUSSI (BY OQAIDI)",
+    "profession": "Kitchens",
+    "location": "",
+    "specialties": [
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/kitchen-youssi-by-oqaidi",
+    "about_seed": "Kitchen Youssi est une société spécialisée dans la conception de cuisines sur mesure et l'aménagement intérieur haut de gamme.",
+    "bio": "Kitchen Youssi est une société spécialisée dans la conception de cuisines sur mesure et l'aménagement intérieur haut de gamme."
+  },
+  {
+    "id": "442f985b-b804-5a41-84ca-98347add0cd2",
+    "username": "la-washateria",
+    "full_name": "LA WASHATERIA",
+    "profession": "Nettoyage de chantier",
+    "location": "Témara",
+    "specialties": [
+      {
+        "code": "8.6.1",
+        "label": "Nettoyage"
+      }
+    ],
+    "website_url": "https://www.lawashateria.ma",
+    "about_seed": "Depuis notre création, La Washateria s’est imposée comme une référence incontournable dans le secteur du nettoyage et de la rénovation en fin de chantier.\r\n\r\nSpécialisée dans le ponçage et le dressage du marbre ainsi que le ponçage de la mosaïque, notre entreprise met son savoir-faire au service de la valorisation des surfaces délicates et nobles. Nous intervenons également dans le nettoyage des façades, en particulier les surfaces vitrées et les panneaux en Alucobond, en assurant un travail soigné et respectueux des matériaux. Pour compléter notre offre, La Washateria réalise la peinture des façades, réalisée par des alpinistes professionnels, garantissant ainsi une intervention sécurisée, efficace et d’une qualité irréprochable, même en hauteur.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 3 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Témara est à votre écoute pour étudier votre besoin et vous prop",
+    "bio": "Depuis notre création, La Washateria s’est imposée comme une référence incontournable dans le secteur du nettoyage et de la rénovation en fin de chantier. Spécialisée dans le ponçage et le dressage du marbre ainsi que le ponçage de la mosaïque…"
+  },
+  {
+    "id": "1654a8d5-a27b-548d-a50f-a51789c06895",
+    "username": "lahlou-workers",
+    "full_name": "LAHLOU WORKERS",
+    "profession": "Gros œuvre",
+    "location": "Agadir",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://lahlou-workers.com/",
+    "about_seed": "LAHLOU WORKERS, entreprise de construction fondée en 2022, s'appuie sur une solide expérience internationale dans la réalisation d'ouvrages de prestige.\r\n\r\nSpécialisés dans les hôtels de luxe, complexes résidentiels haut de gamme et immeubles de bureaux, nous avons développé une expertise reconnue auprès d'une clientèle internationale exigeante. Notre savoir-faire s'étend de la conception à la livraison, en maîtrisant les standards internationaux les plus élevés. Chaque projet reflète notre engagement envers l'excellence, alliant techniques de construction innovantes, matériaux nobles et finitions irréprochables.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 4 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Agadir est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en gros œuvre et construction.",
+    "bio": "LAHLOU WORKERS, entreprise de construction fondée en 2022, s'appuie sur une solide expérience internationale dans la réalisation d'ouvrages de prestige. Spécialisés dans les hôtels de luxe, complexes résidentiels haut de gamme et immeubles de…"
+  },
+  {
+    "id": "6eaffd4d-fac0-5f44-b5bc-c149acc27cca",
+    "username": "legbtp",
+    "full_name": "LEGBTP",
+    "profession": "Laboratoire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://legbtp.ma",
+    "about_seed": "Depuis notre création en 2007, LEGBTP se veut être un laboratoire géotechnique leader dans le domaine du BTP au Maroc.\r\n\r\nEn effet, il a développé Notre champ d’activités au fur et à mesure de son évolution. Celui-ci englobe actuellement les études géotechniques dans leur sens le plus large, conformément à la norme NF P 94-500, les études hydrologiques, hydrogéologiques et géophysiques, les expertises géotechniques et structurelles, ainsi que le contrôle de la qualité des travaux et des matériaux de construction.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 19 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en laboratoire.",
+    "bio": "Depuis notre création en 2007, LEGBTP se veut être un laboratoire géotechnique leader dans le domaine du BTP au Maroc. En effet, il a développé Notre champ d’activités au fur et à mesure de son évolution. Celui-ci englobe actuellement les études…"
+  },
+  {
+    "id": "542b5ae1-7783-55f0-a3f4-902e5c5165f2",
+    "username": "livingspace-ma",
+    "full_name": "LivingSpace.ma",
+    "profession": "Vidéo et photo immobilière",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.5",
+        "label": "Mobilier"
+      }
+    ],
+    "website_url": "https://www.livingspace.ma/",
+    "about_seed": "Agence de marketing digital 360° spécialisée dans l'immobilier au Maroc.\r\n\r\nNous transformons vos projets en succès digitaux.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en vidéo et photo immobilière.",
+    "bio": "Agence de marketing digital 360° spécialisée dans l'immobilier au Maroc. Nous transformons vos projets en succès digitaux. Notre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous…"
+  },
+  {
+    "id": "2b5322ae-f2a9-56be-8fb6-d60541b72794",
+    "username": "locaziz-location-de-materiel-et-outillag",
+    "full_name": "Locaziz - Location de matériel et outillage",
+    "profession": "Location d'engins de chantier",
+    "location": "Salé",
+    "specialties": [
+      {
+        "code": "3.5.2",
+        "label": "Équipements de chantier"
+      }
+    ],
+    "website_url": "https://locaziz.com/",
+    "about_seed": "Sur Locaziz, trouvez tout ce dont vous avez besoin en quelques clics : échelles, outillage, et bien plus encore.\r\n\r\nLocaziz – Location de matériel et outillage à Rabat/Salé ... Matériel de Chantier & Échafaudages de Façade.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Salé est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en location d'engins de chantier.",
+    "bio": "Sur Locaziz, trouvez tout ce dont vous avez besoin en quelques clics : échelles, outillage, et bien plus encore. Locaziz – Location de matériel et outillage à Rabat/Salé ... Matériel de Chantier & Échafaudages de Façade. Notre objectif est d’offrir…"
+  },
+  {
+    "id": "a74c6002-b4c8-5a0c-ad17-c1122c5f740e",
+    "username": "ma-industry",
+    "full_name": "MA industry",
+    "profession": "Thermal insulation",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/ma-industry",
+    "about_seed": "MA industry /Andross entreprise italienne plus 35ans dans le domaine .",
+    "bio": "MA industry /Andross entreprise italienne plus 35ans dans le domaine ."
+  },
+  {
+    "id": "7b50b45f-ce3d-5de0-af66-9e846943c8a8",
+    "username": "mall-zellij-distribution",
+    "full_name": "Mall Zellij DIstribution",
+    "profession": "Salle de bain / Sanitaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.4",
+        "label": "Salle de bain"
+      },
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "3.3.1",
+        "label": "Revêtements"
+      }
+    ],
+    "website_url": "https://mallzellij.com",
+    "about_seed": "Un acteur majeur dans l'importation et la distribution de carrelage, sanitaire et accessoires au Maroc.\r\n\r\nMallZellij se concentre essentiellement sur l’importation et la vente en B2B et B2C de carreaux et sanitaires provenant principalement d'Italie, d’Espagne, et de la Turquie afin de vous proposer les dernières tendances du marché. Forts de nos partenariats avec des usines renommées, nous offrons une large gamme de produits de qualité supérieure pour répondre aux besoins des particuliers et des professionnels. Avec un vaste stock et des références disponibles en continu, nous apportons des solutions esthétiques et durables pour tous vos projets, qu'il s'agisse de rénovation ou de nouvelles constructions.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 14 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en ",
+    "bio": "Un acteur majeur dans l'importation et la distribution de carrelage, sanitaire et accessoires au Maroc. MallZellij se concentre essentiellement sur l’importation et la vente en B2B et B2C de carreaux et sanitaires provenant principalement d'Italie…"
+  },
+  {
+    "id": "c5ed677b-dce5-5569-8f6a-684a78513031",
+    "username": "maroc-modulaire-steel",
+    "full_name": "MAROC MODULAIRE STEEL",
+    "profession": "Bâtiment modulaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.6.3",
+        "label": "Sécurité"
+      }
+    ],
+    "website_url": "https://www.marocmodulairesteel.com",
+    "about_seed": "Nous somme societé specialisé dans le domaine de fabrication bâtiment modulaire sur mesure Bureau de chantier bureau de vente Guérite de gardiennage Etc........\r\n\r\nNous sommes une SARL créée en 2024, active dans le secteur « Bâtiments préfabriqués et modulaires » à Casablanca.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 13 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en bâtiment modulaire.",
+    "bio": "Nous somme societé specialisé dans le domaine de fabrication bâtiment modulaire sur mesure Bureau de chantier bureau de vente Guérite de gardiennage Etc........ Nous sommes une SARL créée en 2024, active dans le secteur « Bâtiments préfabriqués et…"
+  },
+  {
+    "id": "3819c6c5-2522-51b1-80f4-c3e3ef484065",
+    "username": "matra-equipement",
+    "full_name": "Matra Equipement",
+    "profession": "Matériel de chantier",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/matra-equipement",
+    "about_seed": "Ste Matra est une entreprise spécialisée dans la vente et la distribution de matériel de construction, notamment des pompes à projeter, des pompes à…",
+    "bio": "Ste Matra est une entreprise spécialisée dans la vente et la distribution de matériel de construction, notamment des pompes à projeter, des pompes à…"
+  },
+  {
+    "id": "750cca8a-ae5b-568d-966b-2c49f5101a43",
+    "username": "menage-pro",
+    "full_name": "MÉNAGE-PRO",
+    "profession": "Nettoyage de chantier",
+    "location": "Safi",
+    "specialties": [
+      {
+        "code": "8.6.1",
+        "label": "Nettoyage"
+      }
+    ],
+    "website_url": "https://menageprosafi.com/",
+    "about_seed": "SAFI • EL JADIDA • MARRAKECH www.menage-pro.ma.\r\n\r\nNous proposons des prestations de nettoyage de chantier adaptées aux besoins des particuliers, entreprises et professionnels du bâtiment. Chaque mission est cadrée sur devis, avec un suivi clair des étapes.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 3 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Safi est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en nettoyage de chantier.",
+    "bio": "SAFI • EL JADIDA • MARRAKECH www.menage-pro.ma. Nous proposons des prestations de nettoyage de chantier adaptées aux besoins des particuliers, entreprises et professionnels du bâtiment. Chaque mission est cadrée sur devis, avec un suivi clair des…"
+  },
+  {
+    "id": "d624e5a9-5a96-5793-af30-c77e5b93ee45",
+    "username": "metalnov",
+    "full_name": "METALNOV",
+    "profession": "Aménagement extérieur",
+    "location": "Fès",
+    "specialties": [
+      {
+        "code": "8.5.2",
+        "label": "Mobilier"
+      }
+    ],
+    "website_url": "https://Www.metalnov.ma",
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans le mobilier urbain, la fonderie et les travaux métalliques.\r\n\r\nNous fabriquons et posons des bancs, poubelles, poteaux d’éclairage, pièces en fonte pour réseaux d’eau et structures métalliques sur mesure. Notre mission est d’offrir des solutions durables, esthétiques et innovantes pour les collectivités et les projets publics.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Fès est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en aménagement extérieur.",
+    "bio": "Nous sommes une entreprise marocaine spécialisée dans le mobilier urbain, la fonderie et les travaux métalliques. Nous fabriquons et posons des bancs, poubelles, poteaux d’éclairage, pièces en fonte pour réseaux d’eau et structures métalliques sur…"
+  },
+  {
+    "id": "4d507e53-ae7b-5bd2-8eae-519bc84b1b18",
+    "username": "mirage-colors",
+    "full_name": "mirage colors",
+    "profession": "Peinture",
+    "location": "Berrechid",
+    "specialties": [
+      {
+        "code": "3.3.2",
+        "label": "Peinture"
+      }
+    ],
+    "website_url": "https://miragecolors.ma",
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans la commercialisation et la distribution de peintures décoratives et techniques.\r\n\r\nPeinture Jotun premium au Maroc — Mirage Colors | Mirage Colors Accueil Produits Nuancier Contact WhatsApp Revendeur agréé Jotun au Maroc Peintures Jotun premium pour vos projets intérieurs et extérieurs Mirage Colors, revendeur agréé Jotun au Maroc, vous accompagne avec des peintures décoratives et professionnelles, des conseils techniques et une livraison disponible partout au Maroc. Peintures intérieures Finitions élégantes et lavables pour vos murs. Découvrir Peintures extérieures Protection durable contre le climat marocain.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Berrechid est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en peinture.",
+    "bio": "Nous sommes une entreprise marocaine spécialisée dans la commercialisation et la distribution de peintures décoratives et techniques. Peinture Jotun premium au Maroc — Mirage Colors | Mirage Colors Accueil Produits Nuancier Contact WhatsApp…"
+  },
+  {
+    "id": "c0882666-dc06-544c-b25e-52afa02a49f0",
+    "username": "most-pack",
+    "full_name": "MOST PACK",
+    "profession": "Modular buildings",
+    "location": "",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/most-pack",
+    "about_seed": "MOST PACK – Construction & Génie Civil. Gros Œuvre. Construction de Villas et Bâtiments. Travaux de Génie Civil. Béton Armé & Coffrage.",
+    "bio": "MOST PACK – Construction & Génie Civil. Gros Œuvre. Construction de Villas et Bâtiments. Travaux de Génie Civil. Béton Armé & Coffrage."
+  },
+  {
+    "id": "25387be8-946c-5e74-8026-26cc07835d3f",
+    "username": "multireseaux-sarl",
+    "full_name": "MULTIRESEAUX SARL",
+    "profession": "Installation électrique",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://multireseaux.ma/",
+    "about_seed": "Nous sommes un acteur majeur dans les installations électriques et informatiques au Maroc.\r\n\r\nForte d’une expérience de plus de 15 ans, notre entreprise est reconnue pour sa fiabilité, son expertise technique et son engagement qualité, garantissant la réussite de chaque projet, qu’il soit résidentiel, tertiaire ou industriel Nos services couvrent l’ensemble du cycle d’un projet électrique : étude technique, fourniture de matériel de marques certifiées (Schneider, Legrand, ABB, Siemens, Hager…), installation sur site, mise en conformité aux normes en vigueur, ainsi que la maintenance préventive et corrective. Grâce à notre expertise, nous garantissons : Des solutions fiables et sécurisées, adaptées aux…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 15 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en insta",
+    "bio": "Nous sommes un acteur majeur dans les installations électriques et informatiques au Maroc. Forte d’une expérience de plus de 15 ans, notre entreprise est reconnue pour sa fiabilité, son expertise technique et son engagement qualité, garantissant la…"
+  },
+  {
+    "id": "de4a8041-5a04-53be-a650-9c0d2a5e9771",
+    "username": "nait-dbou-batiments",
+    "full_name": "NAIT DBOU BATIMENTS",
+    "profession": "Pose d'isolation / Étanchéité",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.7",
+        "label": "Isolation"
+      }
+    ],
+    "website_url": "https://naitdbou.rf.gd/",
+    "about_seed": "Nom de l’Entreprise : NAIT DBOU BATIMENTS Localisation : Casablanca, Maroc Secteur d’Activité : Étanchéité et Isolation Thermique et Acoustique À Propos de Nait Dbou Batiments Fondée à Casablanca, Nait Dbou Batiments est une entreprise marocaine spécialisée dans le secteur de l'étanchéité et de l'isolation thermique et acoustique.\r\n\r\nNotre mission est de fournir des solutions innovantes et durables pour améliorer le confort et l'efficacité énergétique des bâtiments. Étanchéité des Bâtiments : Application de systèmes d'étanchéité pour toitures, terrasses et façades. - Solutions d'étanchéité pour sous-sols et fondations. 2. Isolation Thermique : Installation de matériaux isolants pour réduire les pertes de chaleur. - Solutions pour améliorer l'efficacité énergétique des bâtiments résidentiels et commerciaux. 3.Isolation Acoustique : Mise en place de solutions d'isolation phonique pour réduire les nuisances sonores. - Isolation des murs,…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 11 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire",
+    "bio": "Nom de l’Entreprise : NAIT DBOU BATIMENTS Localisation : Casablanca, Maroc Secteur d’Activité : Étanchéité et Isolation Thermique et Acoustique À Propos de Nait Dbou Batiments Fondée à Casablanca, Nait Dbou Batiments est une entreprise marocaine…"
+  },
+  {
+    "id": "41af6f1b-4eb4-5ea9-a23a-d2debdc95a12",
+    "username": "nextile",
+    "full_name": "Nextile",
+    "profession": "EPI",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://www.Nextile.ma",
+    "about_seed": "Nous sommes une entreprise spécialisée dans la vente de vêtements de travail et d'EPI Basés à Casablanca.\r\n\r\nBien plus qu’un simple fournisseur, nous accompagnons nos clients dans le choix des tenues et protections les plus adaptées à leur environnement professionnel. Notre approche repose sur l’écoute, le conseil personnalisé et une bonne connaissance des besoins propres à chaque métier, notamment dans des secteurs exigeants comme le BTP, l’industrie, la logistique ou la maintenance. Nous collaborons avec des acteurs de référence du secteur du bâtiment et des travaux publics, en leur proposant des solutions sur mesure alliant sécurité, confort et durabilité.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en epi.",
+    "bio": "Nous sommes une entreprise spécialisée dans la vente de vêtements de travail et d'EPI Basés à Casablanca. Bien plus qu’un simple fournisseur, nous accompagnons nos clients dans le choix des tenues et protections les plus adaptées à leur…"
+  },
+  {
+    "id": "3d90d8be-2d25-5a6a-8114-37b913fd6fd8",
+    "username": "omari-zellige",
+    "full_name": "Omari Zellige",
+    "profession": "Carrelage",
+    "location": "Fès",
+    "specialties": [
+      {
+        "code": "3.3.1",
+        "label": "Revêtements"
+      }
+    ],
+    "website_url": "https://www.omarizellige.com",
+    "about_seed": "Nous sommes un fabricant de carreaux marocains basé à Fès, berceau historique de l’artisanat du zellige.\r\n\r\nSpécialisée dans la fabrication artisanale de carreaux en terre cuite émaillée, l’entreprise perpétue un savoir-faire ancestral transmis de génération en génération. Chaque carreau est façonné à la main à partir d’argile naturelle de la région, émaillé, cuit au four, puis découpé avec précision, offrant ainsi des pièces uniques au charme authentique. Chez Omari Zellige, la tradition se conjugue avec la qualité.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 42 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Fès est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en carrelage.",
+    "bio": "Nous sommes un fabricant de carreaux marocains basé à Fès, berceau historique de l’artisanat du zellige. Spécialisée dans la fabrication artisanale de carreaux en terre cuite émaillée, l’entreprise perpétue un savoir-faire ancestral transmis de…"
+  },
+  {
+    "id": "96a7c268-9d94-51c7-a1e1-8aff5ba8b7a1",
+    "username": "orca-lum",
+    "full_name": "Orca Lum",
+    "profession": "Pose d'aluminium",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.4",
+        "label": "Menuiserie"
+      }
+    ],
+    "website_url": "https://orcalum.com/",
+    "about_seed": "Nous – Profil de société Secteur d’activité : Construction et menuiserie industrielle Sous-secteurs : Menuiserie aluminium : portes, fenêtres, façades, cloisons, volets, baies vitrées sur mesure Portes isothermes et solutions techniques pour hôpitaux, hôtels, industries agroalimentaires et chambres froides Fabrication et installation sur mesure avec service après-vente Solutions pour bâtiments commerciaux, industriels et résidentiels Description générale : Orca Lum est une entreprise marocaine spécialisée dans la conception, la fabrication et l’installation de portes et menuiseries en aluminium, ainsi que dans les solutions techniques isothermes pour les secteurs professionnels et industriels.\r\n\r\nNous fournissons des produits durables, esthétiques et performants, adaptés aux besoins des hôpitaux, hôtels, industries alimentaires et projets de construction variés. Notre objectif est d’offrir à nos clients des solutions fiables et sur mesure, alliant qualité, design, sécurité et performance thermique, tout en assurant un suivi technique complet avant et après installation. Nos services : Menuiserie aluminium sur mesure : portes, fenêtres, façades, cloisons, volets, baies vitrées Porte",
+    "bio": "Nous – Profil de société Secteur d’activité : Construction et menuiserie industrielle Sous-secteurs : Menuiserie aluminium : portes, fenêtres, façades, cloisons, volets, baies vitrées sur mesure Portes isothermes et solutions techniques pour…"
+  },
+  {
+    "id": "ac6d6f51-0e3c-58d0-9dc6-98daae87a290",
+    "username": "pe2s-smart-home",
+    "full_name": "PE2S | Smart Home",
+    "profession": "Matériel électrique",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      },
+      {
+        "code": "7.5.2",
+        "label": "Domotique"
+      }
+    ],
+    "website_url": "https://www.pe2s.ma/",
+    "about_seed": "Depuis 2012, PE2S accompagne particuliers, professionnels et promoteurs immobiliers dans leurs projets d’électricité, de domotique, de sécurité et de réseaux informatiques.\r\n\r\nNous transformons chaque espace en un lieu moderne, sûr et intelligent, parfaitement adapté aux besoins de nos clients. - Avec des équipes expérimentées, sérieuses et totalement transparentes, nous garantissons des solutions fiables, un suivi personnalisé et des résultats qui dépassent les attentes.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 13 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en matériel électrique.\r\n\r\nDomaines d'expertise : Électricité, Domotique.",
+    "bio": "Depuis 2012, PE2S accompagne particuliers, professionnels et promoteurs immobiliers dans leurs projets d’électricité, de domotique, de sécurité et de réseaux informatiques. Nous transformons chaque espace en un lieu moderne, sûr et intelligent…"
+  },
+  {
+    "id": "28a51cc1-cc84-5b6c-8789-02dfab3bf19d",
+    "username": "platinova",
+    "full_name": "PLATINOVA",
+    "profession": "Aluminium",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.6",
+        "label": "Étanchéité"
+      }
+    ],
+    "website_url": "https://www.platinova.ma",
+    "about_seed": "Nous sommes une société 100% Marocaine spécialisée dans la distribution des produits de second œuvre : Plafond - Sol - Mur - Isolation.\r\n\r\nLa société est présente dans 4 villes : Casablanca (siège) - Tanger - Marrakech et Agadir.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 16 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en aluminium.",
+    "bio": "Nous sommes une société 100% Marocaine spécialisée dans la distribution des produits de second œuvre : Plafond - Sol - Mur - Isolation. La société est présente dans 4 villes : Casablanca (siège) - Tanger - Marrakech et Agadir. Notre objectif est…"
+  },
+  {
+    "id": "8743148c-1b40-552b-820a-c9a640fdfc00",
+    "username": "port-log",
+    "full_name": "port log",
+    "profession": "Bâtiment modulaire",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://portlog.ma/",
+    "about_seed": "la vente et location des conteneurs maritimes pour construction stokage bureaux de chantier logement ouvrier shaw room situe en plien centre ville a 5 min de port6 du port de casa.\r\n\r\nPORT LOG, Casablanca. 33 238 followers · 62 en parlent.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en bâtiment modulaire.",
+    "bio": "la vente et location des conteneurs maritimes pour construction stokage bureaux de chantier logement ouvrier shaw room situe en plien centre ville a 5 min de port6 du port de casa. PORT LOG, Casablanca. 33 238 followers · 62 en parlent. Notre…"
+  },
+  {
+    "id": "1f80216a-2af9-5321-a077-19333d178155",
+    "username": "priority-fire-equipment",
+    "full_name": "PRIORITY FIRE EQUIPMENT",
+    "profession": "Incendie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.8",
+        "label": "Sécurité incendie"
+      }
+    ],
+    "website_url": "https://www..priorityfire.ma",
+    "about_seed": "Bonjour, Nous PRIORITY FIRE EQUIPMENT est spécialisée dans l’étude, la fourniture, l’installation, la maintenance et la formation dans le domaine des systèmes de protection incendie.\r\n\r\nNous proposons des solutions fiables, performantes et conformes aux normes internationales.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 13 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en incendie.",
+    "bio": "Bonjour, Nous PRIORITY FIRE EQUIPMENT est spécialisée dans l’étude, la fourniture, l’installation, la maintenance et la formation dans le domaine des systèmes de protection incendie. Nous proposons des solutions fiables, performantes et conformes…"
+  },
+  {
+    "id": "9346c29f-3ff9-5d74-9fdb-039cee3ef96d",
+    "username": "propoly-industry",
+    "full_name": "Propoly Industry",
+    "profession": "Aménagement extérieur",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.3.5",
+        "label": "Aménagement extérieur"
+      }
+    ],
+    "website_url": "https://propolyindustry.com/",
+    "about_seed": "Nous sommes une société marocaine spécialisée dans la fabrication et la transformation de matières plastiques.\r\n\r\nBasée à Casablanca, l’entreprise met à disposition son savoir-faire et ses équipements industriels modernes pour répondre aux besoins du secteur du bâtiment, de l’aménagement extérieur et de la construction légère. Grâce à sa machine de production dédiée, Propoly Industry fabrique des tôles en polyester de haute qualité, résistantes aux intempéries et adaptées à de multiples usages comme la couverture et le bardage de bâtiments, la réalisation d’abris, hangars et structures modulaires, mais aussi des solutions d’étanchéité et d’isolation ainsi que différentes applications dans l’aménagement extérieur et…\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 4 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus ada",
+    "bio": "Nous sommes une société marocaine spécialisée dans la fabrication et la transformation de matières plastiques. Basée à Casablanca, l’entreprise met à disposition son savoir-faire et ses équipements industriels modernes pour répondre aux besoins du…"
+  },
+  {
+    "id": "34ca4eb1-299b-5ec1-8011-bd4d994972f8",
+    "username": "quincaillerie-global",
+    "full_name": "Quincaillerie Global‭",
+    "profession": "Hard hat",
+    "location": "",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/quincaillerie-global",
+    "about_seed": "Distributeur d'EPI, quicaillerie, matériaux de construction et chantier à Casablanca.",
+    "bio": "Distributeur d'EPI, quicaillerie, matériaux de construction et chantier à Casablanca."
+  },
+  {
+    "id": "2558db51-c880-4487-b597-d0ab273f48fc",
+    "username": "realestate",
+    "full_name": "Dakimm",
+    "profession": "Realtor",
+    "location": "Agadir, Souss Massa, Morocco\nRabat, Rabat Settat, Morocco",
+    "specialties": [],
+    "website_url": null,
+    "about_seed": "Nous sommes enterprise de Realtors.\r\nYour trusted partner for real estate in Agadir\r\nVillas | Appartements| Investment",
+    "bio": "Nous sommes enterprise de Realtors. Your trusted partner for real estate in Agadir Villas | Appartements| Investment"
+  },
+  {
+    "id": "d4cb5d4a-6d99-514b-912d-17c94bcd8666",
+    "username": "rosaver",
+    "full_name": "Rosaver",
+    "profession": "Peinture",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.2",
+        "label": "Peinture"
+      }
+    ],
+    "website_url": "https://rennermaroc.com/",
+    "about_seed": "Importation et distribution des vernis (polyuréthane, nitrocellulosique, acrylique, polyester, hudro pour intérieur à extérieur), peintures (préparation RAL, couleur system), mastic en couleurs, effets spéciaux (craquelet,fluorescent, filant, effet marbre,....) lasures pour extérieur et colorants pour bois.\r\n\r\nImportation et distribution des diluants pour vernis et peinture .\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 20 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en peinture.",
+    "bio": "Importation et distribution des vernis (polyuréthane, nitrocellulosique, acrylique, polyester, hudro pour intérieur à extérieur), peintures (préparation RAL, couleur system), mastic en couleurs, effets spéciaux (craquelet,fluorescent, filant, effet…"
+  },
+  {
+    "id": "22cecb76-7288-5352-a9a1-04e25e0645bc",
+    "username": "s2g",
+    "full_name": "S2G",
+    "profession": "Laboratoire",
+    "location": "Mohammedia",
+    "specialties": [
+      {
+        "code": "3.4.2",
+        "label": "Bureau d’études"
+      }
+    ],
+    "website_url": "http://s2g.ma/",
+    "about_seed": "Nous sommes une société spécialisée dans les domaines de géotechnique, hydrogéologie et géophysique, Ingénierie des sols et matériaux, expertise technique, contrôle de qualité des travaux, contrôle NDT, investigation maritimes, Ingénierie de soudage, environnement et formation continue.\r\n\r\nNos spécialistes géotechniciens diagnostiquent les conditions d’un site donné et proposent, d’une façon optimale, des solutions pour y adopter l’ouvrage projeté.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 25 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Mohammedia est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en laboratoire.",
+    "bio": "Nous sommes une société spécialisée dans les domaines de géotechnique, hydrogéologie et géophysique, Ingénierie des sols et matériaux, expertise technique, contrôle de qualité des travaux, contrôle NDT, investigation maritimes, Ingénierie de…"
+  },
+  {
+    "id": "e99227e7-babc-5237-be6f-4186d0e6d9b2",
+    "username": "saniramar-sarl",
+    "full_name": "SANIRAMAR SARL",
+    "profession": "Plomberie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      }
+    ],
+    "website_url": "https://www.saniramar.ma/",
+    "about_seed": "Nous sommes une société spécialisée dans la distribution des produits industriels et bâtiments depuis 2001, avec une large gamme de produits et des solutions adaptées à vos besoins.\r\n\r\nTEL : 05 22 24 91 07-94 01 EMAIL: a.saniramar@gmail.com ADRESSE: Casablanca ... Pour plus d'informations, @saniramar.sarl met tout en œuvre pour répondre à ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 24 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en plomberie.",
+    "bio": "Nous sommes une société spécialisée dans la distribution des produits industriels et bâtiments depuis 2001, avec une large gamme de produits et des solutions adaptées à vos besoins. TEL : 05 22 24 91 07-94 01 EMAIL: a.saniramar@gmail.com ADRESSE…"
+  },
+  {
+    "id": "87aaa768-a6cb-5093-aad2-e02b11fdce85",
+    "username": "santaire-2000-orobath",
+    "full_name": "Santaire 2000 Orobath",
+    "profession": "Bathroom furniture",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.2.2",
+        "label": "Plomberie"
+      },
+      {
+        "code": "3.3.1",
+        "label": "Revêtements"
+      }
+    ],
+    "website_url": "https://sanitaire2000.ma/",
+    "about_seed": "Depuis 1987, Sanitaire 2000 s'engage à offrir des solutions de carrelage et de sanitaire alliant qualité exceptionnelle et design innovant.\r\n\r\nDomaines d'expertise : Plomberie, Revêtements.",
+    "bio": "Depuis 1987, Sanitaire 2000 s'engage à offrir des solutions de carrelage et de sanitaire alliant qualité exceptionnelle et design innovant. Domaines d'expertise : Plomberie, Revêtements."
+  },
+  {
+    "id": "7c85ceee-b192-5cb5-a5be-f595f59b93de",
+    "username": "sbtp-smart-building-technologies-power",
+    "full_name": "SBTP (SMART BUILDING TECHNOLOGIES POWER )",
+    "profession": "Peinture",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.2",
+        "label": "Peinture"
+      },
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      },
+      {
+        "code": "7.5.2",
+        "label": "Domotique"
+      }
+    ],
+    "website_url": "https://www.smartpower.ma",
+    "about_seed": "SBTP (SMART BUILDING TECHNOLOGIES POWER) est une entreprise marocaine spécialisée dans la fabrication et la commercialisation de solutions techniques pour le secteur du BTP.\r\n\r\nÀ travers sa marque POWER, SBTP propose une gamme complète de produits destinés à la construction, à la rénovation et à la finition : mortiers, colles, enduits, peintures, imperméabilisants, adjuvants et solutions techniques. Avec un savoir-faire marocain et une approche orientée performance, qualité et accompagnement, SBTP – POWER répond aux besoins des professionnels du bâtiment en proposant des solutions adaptées aux exigences des chantiers.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en peinture.\r\n\r\nDomaines d'expertise : Peinture, Structure, Domotique.",
+    "bio": "SBTP (SMART BUILDING TECHNOLOGIES POWER) est une entreprise marocaine spécialisée dans la fabrication et la commercialisation de solutions techniques pour le secteur du BTP. À travers sa marque POWER, SBTP propose une gamme complète de produits…"
+  },
+  {
+    "id": "4df4e655-ec70-5f13-bfb7-d826e727c68a",
+    "username": "sevolta",
+    "full_name": "Sevolta",
+    "profession": "Électricien",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/sevolta",
+    "about_seed": "Sté Electro Volt Ampère ( Sevolta ) expert en Electricité générale à Casablanca, Maroc. Contactez nous pour découvrez nos services de qualité",
+    "bio": "Sté Electro Volt Ampère ( Sevolta ) expert en Electricité générale à Casablanca, Maroc. Contactez nous pour découvrez nos services de qualité"
+  },
+  {
+    "id": "bbc01261-a78e-5c37-8a16-31dce23382bd",
+    "username": "sitca",
+    "full_name": "SITCA",
+    "profession": "Gros œuvre",
+    "location": "Rabat",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://www.sitca.ma",
+    "about_seed": "SITCA: Société intelligente des Travaux de Construction et Aménagement a l’honneur de mettre à votre disposition l’expertise technique de son personnel et souhaite être parmi vos partenaires.\r\n\r\nNous vous informons que nous sommes à votre service pour assurer le suivi et la réalisation de vos projets notamment : - Les Travaux de construction nouvelles et de finition tout corps d’état ; - Les Travaux d’aménagement intérieurs, de rénovation et de réhabilitation des bâtiments existants ; - Les Travaux d’aménagement extérieurs des places et des jardins ;.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Rabat est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en gros œuvre et construction.",
+    "bio": "SITCA: Société intelligente des Travaux de Construction et Aménagement a l’honneur de mettre à votre disposition l’expertise technique de son personnel et souhaite être parmi vos partenaires. Nous vous informons que nous sommes à votre service pour…"
+  },
+  {
+    "id": "ffddb2ac-3cba-5d15-b362-0854060fa92c",
+    "username": "smetec-sarl",
+    "full_name": "Smetec sarl",
+    "profession": "Aménagement de terrasse / Véranda",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.3.3",
+        "label": "Terrasse"
+      }
+    ],
+    "website_url": "http://Www.smetecsport.com",
+    "about_seed": "Nous sommes une entreprise marocaine spécialisée dans la conception, la réalisation et l’aménagement d’infrastructures sportives clé en main.\r\n\r\nForte d’une expertise reconnue dans le domaine, SMETEC accompagne nos clients publics et privés à chaque étape de leurs projets, de l’étude technique à la livraison finale.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 8 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en aménagement de terrasse / véranda.",
+    "bio": "Nous sommes une entreprise marocaine spécialisée dans la conception, la réalisation et l’aménagement d’infrastructures sportives clé en main. Forte d’une expertise reconnue dans le domaine, SMETEC accompagne nos clients publics et privés à chaque…"
+  },
+  {
+    "id": "e8989385-b43a-5749-acc3-8d67ea3c9d05",
+    "username": "sogetech",
+    "full_name": "SOGETECH",
+    "profession": "Topographe",
+    "location": "Berrechid",
+    "specialties": [
+      {
+        "code": "6.2.3",
+        "label": "Géomètre-topographe"
+      }
+    ],
+    "website_url": "https://www.sogetech.ma",
+    "about_seed": "Nous accompagnons nos clients dans leurs projets d’aménagement, de cadastre, de génie civil et de VRD grâce à une expertise reconnue, des outils de pointe et une équipe engagée.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 7 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Berrechid est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en topographie.",
+    "bio": "Nous accompagnons nos clients dans leurs projets d’aménagement, de cadastre, de génie civil et de VRD grâce à une expertise reconnue, des outils de pointe et une équipe engagée. Notre objectif est d’offrir un accompagnement personnalisé, transparent…"
+  },
+  {
+    "id": "2fcdd72f-a8f8-53c7-99e7-9b753719cae9",
+    "username": "soqalin-accessoires",
+    "full_name": "SOQALIN ACCESSOIRES",
+    "profession": "Quincaillerie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/soqalin-accessoires",
+    "about_seed": "Soqalin Accessoires est une entreprise spécialisée dans la vente d'accessoires de quincaillerie et aluminium et d'accessoires de cuisine destinés aux…",
+    "bio": "Soqalin Accessoires est une entreprise spécialisée dans la vente d'accessoires de quincaillerie et aluminium et d'accessoires de cuisine destinés aux…"
+  },
+  {
+    "id": "f1d94d33-8b01-554a-b1c1-0a1044bbe3a2",
+    "username": "ste-2ch-carriere",
+    "full_name": "Ste 2CH carrière",
+    "profession": "Sefrou",
+    "location": "",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/ste-2ch-carriere",
+    "about_seed": "Vente de produits de construction d'origine carrière : galets, graviers, sable concassé, sable fin…",
+    "bio": "Vente de produits de construction d'origine carrière : galets, graviers, sable concassé, sable fin…"
+  },
+  {
+    "id": "935911f0-f1dc-58f9-a41a-6020bdb88ffc",
+    "username": "ste-solar-unlimited-casa",
+    "full_name": "ste solar unlimited casa",
+    "profession": "Climatisation / Chauffage",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.2.3",
+        "label": "Climatisation"
+      },
+      {
+        "code": "3.2.5",
+        "label": "Chauffage"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/solar-unlimited-sarl-casa",
+    "about_seed": "fourniture installation des :chauffe eaux solaire et ballon solaire 150L.200L.300L.500L. injection solaire. pompage solaire. hybride solaire\r\n\r\nDomaines d'expertise : Climatisation, Chauffage.",
+    "bio": "fourniture installation des :chauffe eaux solaire et ballon solaire 150L.200L.300L.500L. injection solaire. pompage solaire. hybride solaire Domaines d'expertise : Climatisation, Chauffage."
+  },
+  {
+    "id": "2eac745e-9228-5f5c-8f7e-ee2431a3421b",
+    "username": "stockage-maroc",
+    "full_name": "Stockage Maroc",
+    "profession": "Matériel de chantier",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.2",
+        "label": "Mobilier"
+      }
+    ],
+    "website_url": "https://stockagemaroc.ma/",
+    "about_seed": "Nous – Votre spécialiste en solutions de rayonnage et aménagement au Maroc Depuis plus de 38 ans, STOCKAGE MAROC fournit des solutions professionnelles de rayonnage industriel, mobilier de bureau et stockage.\r\n\r\nNous importons nos produits directement pour garantir le meilleur rapport qualité-prix et accompagnons nos clients dans tous leurs projets d’aménagement.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 30 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en fourniture de matériel de chantier.",
+    "bio": "Nous – Votre spécialiste en solutions de rayonnage et aménagement au Maroc Depuis plus de 38 ans, STOCKAGE MAROC fournit des solutions professionnelles de rayonnage industriel, mobilier de bureau et stockage. Nous importons nos produits directement…"
+  },
+  {
+    "id": "01ee9428-38a2-5728-9fea-45675b1b219b",
+    "username": "sun-negoce",
+    "full_name": "SUN NEGOCE",
+    "profession": "Cables & wiring",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "8.5.4",
+        "label": "Matériaux"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/sun-negoce",
+    "about_seed": "achat, vente et distribution de fourniture et matériel électrique, et tout accessoire relatif aux produits et services d'électricité et éclairage.",
+    "bio": "achat, vente et distribution de fourniture et matériel électrique, et tout accessoire relatif aux produits et services d'électricité et éclairage."
+  },
+  {
+    "id": "79d273f2-bf6c-5e54-9519-304b0620c5d0",
+    "username": "taboug-building",
+    "full_name": "Taboug Building",
+    "profession": "Promotion immobilière",
+    "location": "Agadir",
+    "specialties": [
+      {
+        "code": "1.2.1",
+        "label": "Promoteur immobilier"
+      }
+    ],
+    "website_url": "https://chridari.ma/fr/promoters/taboug-building-00sdy",
+    "about_seed": "Promoteur immobilier au Maroc — 1 projet(s) référencé(s) sur Sifarah.",
+    "bio": "Promoteur immobilier au Maroc — 1 projet(s) référencé(s) sur Sifarah."
+  },
+  {
+    "id": "18c78104-630c-5e72-9c06-0b63054d73d1",
+    "username": "tanger-equipements-et-automatismes",
+    "full_name": "Tanger equipements et automatismes",
+    "profession": "Matériel électrique",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.2.1",
+        "label": "Électricité"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/tanger-equipements-et-automatismes",
+    "about_seed": "Tanger Équipements & Automatismes (TEA SARL) est une société spécialisée dans l'électricité industrielle, les automatismes et la maintenance technique.",
+    "bio": "Tanger Équipements & Automatismes (TEA SARL) est une société spécialisée dans l'électricité industrielle, les automatismes et la maintenance technique."
+  },
+  {
+    "id": "fa8bb52f-4673-53f9-8aef-d36aa05b6788",
+    "username": "teemlan-engineering-servcies",
+    "full_name": "TEEMLAN ENGINEERING SERVCIES",
+    "profession": "Bureau d'étude",
+    "location": "Tanger",
+    "specialties": [
+      {
+        "code": "3.2.3",
+        "label": "Climatisation"
+      },
+      {
+        "code": "3.2.5",
+        "label": "Chauffage"
+      }
+    ],
+    "website_url": "https://www.teemlan.ma/",
+    "about_seed": "Nous sommes un bureau d’études basé à Tanger, spécialisé dans les lots techniques suivants : - Étude du chauffage, de la ventilation et de la climatisation (CVC) ; - Étude de l’électricité courants forts (CFO) ; - Étude de l’électricité courants faibles (CFA) ; - Étude de la plomberie sanitaire ; - Étude de la protection incendie ;(désenfumage, sprinklers, RIA, colonnes sèches/humides).\r\n\r\nGrâce à une approche rigoureuse et une expertise pointue, TEEMLAN ENGINEERING SERVICES propose : - Des solutions d’ingénierie optimisées, adaptées aux projets résidentiels, tertiaires et industriels ; - Un accompagnement global, de la conception à la réalisation et au suivi des travaux ; - Une garantie de performance et satisfaction totale du client.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 8 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Tanger est à votre écoute pour étudier votre besoin et vous proposer la solu",
+    "bio": "Nous sommes un bureau d’études basé à Tanger, spécialisé dans les lots techniques suivants : - Étude du chauffage, de la ventilation et de la climatisation (CVC) ; - Étude de l’électricité courants forts (CFO) ; - Étude de l’électricité courants…"
+  },
+  {
+    "id": "4b0fe318-590d-5fba-a7a5-a092e9dfbdd3",
+    "username": "top-grad-equipement",
+    "full_name": "TOP GRAD Equipement",
+    "profession": "Cuisine",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "https://www.top-grad.ma/en",
+    "about_seed": "Depuis notre création en 2003, forte de ses 23 ans d'expérience, TOP GRAD s'est imposée comme un acteur de référence sur le marché marocain de l'équipement pour la cuisine professionnelle, la restauration et les métiers de bouche.\r\n\r\nGrâce à une solide expertise terrain et à une parfaite connaissance des besoins des professionnels, TOP GRAD sélectionne et distribue des marques reconnues à l'échelle internationale. Nous offrons ainsi des solutions fiables, innovantes et haut de gamme destinées aux chefs, restaurateurs, hôteliers et barmans. De plus, TOP GRAD propose une sélection de matériel médical de qualité, parfaitement adaptée aux exigences des établissements et des professionnels de santé.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 23 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en cuisine.",
+    "bio": "Depuis notre création en 2003, forte de ses 23 ans d'expérience, TOP GRAD s'est imposée comme un acteur de référence sur le marché marocain de l'équipement pour la cuisine professionnelle, la restauration et les métiers de bouche. Grâce à une solide…"
+  },
+  {
+    "id": "e783f2f8-3d5a-525e-bfa6-363f1c28f9c2",
+    "username": "travaux-ait-ahmed",
+    "full_name": "Travaux ait Ahmed",
+    "profession": "Gros œuvre",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.1.3",
+        "label": "Structure"
+      }
+    ],
+    "website_url": "https://www.travauxaitahmed.com/contact.php",
+    "about_seed": "Nous sommes une entreprise spécialisée dans tous travaux de construction et d'aménagement paysager.\r\n\r\nTravaux ait ahmed, Casablanca, मोरक्को में हैं. 4 फ़र 2023󰞋󱟠. 󳄫. Chemisage des poteaux , renforcement de structure · फ़ोटो के बारे ...\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 15 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en gros œuvre et construction.",
+    "bio": "Nous sommes une entreprise spécialisée dans tous travaux de construction et d'aménagement paysager. Travaux ait ahmed, Casablanca, मोरक्को में हैं. 4 फ़र 2023󰞋󱟠. 󳄫. Chemisage des poteaux , renforcement de structure · फ़ोटो के बारे ... Notre objectif…"
+  },
+  {
+    "id": "33bac6c1-d297-5214-a08d-68a7403d8596",
+    "username": "uniconstru-maroc",
+    "full_name": "uniconstru maroc",
+    "profession": "Matériaux de construction",
+    "location": "",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/uniconstru-maroc",
+    "about_seed": "Votre fournisseur de confiance à Kénitra et ses environs : UNICONSTRU MAROC SARL propose une large gamme de matériaux de construction, tels que ciment,…",
+    "bio": "Votre fournisseur de confiance à Kénitra et ses environs : UNICONSTRU MAROC SARL propose une large gamme de matériaux de construction, tels que ciment,…"
+  },
+  {
+    "id": "88b60f9d-2dc9-592f-af67-917433f03bc7",
+    "username": "vedovadeco",
+    "full_name": "VedovaDeco",
+    "profession": "Revêtement mural",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "4.2.1",
+        "label": "Aménagement intérieur"
+      }
+    ],
+    "website_url": "https://www.vedovadeco.com",
+    "about_seed": "Nous sommes une entreprise basée à Casablanca, spécialisée dans la vente et l'installation de panneaux décoratifs en PVC effet marbre, pierre naturelle ou doré.\r\n\r\nNos produits sont conçus pour apporter une finition moderne, durable et élégante aux murs et plafonds, tout en respectant l’environnement. Avantages : Résistants à l’eau, à l’humidité, au feu (B1) Isolation thermique et phonique Zéro formaldéhyde – Écologique Faciles à installer, sans peinture Durée de vie de plus de 20 ans Services : Vente en gros et détail Installation professionnelle Découpe sur mesure Livraison dans tout le Maroc Nous travaillons avec des promoteurs, architectes, décorateurs et revendeurs. Nos prix sont compétitifs avec une qualité premium.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la pl",
+    "bio": "Nous sommes une entreprise basée à Casablanca, spécialisée dans la vente et l'installation de panneaux décoratifs en PVC effet marbre, pierre naturelle ou doré. Nos produits sont conçus pour apporter une finition moderne, durable et élégante aux…"
+  },
+  {
+    "id": "41c3424b-d575-5ebb-b225-5e852cc66ab3",
+    "username": "vetfashion-north-africa",
+    "full_name": "VETFASHION NORTH AFRICA",
+    "profession": "EPI",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.5.1",
+        "label": "Matériaux de construction"
+      }
+    ],
+    "website_url": "https://www.vetfashion.ma",
+    "about_seed": "Nous proposons toutes les gammes des vêtements professionnels, une vision de marque pour personnaliser vos vêtements de travail afin qu’ils reflètent l’image de votre entreprise.\r\n\r\nSpécialiste de la conception, de la fabrication des vêtements de travail et des EPI. Nous sommes une entreprise dynamique, qui satisfait de nombreux clients aux exigences pointues dans des secteurs aussi variés que la sécurité, l’hotellerie, l’industrie, la santé, le transport ou les services.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 6 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en epi.",
+    "bio": "Nous proposons toutes les gammes des vêtements professionnels, une vision de marque pour personnaliser vos vêtements de travail afin qu’ils reflètent l’image de votre entreprise. Spécialiste de la conception, de la fabrication des vêtements de…"
+  },
+  {
+    "id": "8699ffac-86b9-587b-99bd-ddc9632dcc82",
+    "username": "vitres-intelligentes-maroc",
+    "full_name": "Vitres Intelligentes Maroc",
+    "profession": "Pose de vitres",
+    "location": "Rabat",
+    "specialties": [
+      {
+        "code": "3.3.4",
+        "label": "Menuiserie"
+      }
+    ],
+    "website_url": "https://vitres-intelligentes.com",
+    "about_seed": "Grâce à Vitres Intelligentes Maroc, passez de la transparence à l’intimité en un instant.\r\n\r\nOffrez à vos espaces élégance, confort et innovation. Nos films de verre intelligents redéfinissent vos environnements professionnels : bureaux, hôtels, hôpitaux, salles de réunion ou espaces publics. Sans travaux lourds, vous choisissez entre ouverture totale sur la lumière ou bulle d’intimité, d’un simple geste.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Rabat est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en pose de vitres.",
+    "bio": "Grâce à Vitres Intelligentes Maroc, passez de la transparence à l’intimité en un instant. Offrez à vos espaces élégance, confort et innovation. Nos films de verre intelligents redéfinissent vos environnements professionnels : bureaux, hôtels…"
+  },
+  {
+    "id": "bda53830-6ea5-59c2-9900-5609fcb47e3e",
+    "username": "woodka",
+    "full_name": "Woodka",
+    "profession": "Joinery",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.4",
+        "label": "Menuiserie"
+      },
+      {
+        "code": "4.2.3",
+        "label": "Cuisine"
+      }
+    ],
+    "website_url": "https://lechantier.ma/en/pros/profil/woodka",
+    "about_seed": "Entreprise spécialisée dans la fourniture et pose des portes , placards et cuisine en menuiserie bois clé en main. Concernant, fourniture , Pose.\r\n\r\nDomaines d'expertise : Menuiserie, Cuisine.",
+    "bio": "Entreprise spécialisée dans la fourniture et pose des portes , placards et cuisine en menuiserie bois clé en main. Concernant, fourniture , Pose. Domaines d'expertise : Menuiserie, Cuisine."
+  },
+  {
+    "id": "4cb0b719-1345-5e81-a9fc-7c645758d6fe",
+    "username": "zenara-trade",
+    "full_name": "ZENARA TRADE",
+    "profession": "Vitrerie",
+    "location": "Casablanca",
+    "specialties": [
+      {
+        "code": "3.3.4",
+        "label": "Menuiserie"
+      }
+    ],
+    "website_url": "https://www.wetrade.com.tr/",
+    "about_seed": "Nous sommes une société Turque spécialisée dans la fourniture et l'exportation de produits en verre de haute qualité pour l'industrie de la construction.\r\n\r\nNotre expertise garantit des solutions de qualité supérieure adaptées aux besoins architecturaux modernes. Nous sommes Nous parallèle basée au Maroc, qui assure le bon déroulement des opérations régionales, de la logistique et du service après-vente en Afrique du Nord et au-delà.\r\n\r\nNotre objectif est d’offrir un accompagnement personnalisé, transparent et professionnel à chaque étape du projet. Forts de 5 années d’expérience, nous mettons l’accent sur la qualité d’exécution, le respect des délais et une communication claire avec nos interlocuteurs.\r\n\r\nQue vous souhaitiez lancer un projet neuf, rénover, équiper ou sécuriser un ouvrage, notre équipe à Casablanca est à votre écoute pour étudier votre besoin et vous proposer la solution la plus adaptée en vitrerie.",
+    "bio": "Nous sommes une société Turque spécialisée dans la fourniture et l'exportation de produits en verre de haute qualité pour l'industrie de la construction. Notre expertise garantit des solutions de qualité supérieure adaptées aux besoins…"
+  }
+]

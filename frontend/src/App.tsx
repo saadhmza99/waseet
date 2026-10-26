@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { VisitorGateProvider } from "@/contexts/VisitorGateContext";
 import { AppLanguageProvider } from "@/contexts/AppLanguageContext";
 import AppHeader from "@/components/AppHeader";
+import FeedDesktopRail from "@/components/FeedDesktopRail";
 import TabNav from "@/components/TabNav";
 import Index from "./pages/Index";
 import Explore from "./pages/Explore";
@@ -72,12 +73,13 @@ const AppLayout = () => {
   const [welcomeDone, setWelcomeDone] = useState(() => hasSeenWelcome());
   const lockToReset = isPasswordRecovery;
 
-  const desktopRail =
+  /** Pages that already render FeedDesktopRail themselves. */
+  const pageOwnsDesktopRail =
     pathname === "/" ||
     pathname.startsWith("/explore") ||
     pathname.startsWith("/saved") ||
     pathname.startsWith("/opportunites") ||
-    pathname.startsWith("/produits") ||
+    pathname === "/produits" ||
     pathname.startsWith("/outils") ||
     pathname.startsWith("/courses") ||
     pathname.startsWith("/hrayfi") ||
@@ -96,6 +98,9 @@ const AppLayout = () => {
     pathname.startsWith("/projet/nouveau") ||
     pathname.startsWith("/service/nouveau") ||
     pathname.startsWith("/produit/nouveau");
+
+  /** Inject left rail for pages that don't own one (profile, details, etc.). */
+  const injectDesktopRail = !hideAppChrome && !lockToReset && !pageOwnsDesktopRail;
 
   if (
     !authLoading &&
@@ -121,55 +126,77 @@ const AppLayout = () => {
     return <Navigate to="/change-password" replace />;
   }
 
+  const showMobileHeader =
+    !isProfile &&
+    !isReels &&
+    !isProjectDetail &&
+    !isServiceDetail &&
+    !isPropertyDetail &&
+    !lockToReset &&
+    !hideAppChrome;
+  const showMobileTabNav = !lockToReset && !hideAppChrome && !isProjectDetail;
+  const mainPad = showMobileTabNav ? "pb-20 lg:pb-0" : "";
+
+  const routes = (
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/welcome" element={<Welcome onDone={() => setWelcomeDone(true)} />} />
+      <Route path="/post/:id" element={<PostDetail />} />
+      <Route path="/job/:title" element={<JobDetail />} />
+      <Route path="/explore" element={<Explore />} />
+      <Route path="/opportunites" element={<Opportunities />} />
+      <Route path="/produits" element={<Products />} />
+      <Route path="/produits/:id" element={<ProductPage />} />
+      <Route path="/outils" element={<Tools />} />
+      <Route path="/courses" element={<Courses />} />
+      <Route path="/hrayfi" element={<Hrayfi />} />
+      <Route path="/projet/nouveau" element={<CreateProjectWizard />} />
+      <Route path="/service/nouveau" element={<CreateServiceForm />} />
+      <Route path="/produit/nouveau" element={<SignedIn><CreateProductForm /></SignedIn>} />
+      <Route path="/service/:id" element={<ServicePage />} />
+      <Route path="/projet/:id" element={<ProjectPage />} />
+      <Route path="/bien/:id" element={<PropertyPage />} />
+      <Route path="/reels" element={<Reels />} />
+      <Route path="/saved" element={<Saved />} />
+      <Route path="/profile/:id" element={<Profile />} />
+      <Route path="/profile" element={<OwnProfileRoute />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/settings" element={<SignedIn><Settings /></SignedIn>} />
+      <Route path="/settings/blocked" element={<SignedIn><BlockedAccounts /></SignedIn>} />
+      <Route path="/change-password" element={<ChangePassword />} />
+      <Route path="/privacy-settings" element={<SignedIn><PrivacySettings /></SignedIn>} />
+      <Route path="/admin/moderation" element={<RequireAuth><AdminModeration /></RequireAuth>} />
+      <Route path="/create-profile" element={<CreateProfile />} />
+      <Route path="/join" element={<JoinChoice />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/preview/pros" element={<ProfessionalPreview />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+
   return (
-        <div className="w-full min-h-screen bg-background flex flex-col">
-          {isProfile || isReels || isProjectDetail || isServiceDetail || isPropertyDetail || lockToReset || hideAppChrome ? null : (
-            <div className={desktopRail ? "lg:hidden" : undefined}>
-              <AppHeader />
-            </div>
-          )}
-          {lockToReset || hideAppChrome || isProjectDetail ? null : (
-            <div className={desktopRail ? "lg:hidden" : undefined}>
-              <TabNav />
-            </div>
-          )}
-          <div className={`${lockToReset || hideAppChrome || isProjectDetail ? "" : desktopRail ? "pb-20 lg:pb-0" : "pb-20"} flex-1`}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/welcome" element={<Welcome onDone={() => setWelcomeDone(true)} />} />
-            <Route path="/post/:id" element={<PostDetail />} />
-            <Route path="/job/:title" element={<JobDetail />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/opportunites" element={<Opportunities />} />
-            <Route path="/produits" element={<Products />} />
-            <Route path="/produits/:id" element={<ProductPage />} />
-            <Route path="/outils" element={<Tools />} />
-            <Route path="/courses" element={<Courses />} />
-            <Route path="/hrayfi" element={<Hrayfi />} />
-            <Route path="/projet/nouveau" element={<CreateProjectWizard />} />
-            <Route path="/service/nouveau" element={<CreateServiceForm />} />
-            <Route path="/produit/nouveau" element={<SignedIn><CreateProductForm /></SignedIn>} />
-            <Route path="/service/:id" element={<ServicePage />} />
-            <Route path="/projet/:id" element={<ProjectPage />} />
-            <Route path="/bien/:id" element={<PropertyPage />} />
-              <Route path="/reels" element={<Reels />} />
-              <Route path="/saved" element={<Saved />} />
-            <Route path="/profile/:id" element={<Profile />} />
-            <Route path="/profile" element={<OwnProfileRoute />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/settings" element={<SignedIn><Settings /></SignedIn>} />
-              <Route path="/settings/blocked" element={<SignedIn><BlockedAccounts /></SignedIn>} />
-              <Route path="/change-password" element={<ChangePassword />} />
-              <Route path="/privacy-settings" element={<SignedIn><PrivacySettings /></SignedIn>} />
-              <Route path="/admin/moderation" element={<RequireAuth><AdminModeration /></RequireAuth>} />
-              <Route path="/create-profile" element={<CreateProfile />} />
-              <Route path="/join" element={<JoinChoice />} />
-              <Route path="/contact" element={<Contact />} />
-            <Route path="/preview/pros" element={<ProfessionalPreview />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </div>
+    <div className="flex min-h-screen w-full flex-col bg-background">
+      {showMobileHeader ? (
+        <div className="lg:hidden">
+          <AppHeader />
         </div>
+      ) : null}
+      {showMobileTabNav ? (
+        <div className="lg:hidden">
+          <TabNav />
+        </div>
+      ) : null}
+      <div className={`${mainPad} flex-1`}>
+        {injectDesktopRail ? (
+          <div className="lg:flex lg:min-h-screen lg:w-full">
+            <FeedDesktopRail />
+            <div className="min-w-0 flex-1">{routes}</div>
+          </div>
+        ) : (
+          routes
+        )}
+      </div>
+    </div>
   );
 };
 

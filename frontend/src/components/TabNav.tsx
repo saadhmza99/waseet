@@ -1,4 +1,4 @@
-import { Heart, Search, Store, User } from "lucide-react";
+import { Heart, Plus, Search, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
@@ -35,16 +35,25 @@ const TabNav = () => {
     return null;
   }
 
+  const creating = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
+
+  const goCreate = () => {
+    if (!user && !visitorUser) {
+      navigate("/login");
+      return;
+    }
+    if (creating) {
+      navigate("/", { replace: true, state: {} });
+      return;
+    }
+    navigate("/", { state: { openCreate: true } });
+  };
+
   const profileSlugMatch = path.match(/^\/profile\/([^/?#]+)/i);
   const viewedSlug = profileSlugMatch
     ? decodeURIComponent(profileSlugMatch[1]).replace(/^@/, "").trim().toLowerCase()
     : "";
-  const ownAliases = [
-    user?.id,
-    profile?.id,
-    profile?.username,
-    visitorUser?.id,
-  ]
+  const ownAliases = [user?.id, profile?.id, profile?.username, visitorUser?.id]
     .filter(Boolean)
     .map((value) => String(value).replace(/^@/, "").trim().toLowerCase());
   const onOwnProfile =
@@ -77,10 +86,15 @@ const TabNav = () => {
         </button>
         <button
           type="button"
-          onClick={() => navigate("/saved")}
-          className={itemClass(path.startsWith("/saved"))}
-          aria-label="Favoris"
+          onClick={goCreate}
+          aria-label="Créer"
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg ${
+            creating ? "bg-black" : "bg-[#174f43] hover:bg-[#123d34]"
+          }`}
         >
+          <Plus className="h-8 w-8" strokeWidth={2.5} />
+        </button>
+        <button type="button" onClick={() => navigate("/saved")} className={itemClass(path.startsWith("/saved"))}>
           <span className={iconWrap}>
             <Heart
               className={`h-7 w-7 ${path.startsWith("/saved") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
@@ -89,25 +103,7 @@ const TabNav = () => {
           </span>
           Favoris
         </button>
-        <button
-          type="button"
-          onClick={() => navigate("/produits")}
-          className={itemClass(path.startsWith("/produits"))}
-          aria-label="Sifarah Matériaux"
-        >
-          <span className={iconWrap}>
-            <Store
-              className={`h-7 w-7 ${path.startsWith("/produits") ? "fill-[#237a5d] text-[#237a5d]" : ""}`}
-              strokeWidth={path.startsWith("/produits") ? 1.8 : 2}
-            />
-          </span>
-          Matériaux
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/profile")}
-          className={itemClass(onOwnProfile)}
-        >
+        <button type="button" onClick={() => navigate("/profile")} className={itemClass(onOwnProfile)}>
           <span className={iconWrap}>
             <User
               className={`h-7 w-7 ${onOwnProfile ? "fill-[#237a5d] text-[#237a5d]" : ""}`}

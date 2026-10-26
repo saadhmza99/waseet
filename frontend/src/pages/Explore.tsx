@@ -11,12 +11,23 @@ import { ProjectCard } from "@/components/project/ProjectCard";
 import { PROJECT_MILESTONES, milestoneReachedIndex } from "@/components/project/ProjectMilestoneTrack";
 import { COMMERCIAL_STATUSES, dossierFromRow } from "@/lib/projectDossier";
 import { ServiceCard } from "@/components/service/ServiceCard";
+import { resolveAvatarUrl } from "@/lib/avatar";
 import { DISCOVER_ITEMS, type DiscoverItem } from "@/lib/showcaseDiscover";
 import { offerFromRow, priceLabel, serviceMainImage, zoneLabel } from "@/lib/serviceOffer";
 import { catalogService } from "@/services/catalogService";
 import { profileService } from "@/services/profileService";
 import { serviceFirmName, serviceFeedTags, serviceService, type ServiceRow } from "@/services/serviceService";
-import { PROJECT_TYPES, feedCategoryLabel, feedSubCategoryBySlug, isFournisseurInternalCode, isPromoteurInternalCode, matchesFeedCategory, projectTypeLabel } from "@/lib/taxonomy";
+import {
+  FOURNISSEUR_CATEGORY_ID,
+  PROJECT_TYPES,
+  PROMOTEUR_CATEGORY_ID,
+  feedCategoryLabel,
+  feedSubCategoryBySlug,
+  isFournisseurInternalCode,
+  isPromoteurInternalCode,
+  matchesFeedCategory,
+  projectTypeLabel,
+} from "@/lib/taxonomy";
 
 const PROJECT_TYPE_ICONS: Record<string, LucideIcon> = {
   projet_residentiel: Home,
@@ -46,14 +57,33 @@ const PROJECT_TYPE_OPTIONS: CategoryOption[] = PROJECT_TYPES.map((item) => ({
 type MockItem = DiscoverItem;
 
 /** First paint + scroll pages — keep small so nested taxonomy joins stay fast. */
-const DISCOVER_PAGE_SIZE = 8;
+const DISCOVER_PAGE_SIZE = 12;
+
+/** Map Discover category chips → server filters (avoids client-side sparse paging). */
+const discoverTaxonomyFilters = (category: string | null, sub: string | null) => {
+  if (!category || category === "tout") {
+    return { feedCategory: null as string | null, feedSubCategory: null as string | null, promoteurOnly: false, fournisseurOnly: false };
+  }
+  if (category === PROMOTEUR_CATEGORY_ID) {
+    return { feedCategory: null, feedSubCategory: null, promoteurOnly: true, fournisseurOnly: false };
+  }
+  if (category === FOURNISSEUR_CATEGORY_ID) {
+    return { feedCategory: null, feedSubCategory: null, promoteurOnly: false, fournisseurOnly: true };
+  }
+  return {
+    feedCategory: category,
+    feedSubCategory: sub || null,
+    promoteurOnly: false,
+    fournisseurOnly: false,
+  };
+};
 
 const subCategoryLabel = (item: MockItem) => feedSubCategoryBySlug(item.feed_sub_category)?.subCategory.label || "";
 
 type SearchType = "biens" | "services" | "projets" | "comptes";
 
 const SEARCH_TYPES: { id: SearchType; label: string }[] = [
-  { id: "comptes", label: "Professionnels" },
+  { id: "comptes", label: "Entreprises" },
   { id: "projets", label: "Projets" },
   { id: "biens", label: "Biens" },
   { id: "services", label: "Services" },
@@ -88,7 +118,7 @@ const detailLine = (item: MockItem) => {
 const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem) => void }) => {
   const profile = (
     <span className="flex items-center gap-2.5">
-      <img src={item.image} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+      <img src={item.image} alt="" className="h-10 w-10 shrink-0 rounded-2xl object-cover" />
       <span className="min-w-0">
         <span className="block truncate text-[15px] font-semibold text-neutral-950">{item.profileName}</span>
         <span className="block truncate text-xs text-neutral-500">{item.city}</span>
@@ -127,7 +157,6 @@ const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem)
 
 const AccountRow = ({
   name,
-  username,
   image,
   city,
   typeLabel,
@@ -136,7 +165,6 @@ const AccountRow = ({
   onOpen,
 }: {
   name: string;
-  username: string;
   image: string;
   city: string;
   typeLabel: string;
@@ -146,10 +174,18 @@ const AccountRow = ({
 }) => (
   <div className="flex items-center gap-3 border-b border-neutral-100 px-3 py-3">
     <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-      <img src={image} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+      <img
+        src={image || resolveAvatarUrl(null)}
+        alt=""
+        className="h-12 w-12 shrink-0 rounded-2xl object-cover bg-neutral-100"
+        onError={(e) => {
+          const el = e.currentTarget;
+          const fallback = resolveAvatarUrl(null);
+          if (el.src !== fallback) el.src = fallback;
+        }}
+      />
       <span className="min-w-0">
         <span className="block truncate text-[15px] font-semibold text-neutral-950">{name}</span>
-        <span className="block truncate text-sm text-neutral-500">@{username}</span>
         <span className="block truncate text-xs text-neutral-400">{typeLabel} · {city}</span>
       </span>
     </button>
@@ -253,6 +289,7 @@ const Explore = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [draft, setDraft] = useState(params.get("q") || "");
+  const [committedQuery, setCommittedQuery] = useState((params.get("q") || "").trim());
   const [searchType, setSearchType] = useState<SearchType>("comptes");
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -289,7 +326,21 @@ const Explore = () => {
   const catalogBootedRef = useRef(false);
   const loadTicket = useRef(0);
 
-  const typedQuery = draft.trim().toLowerCase();
+  const typedQuery = committedQuery.toLowerCase();
+
+  useEffect(() => {
+    const q = params.get("q") || "";
+    setDraft(q);
+    setCommittedQuery(q.trim());
+  }, [params]);
+
+  // Live server search while typing (same idea as category filters — no client-side sparse paging).
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setCommittedQuery(draft.trim());
+    }, 350);
+    return () => window.clearTimeout(handle);
+  }, [draft]);
 
   const appendUnique = <T extends { id: string }>(prev: T[], next: T[]) => {
     const seen = new Set(prev.map((row) => row.id));
@@ -297,6 +348,10 @@ const Explore = () => {
   };
 
   const cityFilter = selectedCity.trim() || null;
+  const taxonomyFilters = useMemo(
+    () => discoverTaxonomyFilters(selectedCategory, subCategory),
+    [selectedCategory, subCategory],
+  );
 
   const loadMoreServices = useCallback(async () => {
     if (loadingMoreRef.current || !hasMoreServicesRef.current) return;
@@ -306,6 +361,8 @@ const Explore = () => {
     try {
       const page = await serviceService.listServices(DISCOVER_PAGE_SIZE, servicesOffsetRef.current, {
         city: cityFilter,
+        query: committedQuery || null,
+        ...taxonomyFilters,
       });
       if (loadTicket.current !== ticket) return;
       servicesOffsetRef.current += DISCOVER_PAGE_SIZE;
@@ -324,7 +381,7 @@ const Explore = () => {
         setLoadingMore(false);
       }
     }
-  }, [cityFilter]);
+  }, [cityFilter, taxonomyFilters, committedQuery]);
 
   const loadMoreProfiles = useCallback(async () => {
     if (loadingMoreRef.current || !hasMoreProfilesRef.current) return;
@@ -332,11 +389,13 @@ const Explore = () => {
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const page = await profileService.listProfessionals(DISCOVER_PAGE_SIZE, profilesOffsetRef.current, {
-        city: cityFilter,
-      });
+      const { rows: page, nextOffset } = await profileService.listProfessionals(
+        DISCOVER_PAGE_SIZE,
+        profilesOffsetRef.current,
+        { city: cityFilter, query: committedQuery || null, ...taxonomyFilters },
+      );
       if (loadTicket.current !== ticket) return;
-      profilesOffsetRef.current += DISCOVER_PAGE_SIZE;
+      profilesOffsetRef.current = nextOffset;
       const more = page.length >= DISCOVER_PAGE_SIZE;
       hasMoreProfilesRef.current = more;
       setHasMoreProfiles(more);
@@ -352,21 +411,26 @@ const Explore = () => {
         setLoadingMore(false);
       }
     }
-  }, [cityFilter]);
+  }, [cityFilter, taxonomyFilters, committedQuery]);
 
-  // Default tab = Professionnels — reload whenever the city filter changes.
+  // Professionnels — reload on city, query, or category/sub change (filters are server-side).
   useEffect(() => {
     let cancelled = false;
     const bootProfiles = async () => {
+      const ticket = ++loadTicket.current;
       setLoadingProfiles(true);
       setLiveProfiles([]);
       profilesOffsetRef.current = 0;
       hasMoreProfilesRef.current = true;
       setHasMoreProfiles(true);
       try {
-        const profiles = await profileService.listProfessionals(DISCOVER_PAGE_SIZE, 0, { city: cityFilter });
-        if (cancelled) return;
-        profilesOffsetRef.current = DISCOVER_PAGE_SIZE;
+        const { rows: profiles, nextOffset } = await profileService.listProfessionals(DISCOVER_PAGE_SIZE, 0, {
+          city: cityFilter,
+          query: committedQuery || null,
+          ...taxonomyFilters,
+        });
+        if (cancelled || loadTicket.current !== ticket) return;
+        profilesOffsetRef.current = nextOffset;
         const more = profiles.length >= DISCOVER_PAGE_SIZE;
         hasMoreProfilesRef.current = more;
         setHasMoreProfiles(more);
@@ -374,20 +438,21 @@ const Explore = () => {
       } catch (error) {
         console.error("Error loading professionals:", error);
       } finally {
-        if (!cancelled) setLoadingProfiles(false);
+        if (!cancelled && loadTicket.current === ticket) setLoadingProfiles(false);
       }
     };
     void bootProfiles();
     return () => {
       cancelled = true;
     };
-  }, [cityFilter]);
+  }, [cityFilter, taxonomyFilters, committedQuery]);
 
-  // Lazy-load / reload services when that tab is open or the city filter changes.
+  // Lazy-load / reload services when that tab is open or city/query/category filters change.
   useEffect(() => {
     if (searchType !== "services") return;
     let cancelled = false;
     const bootServices = async () => {
+      const ticket = ++loadTicket.current;
       setLoadingServices(true);
       setLiveServices([]);
       servicesOffsetRef.current = 0;
@@ -396,8 +461,12 @@ const Explore = () => {
       servicesBootedRef.current = false;
       setServicesBooted(false);
       try {
-        const services = await serviceService.listServices(DISCOVER_PAGE_SIZE, 0, { city: cityFilter });
-        if (cancelled) return;
+        const services = await serviceService.listServices(DISCOVER_PAGE_SIZE, 0, {
+          city: cityFilter,
+          query: committedQuery || null,
+          ...taxonomyFilters,
+        });
+        if (cancelled || loadTicket.current !== ticket) return;
         servicesOffsetRef.current = DISCOVER_PAGE_SIZE;
         const more = services.length >= DISCOVER_PAGE_SIZE;
         hasMoreServicesRef.current = more;
@@ -408,14 +477,14 @@ const Explore = () => {
       } catch (error) {
         console.error("Error loading services:", error);
       } finally {
-        if (!cancelled) setLoadingServices(false);
+        if (!cancelled && loadTicket.current === ticket) setLoadingServices(false);
       }
     };
     void bootServices();
     return () => {
       cancelled = true;
     };
-  }, [searchType, cityFilter]);
+  }, [searchType, cityFilter, taxonomyFilters, committedQuery]);
 
   // Lazy-load projects / biens when those tabs open, and reload on city filter change.
   useEffect(() => {
@@ -514,10 +583,10 @@ const Explore = () => {
         is_fournisseur:
           codes.some((code) => isFournisseurInternalCode(code)) || feed?.slug === "fournisseurs",
         kind: "agence" as const,
-        profileName: row.full_name || row.username || "Professionnel",
+        profileName: row.full_name || row.username || "Entreprise",
         username: row.username || "",
-        image: row.avatar_url || "",
-        title: row.full_name || row.username || "Professionnel",
+        image: resolveAvatarUrl(row.avatar_url, row.profile_type),
+        title: row.full_name || row.username || "Entreprise",
         city: row.location || "",
         description: row.profession || "",
       };
@@ -528,19 +597,21 @@ const Explore = () => {
   const searched = useMemo(
     () =>
       catalogItems.filter((item) => {
-        // In the Projets tab, projects are filtered by project type (Catégories
-        // button), not by feed category.
+        // Professionnels / Services: category + text query are applied server-side.
+        // Projets: filtered by project type, not feed category.
         const categoryOk =
-          item.kind === "projet" && searchType === "projets"
+          searchType === "comptes" || searchType === "services" || (item.kind === "projet" && searchType === "projets")
             ? true
             : matchesFeedCategory(selectedCategory, subCategory, item);
+        const queryOk =
+          searchType === "comptes" || searchType === "services" ? true : matchesQuery(item, typedQuery);
         // City is applied server-side when loading; keep client match as a soft check
         // but always allow nationwide services labeled "Maroc".
         const cityOk =
           !selectedCity.trim() ||
           (item.city || "").trim().toLowerCase() === "maroc" ||
           matchesCity(item, selectedCity);
-        return categoryOk && matchesQuery(item, typedQuery) && cityOk;
+        return categoryOk && queryOk && cityOk;
       }),
     [catalogItems, typedQuery, selectedCategory, subCategory, selectedCity, searchType],
   );
@@ -586,31 +657,6 @@ const Explore = () => {
     if (searchType === "comptes") void loadMoreProfiles();
     else if (searchType === "services") void loadMoreServices();
   }, [searchType, loadMoreProfiles, loadMoreServices]);
-
-  // When filters hide everything but more pages exist, keep fetching (same idea as the feed).
-  useEffect(() => {
-    if (loadingMore || viewMode === "map") return;
-    if (searchType === "comptes" && !loadingProfiles && accounts.length === 0 && hasMoreProfiles) {
-      void loadMoreProfiles();
-      return;
-    }
-    if (searchType === "services" && servicesBooted && !loadingServices && searchResults.length === 0 && hasMoreServices) {
-      void loadMoreServices();
-    }
-  }, [
-    loadingMore,
-    loadingProfiles,
-    loadingServices,
-    servicesBooted,
-    viewMode,
-    searchType,
-    accounts.length,
-    searchResults.length,
-    hasMoreProfiles,
-    hasMoreServices,
-    loadMoreProfiles,
-    loadMoreServices,
-  ]);
 
   const tabLoading =
     (searchType === "comptes" && loadingProfiles) ||
@@ -850,7 +896,7 @@ const Explore = () => {
           <p className="px-4 py-8 text-center text-muted-foreground">Chargement…</p>
         ) : searchType === "comptes" ? (
           accounts.length === 0 && !hasMoreProfiles && !loadingProfiles ? (
-            <p className="px-4 py-8 text-center text-muted-foreground">Aucun professionnel pour cette recherche</p>
+            <p className="px-4 py-8 text-center text-muted-foreground">Aucune entreprise pour cette recherche</p>
           ) : (
             <>
               <ul>
@@ -860,10 +906,9 @@ const Explore = () => {
                     <li key={item.id}>
                       <AccountRow
                         name={item.profileName}
-                        username={username}
                         image={item.image}
                         city={item.city}
-                        typeLabel={subCategoryLabel(item) || item.description || "Professionnel"}
+                        typeLabel={subCategoryLabel(item) || item.description || "Entreprise"}
                         followed={Boolean(followed[username])}
                         onFollow={() => setFollowed((current) => ({ ...current, [username]: !current[username] }))}
                         onOpen={() => openItem(item)}
