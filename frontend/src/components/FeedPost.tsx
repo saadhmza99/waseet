@@ -612,25 +612,25 @@ const FeedPost = ({
   return (
     <article className="mb-2 min-w-0 overflow-hidden border-b border-neutral-100 bg-white">
       {/* User Info */}
-      <div className="flex items-center gap-2.5 pl-2.5 pr-3 pb-3 pt-4">
+      <div className="flex items-center gap-3 pl-2.5 pr-3 pb-3.5 pt-4">
         <button onClick={handleProfileClick} className="shrink-0 hover:opacity-80 transition-opacity">
-          <img src={avatar || getDefaultAvatar("individual")} alt={displayName} className="h-11 w-11 rounded-2xl object-cover" />
+          <img src={avatar || getDefaultAvatar("individual")} alt={displayName} className="h-12 w-12 rounded-2xl object-cover" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
-            <button onClick={handleProfileClick} className="min-w-0 truncate text-left text-lg font-semibold leading-tight text-neutral-950 transition-opacity hover:opacity-80">
+            <button onClick={handleProfileClick} className="min-w-0 truncate text-left text-xl font-semibold leading-tight text-neutral-950 transition-opacity hover:opacity-80">
               {displayName}
             </button>
-            <VerifiedBadge verified={isVerified} className="h-[17px] w-[17px] shrink-0" />
+            <VerifiedBadge verified={isVerified} className="h-[18px] w-[18px] shrink-0" />
             {isSponsored && (
               <div className="flex shrink-0 items-center gap-1 rounded bg-accent/10 px-1.5 py-0.5 text-accent">
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-3.5 h-3.5" />
                 <span className="text-sm font-semibold uppercase">Sponsorisé</span>
               </div>
             )}
           </div>
           {businessLine ? (
-            <p className="truncate text-sm leading-tight text-neutral-500">{businessLine}</p>
+            <p className="truncate text-[15px] leading-tight text-neutral-500">{businessLine}</p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -757,7 +757,7 @@ const FeedPost = ({
           }}
         >
           <p
-            className={`text-base leading-5 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden ${
+            className={`text-[1.0625rem] leading-6 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden ${
               captionExpanded ? "" : "line-clamp-4"
             }`}
           >
@@ -1009,7 +1009,7 @@ const FeedPost = ({
           <>
             <button
               onClick={handleLike}
-              className={`flex items-center gap-1.5 text-base font-medium transition-transform active:scale-90 ${
+              className={`flex items-center gap-1.5 text-[1.0625rem] font-medium transition-transform active:scale-90 ${
                 liked ? "text-accent" : "text-neutral-700"
               }`}
             >

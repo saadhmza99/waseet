@@ -219,7 +219,11 @@ def build_rows() -> tuple[list[dict], list[dict], list[dict]]:
         email = f"{username}@lechantier.sifarah.local"
 
         description = (row.get("description") or "").strip()
-        bio = trunc(description or f"{name} — {(row.get('trade') or '').strip()} {(row.get('city') or '').strip()}".strip(), MAX_BIO)
+        bio = trunc(
+            description
+            or f"{name} : {(row.get('trade') or '').strip()} {(row.get('city') or '').strip()}".strip(),
+            MAX_BIO,
+        )
 
         projects: list[dict] = []
         for i in range(1, 5):
@@ -375,6 +379,65 @@ def build_rows() -> tuple[list[dict], list[dict], list[dict]]:
                 "primary_code": primary,
             }
         )
+
+    # One detailed card per internal specialty (clone richest service when CSV only had one).
+    label_by_code: dict[str, str] = {}
+    for row in svcs_raw:
+        for code, label in zip(
+            [c for c in (row.get("internal_category_codes") or "").split("|") if c.strip()],
+            [c for c in (row.get("internal_category_labels") or "").split("|") if c.strip()],
+        ):
+            label_by_code.setdefault(code, label)
+    for pro in pros:
+        # pros CSV sometimes carries parallel label pipes
+        raw = next((r for r in pros_raw if (r.get("ice") or "").strip() == (pro.get("ice") or "")), None)
+        if not raw:
+            continue
+        for code, label in zip(
+            [c for c in (raw.get("internal_category_codes") or "").split("|") if c.strip()],
+            [c for c in (raw.get("internal_category_labels") or "").split("|") if c.strip()],
+        ):
+            label_by_code.setdefault(code, label)
+
+    by_owner: dict[str, list[dict]] = {}
+    for svc in services:
+        by_owner.setdefault(svc["user_id"], []).append(svc)
+
+    extra_services: list[dict] = []
+    for pro in pros:
+        codes = [c for c in (pro.get("codes") or []) if c][:5]
+        if len(codes) <= 1:
+            continue
+        owned = by_owner.get(pro["id"]) or []
+        if not owned:
+            continue
+        base = max(
+            owned,
+            key=lambda s: (len(s.get("description") or ""), len(s.get("title") or "")),
+        )
+        have = {str(s.get("primary_code") or "") for s in owned}
+        for code in codes:
+            if code in have:
+                continue
+            label = label_by_code.get(code) or code
+            clone_id = str(uuid.uuid5(NS, f"sifarah:{SEED_BATCH}:svc-cat:{pro['id']}:{code}"))
+            if clone_id in used_svc_ids:
+                continue
+            used_svc_ids.add(clone_id)
+            desc = (base.get("description") or "").strip().replace("—", " : ")
+            extra_services.append(
+                {
+                    **base,
+                    "id": clone_id,
+                    "user_id": pro["id"],
+                    "title": f"{label} : prestation sur devis"[:120],
+                    "category": label,
+                    "description": (f"Spécialité {label}. {desc}" if desc else f"Prestation {label} sur devis.")[:4000],
+                    "primary_code": code,
+                }
+            )
+            have.add(code)
+    services.extend(extra_services)
 
     realisations: list[dict] = []
     for pro in pros:

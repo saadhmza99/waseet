@@ -1,5 +1,6 @@
 import { isMissingAvatarUrl } from "@/lib/avatar";
 import { clampBio } from "@/lib/bio";
+import { feedCategoryCodeExcludePrefix, feedCategoryCodePrefix } from "@/lib/taxonomy";
 import { supabase } from '@/lib/supabase';
 
 export interface ProfileData {
@@ -17,6 +18,117 @@ export interface ProfileData {
   cover_photo_url?: string | null;
   profile_type: 'individual' | 'enterprise';
 }
+
+/** Shared Discover filters for list + exact count queries. */
+export type DiscoverListFilters = {
+  city?: string | null;
+  query?: string | null;
+  feedCategory?: string | null;
+  feedSubCategory?: string | null;
+  promoteurOnly?: boolean;
+  fournisseurOnly?: boolean;
+};
+
+const applyProfessionalsFilters = <T extends { eq: Function; like: Function; not: Function; ilike: Function; or: Function }>(
+  query: T,
+  filters?: DiscoverListFilters,
+): T => {
+  const city = (filters?.city || "").trim();
+  const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
+  const feedCategory = (filters?.feedCategory || "").trim();
+  const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const promoteurOnly = Boolean(filters?.promoteurOnly);
+  const fournisseurOnly = Boolean(filters?.fournisseurOnly);
+  const categoryPrefix =
+    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+      ? feedCategoryCodePrefix(feedCategory)
+      : null;
+
+  let next = query;
+  if (city) next = next.ilike("location", `%${city}%`);
+  if (queryText) {
+    const needle = `"%${queryText}%"`;
+    next = next.or(
+      `full_name.ilike.${needle},username.ilike.${needle},profession.ilike.${needle},location.ilike.${needle}`,
+    );
+  }
+  if (promoteurOnly) {
+    next = next.eq("profile_internal_categories.internal_categories.code", "1.2.1");
+  } else if (fournisseurOnly) {
+    next = next.like("profile_internal_categories.internal_categories.code", "8.5.%");
+  } else if (feedSubCategory) {
+    next = next.eq(
+      "profile_internal_categories.internal_categories.feed_sub_categories.slug",
+      feedSubCategory,
+    );
+  } else if (categoryPrefix) {
+    next = next.like("profile_internal_categories.internal_categories.code", `${categoryPrefix}%`);
+    const exclude = feedCategoryCodeExcludePrefix(feedCategory);
+    if (exclude) {
+      next = next.not("profile_internal_categories.internal_categories.code", "like", `${exclude}%`);
+    }
+  } else if (feedCategory && feedCategory !== "tout") {
+    next = next.eq(
+      "profile_internal_categories.internal_categories.feed_sub_categories.categories.slug",
+      feedCategory,
+    );
+  }
+  return next;
+};
+
+const professionalsTaxonomyEmbed = (filters?: DiscoverListFilters) => {
+  const feedCategory = (filters?.feedCategory || "").trim();
+  const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const promoteurOnly = Boolean(filters?.promoteurOnly);
+  const fournisseurOnly = Boolean(filters?.fournisseurOnly);
+  const categoryPrefix =
+    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+      ? feedCategoryCodePrefix(feedCategory)
+      : null;
+  const needsCodeFilter = promoteurOnly || fournisseurOnly || Boolean(categoryPrefix);
+  const needsFeedFilter = Boolean(feedSubCategory) || (
+    Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix
+  );
+
+  const picEmbed = needsFeedFilter
+    ? `profile_internal_categories!inner (
+        is_primary,
+        internal_categories!inner (
+          code,
+          detailed_sub_category,
+          feed_sub_categories!inner (
+            slug,
+            categories!inner ( slug )
+          )
+        )
+      )`
+    : needsCodeFilter
+      ? `profile_internal_categories!inner (
+          is_primary,
+          internal_categories!inner (
+            code,
+            detailed_sub_category,
+            feed_sub_categories ( slug, categories ( slug ) )
+          )
+        )`
+      : `profile_internal_categories (
+          is_primary,
+          internal_categories (
+            code,
+            detailed_sub_category,
+            feed_sub_categories ( slug, categories ( slug ) )
+          )
+        )`;
+
+  return `
+    internal_categories!profiles_internal_category_id_fkey (
+      code,
+      detailed_sub_category,
+      feed_sub_categories ( slug, categories ( slug ) )
+    ),
+    ${picEmbed}
+  `;
+};
 
 const withClampedBio = <T extends { bio?: string | null } | null>(row: T): T => {
   if (!row || row.bio == null) return row;
@@ -139,64 +251,27 @@ export const profileService = {
   async listProfessionals(
     limit = 24,
     offset = 0,
-    filters?: {
-      city?: string | null;
-      /** Free-text name / username / profession search (server-side). */
-      query?: string | null;
-      /** Feed category slug (e.g. construction-btp). Ignored when promoteur/fournisseur. */
-      feedCategory?: string | null;
-      feedSubCategory?: string | null;
-      promoteurOnly?: boolean;
-      fournisseurOnly?: boolean;
-    },
+    filters?: DiscoverListFilters,
   ): Promise<{ rows: any[]; nextOffset: number }> {
-    const city = (filters?.city || "").trim();
     const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
     const feedCategory = (filters?.feedCategory || "").trim();
     const feedSubCategory = (filters?.feedSubCategory || "").trim();
     const promoteurOnly = Boolean(filters?.promoteurOnly);
     const fournisseurOnly = Boolean(filters?.fournisseurOnly);
-    const needsCodeFilter = promoteurOnly || fournisseurOnly;
-    const needsFeedFilter = Boolean(feedSubCategory || (feedCategory && feedCategory !== "tout"));
-    const needsTaxonomyFilter = needsCodeFilter || needsFeedFilter;
-
-    const picEmbed = needsFeedFilter
-      ? `profile_internal_categories!inner (
-          is_primary,
-          internal_categories!inner (
-            code,
-            feed_sub_categories!inner (
-              slug,
-              categories!inner ( slug )
-            )
-          )
-        )`
-      : needsCodeFilter
-        ? `profile_internal_categories!inner (
-          is_primary,
-          internal_categories!inner (
-            code,
-            feed_sub_categories ( slug, categories ( slug ) )
-          )
-        )`
-        : `profile_internal_categories (
-          is_primary,
-          internal_categories (
-            code,
-            feed_sub_categories ( slug, categories ( slug ) )
-          )
-        )`;
-
-    const taxonomyEmbed = `
-        internal_categories!profiles_internal_category_id_fkey (
-          code,
-          feed_sub_categories ( slug, categories ( slug ) )
-        ),
-        ${picEmbed}
-      `;
+    const categoryPrefix =
+      !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+        ? feedCategoryCodePrefix(feedCategory)
+        : null;
+    const needsTaxonomyFilter =
+      promoteurOnly ||
+      fournisseurOnly ||
+      Boolean(categoryPrefix) ||
+      Boolean(feedSubCategory) ||
+      Boolean(feedCategory && feedCategory !== "tout");
 
     const browsing = !queryText;
     const mixCategories = browsing && !needsTaxonomyFilter;
+    const taxonomyEmbed = professionalsTaxonomyEmbed(filters);
 
     let query = supabase
       .from("profiles")
@@ -208,6 +283,8 @@ export const profileService = {
         avatar_url,
         location,
         profession,
+        profile_type,
+        is_verified,
         created_at,
         ${taxonomyEmbed}
       `,
@@ -216,29 +293,7 @@ export const profileService = {
       // UUID order mixes seed batches better than created_at for "tout" browse.
       .order(mixCategories ? "id" : "created_at", { ascending: mixCategories ? true : false });
 
-    if (city) query = query.ilike("location", `%${city}%`);
-    if (queryText) {
-      const needle = `"%${queryText}%"`;
-      query = query.or(
-        `full_name.ilike.${needle},username.ilike.${needle},profession.ilike.${needle},location.ilike.${needle}`,
-      );
-    }
-
-    if (promoteurOnly) {
-      query = query.eq("profile_internal_categories.internal_categories.code", "1.2.1");
-    } else if (fournisseurOnly) {
-      query = query.like("profile_internal_categories.internal_categories.code", "8.5.%");
-    } else if (feedSubCategory) {
-      query = query.eq(
-        "profile_internal_categories.internal_categories.feed_sub_categories.slug",
-        feedSubCategory,
-      );
-    } else if (feedCategory && feedCategory !== "tout") {
-      query = query.eq(
-        "profile_internal_categories.internal_categories.feed_sub_categories.categories.slug",
-        feedCategory,
-      );
-    }
+    query = applyProfessionalsFilters(query, filters);
 
     // Wider window: taxonomy !inner duplicates, and browse reorders for mix / real avatars.
     const window = browsing || needsTaxonomyFilter
@@ -262,6 +317,19 @@ export const profileService = {
       : unique;
     const rows = ranked.slice(0, limit);
     return { rows, nextOffset: offset + raw.length };
+  },
+
+  /** Exact Supabase row count for Discover Entreprises (same filters as listProfessionals). */
+  async countProfessionals(filters?: DiscoverListFilters): Promise<number> {
+    const taxonomyEmbed = professionalsTaxonomyEmbed(filters);
+    let query = supabase
+      .from("profiles")
+      .select(`id, ${taxonomyEmbed}`, { count: "exact", head: true })
+      .not("username", "is", null);
+    query = applyProfessionalsFilters(query, filters);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
   },
 
   // Update profile and keep auth.users user_metadata in step (no full_name column there).

@@ -211,13 +211,20 @@ export const rowFromOffer = (offer: ServiceOffer) => {
   };
 };
 
+/** Prefer taxonomy specialty label over free-text `services.category` (often stale CSV). */
+export const serviceCategoryLabel = (row: any): string => {
+  const fromTaxonomy = String(row?.internal_categories?.detailed_sub_category || "").trim();
+  if (fromTaxonomy) return fromTaxonomy;
+  return String(row?.category || "").trim();
+};
+
 /** Read a DB row into a ServiceOffer. */
 export const offerFromRow = (row: any): ServiceOffer =>
   sanitizeOffer({
     ...emptyOffer(),
     title: row?.title || "",
     description: row?.description || "",
-    category: row?.category || "",
+    category: serviceCategoryLabel(row),
     internalCategoryId:
       typeof row?.internal_category_id === "number" ? row.internal_category_id : null,
     cover: row?.cover || "",

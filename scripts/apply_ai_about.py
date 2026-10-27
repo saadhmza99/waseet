@@ -53,8 +53,8 @@ def write_sql(rows: list[dict]) -> Path:
     updates = 0
     for row in rows:
         pid = row["id"]
-        bio = (row.get("bio") or "").strip()[:MAX_BIO]
-        about = (row.get("about_html") or "").strip()
+        bio = (row.get("bio") or "").strip().replace("—", " : ")[:MAX_BIO]
+        about = (row.get("about_html") or "").strip().replace("—", " : ")
         if not about:
             continue
         words = len(strip_tags(about).split())

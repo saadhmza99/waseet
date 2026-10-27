@@ -28,7 +28,7 @@ export const FEED_CATEGORIES: FeedCategory[] = [
     id: 3,
     slug: "construction-btp",
     label: "Construction & BTP",
-    description: "Entreprises de construction, gros œuvre, génie civil, ingénierie, bureaux d'études techniques et entreprises spécialisées.",
+    description: "Entreprises de construction, gros œuvre, génie civil, ingénierie, topographie, bureaux d'études techniques et entreprises spécialisées.",
     subCategories: [
       { slug: "construction-gros-oeuvre", label: "Construction & gros œuvre" },
       { slug: "second-oeuvre", label: "Second œuvre" },
@@ -67,7 +67,7 @@ export const FEED_CATEGORIES: FeedCategory[] = [
     id: 6,
     slug: "juridique-foncier",
     label: "Juridique & Foncier",
-    description: "Notaires, avocats spécialisés, conseil foncier, géomètres-topographes, expertise foncière et conseil en fiscalité immobilière.",
+    description: "Notaires, avocats spécialisés, conseil foncier, cadastre, expertise foncière et conseil en fiscalité immobilière.",
     subCategories: [
       { slug: "foncier-developpement", label: "Foncier & développement" },
       { slug: "droit-immobilier-foncier", label: "Droit immobilier & foncier" },
@@ -93,12 +93,11 @@ export const FEED_CATEGORIES: FeedCategory[] = [
     id: 8,
     slug: "autres-services",
     label: "Autres services",
-    description: "Assurances, financement immobilier, courtiers, experts-comptables, fournisseurs et prestataires qui ne rentrent pas dans les autres catégories.",
+    description: "Assurances, financement immobilier, courtiers, experts-comptables et prestataires qui ne rentrent pas dans les autres catégories.",
     subCategories: [
       { slug: "finance-assurance", label: "Finance & assurance" },
       { slug: "conseil-comptabilite", label: "Conseil & comptabilité" },
       { slug: "marketing-communication", label: "Marketing & communication" },
-      { slug: "fournisseurs", label: "Fournisseurs" },
       { slug: "services-professionnels", label: "Services professionnels" },
     ],
   },
@@ -114,6 +113,37 @@ export const feedSubCategoryBySlug = (slug?: string | null) => {
     const subCategory = category.subCategories.find((item) => item.slug === slug);
     if (subCategory) return { category, subCategory };
   }
+  return null;
+};
+
+/**
+ * Internal category code prefix for a Discover feed category slug.
+ * Prefer this over nested PostgREST category.slug filters (more reliable for profiles).
+ * Autres services uses 8.* but excludes fournisseurs (8.5.*) — those have their own chip.
+ */
+export const FEED_CATEGORY_CODE_PREFIX: Record<string, string> = {
+  "gestion-services-immobiliers": "1.",
+  "construction-btp": "3.",
+  "renovation-amenagement": "4.",
+  "architecture-design": "5.",
+  "juridique-foncier": "6.",
+  immotech: "7.",
+  "autres-services": "8.",
+};
+
+/** Codes under Autres that belong only to the dedicated Fournisseurs filter. */
+export const FOURNISSEUR_CODE_PREFIX = "8.5.";
+
+export const feedCategoryCodePrefix = (slug?: string | null) => {
+  const key = (slug || "").trim();
+  if (!key || key === "tout") return null;
+  return FEED_CATEGORY_CODE_PREFIX[key] || null;
+};
+
+/** Extra PostgREST exclusion when browsing a feed category (e.g. hide 8.5 from Autres). */
+export const feedCategoryCodeExcludePrefix = (slug?: string | null) => {
+  const key = (slug || "").trim();
+  if (key === "autres-services") return FOURNISSEUR_CODE_PREFIX;
   return null;
 };
 
@@ -146,19 +176,19 @@ export type ProfileSectionVisibility = {
 export const REALISATIONS_ENABLED = false;
 
 /**
- * Everyone: Posts.
+ * Posts tab / feed posts: verified badge only (see isVerified in profileSectionsForInternalCodes).
  * Group A (1.1.1–1.1.7, Marchand 1.2.3, 1.3.1–1.3.7, 8.4.1–8.4.5):
- *   Posts + Biens; hide Réalisations, Projets, Produits, Services.
+ *   Biens; hide Réalisations, Projets, Produits, Services.
  * Promoteur / Développeur / Opérateur (1.2.1, 1.2.2, 1.2.4):
- *   Posts + Biens + Projets; hide Réalisations, Produits, Services.
+ *   Biens + Projets; hide Réalisations, Produits, Services.
  * No Réalisations also for: 1.3–1.4, all 6.x (juridique), all 7.x (immotech), 8.1–8.6.
- * Everyone else: Posts + Réalisations; hide Biens + Projets; Produits only for 3.5.1–3.5.4; Services on.
+ * Everyone else: Réalisations; hide Biens + Projets; Produits only for 3.5.1–3.5.4; Services on.
  */
 export const profileSectionsForInternalCode = (code?: string | null): ProfileSectionVisibility => {
   const c = (code || "").trim();
   if (!c) {
     return {
-      showPosts: true,
+      showPosts: false,
       showRealisations: false,
       showProjets: false,
       showBiens: false,
@@ -197,7 +227,7 @@ export const profileSectionsForInternalCode = (code?: string | null): ProfileSec
   // Group A includes Marchand de biens
   if (isAgencyTxn || isGestion || isMarketing || isMarchand) {
     return {
-      showPosts: true,
+      showPosts: false,
       showRealisations: false,
       showProjets: false,
       showBiens: true,
@@ -208,7 +238,7 @@ export const profileSectionsForInternalCode = (code?: string | null): ProfileSec
 
   if (isPromoteurCore) {
     return {
-      showPosts: true,
+      showPosts: false,
       showRealisations: false,
       showProjets: true,
       showBiens: true,
@@ -218,7 +248,7 @@ export const profileSectionsForInternalCode = (code?: string | null): ProfileSec
   }
 
   return {
-    showPosts: true,
+    showPosts: false,
     // Feature flag — logic kept; hidden until REALISATIONS_ENABLED is true.
     showRealisations: REALISATIONS_ENABLED && !noRealisations,
     showProjets: false,
@@ -233,21 +263,28 @@ export const profileSectionsForInternalCode = (code?: string | null): ProfileSec
  * Multi-specialty profiles unlock the union of each code’s sections
  * (e.g. agence + artisan → Biens + Services when Réalisations are off).
  * Primary specialty only affects feed placement, not which tabs exist.
+ * Feed Posts tab / create « Post » require a verified badge.
  */
 export const profileSectionsForInternalCodes = (
-  codes?: Array<string | null | undefined> | null
+  codes?: Array<string | null | undefined> | null,
+  opts?: { isVerified?: boolean | null },
 ): ProfileSectionVisibility => {
   const list = (codes || []).map((c) => (c || "").trim()).filter(Boolean);
-  if (!list.length) return profileSectionsForInternalCode(null);
-  const merged = list.map((code) => profileSectionsForInternalCode(code)).reduce((acc, next) => ({
-    showPosts: true,
-    showRealisations: acc.showRealisations || next.showRealisations,
-    showProjets: acc.showProjets || next.showProjets,
-    showBiens: acc.showBiens || next.showBiens,
-    showServices: acc.showServices || next.showServices,
-    showProduits: acc.showProduits || next.showProduits,
-  }));
-  return { ...merged, showRealisations: REALISATIONS_ENABLED && merged.showRealisations };
+  const base = list.length
+    ? list.map((code) => profileSectionsForInternalCode(code)).reduce((acc, next) => ({
+        showPosts: false,
+        showRealisations: acc.showRealisations || next.showRealisations,
+        showProjets: acc.showProjets || next.showProjets,
+        showBiens: acc.showBiens || next.showBiens,
+        showServices: acc.showServices || next.showServices,
+        showProduits: acc.showProduits || next.showProduits,
+      }))
+    : profileSectionsForInternalCode(null);
+  return {
+    ...base,
+    showPosts: Boolean(opts?.isVerified),
+    showRealisations: REALISATIONS_ENABLED && base.showRealisations,
+  };
 };
 
 export type CategoryTagged = {
@@ -261,6 +298,8 @@ export const matchesFeedCategory = (category: string | null, subCategory: string
   if (!category || category === "tout") return true;
   if (category === PROMOTEUR_CATEGORY_ID) return item.is_promoteur === true;
   if (category === FOURNISSEUR_CATEGORY_ID) return item.is_fournisseur === true;
+  // Fournisseurs have their own chip — never list them under Autres services.
+  if (category === "autres-services" && item.is_fournisseur) return false;
   if (item.feed_category !== category) return false;
   return !subCategory || item.feed_sub_category === subCategory;
 };

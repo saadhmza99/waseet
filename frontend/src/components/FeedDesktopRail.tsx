@@ -118,7 +118,7 @@ const FeedDesktopRail = () => {
         </button>
         <button type="button" onClick={() => navigate("/produits")} className={itemClass(path.startsWith("/produits"))}>
           <Package className="h-5 w-5" strokeWidth={2} />
-          Sifarah Matériaux
+          Produits BTP
         </button>
         <button type="button" onClick={() => navigate("/hrayfi")} className={itemClass(path.startsWith("/hrayfi"))}>
           <HardHat className="h-5 w-5" strokeWidth={2} />

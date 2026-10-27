@@ -61,13 +61,13 @@ export const CategoryPicker = ({
   const large = size === "lg";
   const gridClass = columns === 3 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2";
   const cardClass = large
-    ? "flex min-h-28 w-full animate-category-pop items-center gap-3.5 rounded-2xl border border-neutral-200 bg-white px-5 py-5 text-lg font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
-    : "flex min-h-16 w-full animate-category-pop items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-[1.2vh] text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]";
-  const iconClass = large ? "h-8 w-8 shrink-0" : "h-5 w-5 shrink-0";
-  const labelClass = large ? "block text-[18px] leading-snug" : "block leading-tight";
+    ? "flex min-h-32 w-full animate-category-pop items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-5 py-6 text-xl font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
+    : "flex min-h-[4.75rem] w-full animate-category-pop items-center gap-2.5 rounded-2xl border border-neutral-200 bg-white px-3.5 py-[1.35vh] text-base font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]";
+  const iconClass = large ? "h-9 w-9 shrink-0" : "h-6 w-6 shrink-0";
+  const labelClass = large ? "block text-[20px] leading-snug" : "block text-[1.05rem] leading-snug sm:text-lg";
   const triggerClass = large
-    ? "flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 text-base font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
-    : "flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]";
+    ? "flex h-16 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-5 text-lg font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
+    : "flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3.5 text-base font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]";
 
   return (
     <div className={open ? "flex min-h-[calc(100dvh-9.5rem)] items-center justify-center" : ""}>
@@ -97,7 +97,7 @@ export const CategoryPicker = ({
                       <span className="overflow-hidden">
                         <span
                           className={`block pt-[0.6vh] font-normal leading-snug text-neutral-500 ${
-                            large ? "text-base" : "text-[1.5vh]"
+                            large ? "text-lg" : "text-[1.65vh] sm:text-sm"
                           }`}
                         >
                           {item.description}

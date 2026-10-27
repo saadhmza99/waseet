@@ -1,6 +1,52 @@
 import { supabase } from "@/lib/supabase";
 import { offerFromRow, priceLabel, rowFromOffer, serviceMainImage, zoneLabel, type ServiceOffer } from "@/lib/serviceOffer";
-import { isFournisseurInternalCode, isPromoteurInternalCode } from "@/lib/taxonomy";
+import type { DiscoverListFilters } from "@/services/profileService";
+import {
+  feedCategoryCodeExcludePrefix,
+  feedCategoryCodePrefix,
+  isFournisseurInternalCode,
+  isPromoteurInternalCode,
+} from "@/lib/taxonomy";
+
+const applyServicesFilters = <T extends { eq: Function; like: Function; not: Function; or: Function }>(
+  query: T,
+  filters?: DiscoverListFilters,
+): T => {
+  const city = (filters?.city || "").trim();
+  const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
+  const feedCategory = (filters?.feedCategory || "").trim();
+  const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const promoteurOnly = Boolean(filters?.promoteurOnly);
+  const fournisseurOnly = Boolean(filters?.fournisseurOnly);
+  const categoryPrefix =
+    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+      ? feedCategoryCodePrefix(feedCategory)
+      : null;
+
+  let next = query;
+  if (city) {
+    const safe = city.replace(/[,()]/g, " ").trim();
+    next = next.or(`zone_mode.eq.maroc,cities.cs.{"${safe}"}`);
+  }
+  if (queryText) {
+    const needle = `"%${queryText}%"`;
+    next = next.or(`title.ilike.${needle},description.ilike.${needle},category.ilike.${needle}`);
+  }
+  if (promoteurOnly) {
+    next = next.eq("internal_categories.code", "1.2.1");
+  } else if (fournisseurOnly) {
+    next = next.like("internal_categories.code", "8.5.%");
+  } else if (feedSubCategory) {
+    next = next.eq("internal_categories.feed_sub_categories.slug", feedSubCategory);
+  } else if (categoryPrefix) {
+    next = next.like("internal_categories.code", `${categoryPrefix}%`);
+    const exclude = feedCategoryCodeExcludePrefix(feedCategory);
+    if (exclude) next = next.not("internal_categories.code", "like", `${exclude}%`);
+  } else if (feedCategory && feedCategory !== "tout") {
+    next = next.eq("internal_categories.feed_sub_categories.categories.slug", feedCategory);
+  }
+  return next;
+};
 
 export type ServiceProfile = {
   id: string;
@@ -52,6 +98,19 @@ const SERVICE_INTERNAL_CATEGORY_EMBED = `
   )
 `;
 
+/** !inner only on internal_categories — for code / code-prefix filters. */
+const SERVICE_INTERNAL_CATEGORY_EMBED_CODE_INNER = `
+  internal_categories!services_internal_category_id_fkey!inner (
+    code,
+    detailed_sub_category,
+    feed_sub_categories (
+      slug,
+      categories ( slug )
+    )
+  )
+`;
+
+/** Deep !inner when filtering by feed subcategory / category slug. */
 const SERVICE_INTERNAL_CATEGORY_EMBED_INNER = `
   internal_categories!services_internal_category_id_fkey!inner (
     code,
@@ -62,6 +121,24 @@ const SERVICE_INTERNAL_CATEGORY_EMBED_INNER = `
     )
   )
 `;
+
+const servicesTaxonomyEmbed = (filters?: DiscoverListFilters) => {
+  const feedCategory = (filters?.feedCategory || "").trim();
+  const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const promoteurOnly = Boolean(filters?.promoteurOnly);
+  const fournisseurOnly = Boolean(filters?.fournisseurOnly);
+  const categoryPrefix =
+    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+      ? feedCategoryCodePrefix(feedCategory)
+      : null;
+  const needsCodeFilter = promoteurOnly || fournisseurOnly || Boolean(categoryPrefix);
+  const needsFeedSlugFilter = Boolean(feedSubCategory) || (
+    Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix
+  );
+  if (needsFeedSlugFilter) return SERVICE_INTERNAL_CATEGORY_EMBED_INNER;
+  if (needsCodeFilter) return SERVICE_INTERNAL_CATEGORY_EMBED_CODE_INNER;
+  return SERVICE_INTERNAL_CATEGORY_EMBED;
+};
 
 /** Full row + profile for detail pages. */
 const SERVICE_SELECT = `
@@ -176,54 +253,29 @@ export const serviceService = {
     return data as ServiceRow | null;
   },
 
-  async listServices(
-    limit = 24,
-    offset = 0,
-    filters?: {
-      city?: string | null;
-      query?: string | null;
-      feedCategory?: string | null;
-      feedSubCategory?: string | null;
-      promoteurOnly?: boolean;
-      fournisseurOnly?: boolean;
-    },
-  ) {
-    const city = (filters?.city || "").trim();
-    const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
-    const feedCategory = (filters?.feedCategory || "").trim();
-    const feedSubCategory = (filters?.feedSubCategory || "").trim();
-    const promoteurOnly = Boolean(filters?.promoteurOnly);
-    const fournisseurOnly = Boolean(filters?.fournisseurOnly);
-    const needsTaxonomyFilter = Boolean(
-      promoteurOnly || fournisseurOnly || feedSubCategory || (feedCategory && feedCategory !== "tout"),
+  async listServices(limit = 24, offset = 0, filters?: DiscoverListFilters) {
+    const select = SERVICE_LIST_SELECT.replace(
+      SERVICE_INTERNAL_CATEGORY_EMBED,
+      servicesTaxonomyEmbed(filters),
     );
 
-    const select = needsTaxonomyFilter
-      ? SERVICE_LIST_SELECT.replace(SERVICE_INTERNAL_CATEGORY_EMBED, SERVICE_INTERNAL_CATEGORY_EMBED_INNER)
-      : SERVICE_LIST_SELECT;
-
     let query = supabase.from("services").select(select).order("created_at", { ascending: false });
-    if (city) {
-      const safe = city.replace(/[,()]/g, " ").trim();
-      // Maroc = nationwide; otherwise match city in the cities array.
-      query = query.or(`zone_mode.eq.maroc,cities.cs.{"${safe}"}`);
-    }
-    if (queryText) {
-      const needle = `"%${queryText}%"`;
-      query = query.or(`title.ilike.${needle},description.ilike.${needle},category.ilike.${needle}`);
-    }
-    if (promoteurOnly) {
-      query = query.eq("internal_categories.code", "1.2.1");
-    } else if (fournisseurOnly) {
-      query = query.like("internal_categories.code", "8.5.%");
-    } else if (feedSubCategory) {
-      query = query.eq("internal_categories.feed_sub_categories.slug", feedSubCategory);
-    } else if (feedCategory && feedCategory !== "tout") {
-      query = query.eq("internal_categories.feed_sub_categories.categories.slug", feedCategory);
-    }
+    query = applyServicesFilters(query, filters);
     const { data, error } = await query.range(offset, offset + Math.max(limit - 1, 0));
     if (error) throw error;
     return (data || []) as ServiceRow[];
+  },
+
+  /** Exact Supabase row count for Discover Services (same filters as listServices). */
+  async countServices(filters?: DiscoverListFilters): Promise<number> {
+    const embed = servicesTaxonomyEmbed(filters);
+    let query = supabase
+      .from("services")
+      .select(`id, ${embed}`, { count: "exact", head: true });
+    query = applyServicesFilters(query, filters);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
   },
 
   async getServicesByUser(userId: string, limit?: number, offset = 0) {

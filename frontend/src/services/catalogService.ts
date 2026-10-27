@@ -199,16 +199,18 @@ export const catalogService = {
     return listByUser("project", userId, limit, offset);
   },
 
-  async listProjects(limit = 80, offset = 0, filters?: { city?: string | null }) {
+  async listProjects(limit = 80, offset = 0, filters?: { city?: string | null; projectType?: string | null }) {
     // Seeded rows may repeat the same Kerix project for each linked pro.
     // Fetch a wider window, then dedupe by attributes.source_project_id (or id).
     const city = (filters?.city || "").trim();
+    const projectType = (filters?.projectType || "").trim();
     const fetchLimit = Math.max(limit * 4, limit);
     let query = supabase
       .from("projects")
       .select("*")
       .order("created_at", { ascending: false });
     if (city) query = query.ilike("city", `%${city}%`);
+    if (projectType) query = query.eq("project_type", projectType);
     const { data, error } = await query.range(offset, offset + Math.max(fetchLimit - 1, 0));
     if (error) throw error;
     const seen = new Set<string>();
@@ -234,6 +236,28 @@ export const catalogService = {
     const { data, error } = await query.range(offset, offset + Math.max(limit - 1, 0));
     if (error) throw error;
     return data || [];
+  },
+
+  /** Exact Supabase row count for Discover Projets. */
+  async countProjects(filters?: { city?: string | null; projectType?: string | null }): Promise<number> {
+    const city = (filters?.city || "").trim();
+    const projectType = (filters?.projectType || "").trim();
+    let query = supabase.from("projects").select("id", { count: "exact", head: true });
+    if (city) query = query.ilike("city", `%${city}%`);
+    if (projectType) query = query.eq("project_type", projectType);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  /** Exact Supabase row count for Discover Biens. */
+  async countProperties(filters?: { city?: string | null }): Promise<number> {
+    const city = (filters?.city || "").trim();
+    let query = supabase.from("properties").select("id", { count: "exact", head: true });
+    if (city) query = query.or(`city.ilike.%${city}%,details->>city.ilike.%${city}%`);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
   },
 
   async getProperty(id: string) {

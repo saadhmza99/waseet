@@ -80,12 +80,11 @@ const discoverTaxonomyFilters = (category: string | null, sub: string | null) =>
 
 const subCategoryLabel = (item: MockItem) => feedSubCategoryBySlug(item.feed_sub_category)?.subCategory.label || "";
 
-type SearchType = "biens" | "services" | "projets" | "comptes";
+type SearchType = "services" | "projets" | "comptes";
 
 const SEARCH_TYPES: { id: SearchType; label: string }[] = [
   { id: "comptes", label: "Entreprises" },
   { id: "projets", label: "Projets" },
-  { id: "biens", label: "Biens" },
   { id: "services", label: "Services" },
 ];
 
@@ -172,12 +171,12 @@ const AccountRow = ({
   onFollow: () => void;
   onOpen: () => void;
 }) => (
-  <div className="flex items-center gap-3 border-b border-neutral-100 px-3 py-3">
-    <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+  <div className="flex items-center gap-4 border-b border-neutral-100 px-3 py-4 sm:gap-5 sm:py-5">
+    <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-4 text-left sm:gap-5">
       <img
         src={image || resolveAvatarUrl(null)}
         alt=""
-        className="h-12 w-12 shrink-0 rounded-2xl object-cover bg-neutral-100"
+        className="h-16 w-16 shrink-0 rounded-2xl object-cover bg-neutral-100 sm:h-[4.5rem] sm:w-[4.5rem]"
         onError={(e) => {
           const el = e.currentTarget;
           const fallback = resolveAvatarUrl(null);
@@ -185,14 +184,14 @@ const AccountRow = ({
         }}
       />
       <span className="min-w-0">
-        <span className="block truncate text-[15px] font-semibold text-neutral-950">{name}</span>
-        <span className="block truncate text-xs text-neutral-400">{typeLabel} · {city}</span>
+        <span className="block truncate text-lg font-semibold text-neutral-950 sm:text-xl">{name}</span>
+        <span className="mt-1 block truncate text-base text-neutral-400 sm:text-lg">{typeLabel} · {city}</span>
       </span>
     </button>
     <button
       type="button"
       onClick={onFollow}
-      className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+      className={`shrink-0 rounded-full px-4 py-2.5 text-base font-semibold transition sm:px-5 sm:text-lg ${
         followed ? "bg-[#174f43] text-white" : "border border-[#174f43] text-[#174f43]"
       }`}
     >
@@ -222,7 +221,7 @@ const StageSlider = ({ value, onChange }: { value: number; onChange: (value: num
           type="button"
           onClick={() => onChange(index)}
           aria-pressed={index === value}
-          className={`relative z-[1] w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[0.95vh] text-left text-[1.35vh] font-semibold leading-none transition-colors duration-200 ${
+          className={`relative z-[1] w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[1.1vh] text-left text-[1.55vh] font-semibold leading-none transition-colors duration-200 ${
             index === value ? "text-white" : "text-neutral-500 hover:text-neutral-800"
           }`}
         >
@@ -243,8 +242,17 @@ const CardList = ({
   onOpen: (item: MockItem) => void;
   serviceRows: ServiceRow[];
   projectRows: any[];
-}) => (
-  <ul className="mt-3 grid grid-cols-1 items-start gap-3 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2">
+}) => {
+  const wideGrid =
+    items.length > 0 && items.every((item) => item.kind === "projet" || item.kind === "annonce");
+  return (
+  <ul
+    className={`mt-3 grid items-start gap-3 lg:relative lg:left-1/2 lg:-translate-x-1/2 ${
+      wideGrid
+        ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 lg:w-[min(96rem,calc(100vw-19rem))]"
+        : "grid-cols-1 lg:grid-cols-2 lg:w-[min(80rem,calc(100vw-19rem))]"
+    }`}
+  >
     {items.map((item) => {
       if (item.kind === "projet") {
         const project = projectRows.find((row) => row.id === item.id);
@@ -283,7 +291,8 @@ const CardList = ({
       );
     })}
   </ul>
-);
+  );
+};
 
 const Explore = () => {
   const navigate = useNavigate();
@@ -306,7 +315,6 @@ const Explore = () => {
   const activeProjectFilters = (projectStageIdx > 0 ? 1 : 0) + (projectCommercial ? 1 : 0);
   const [liveServices, setLiveServices] = useState<ServiceRow[]>([]);
   const [liveProjects, setLiveProjects] = useState<any[]>([]);
-  const [liveProperties, setLiveProperties] = useState<any[]>([]);
   const [liveProfiles, setLiveProfiles] = useState<any[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [loadingServices, setLoadingServices] = useState(false);
@@ -316,15 +324,24 @@ const Explore = () => {
   const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
   const [servicesBooted, setServicesBooted] = useState(false);
   const [catalogBooted, setCatalogBooted] = useState(false);
+  const [serverCounts, setServerCounts] = useState<{
+    comptes: number | null;
+    services: number | null;
+    projets: number | null;
+  }>({ comptes: null, services: null, projets: null });
 
   const servicesOffsetRef = useRef(0);
   const profilesOffsetRef = useRef(0);
   const hasMoreServicesRef = useRef(true);
   const hasMoreProfilesRef = useRef(true);
-  const loadingMoreRef = useRef(false);
+  const loadingMoreProfilesRef = useRef(false);
+  const loadingMoreServicesRef = useRef(false);
   const servicesBootedRef = useRef(false);
   const catalogBootedRef = useRef(false);
-  const loadTicket = useRef(0);
+  /** Per-stream tickets so Services boot never strands Entreprises loading. */
+  const profilesTicket = useRef(0);
+  const servicesTicket = useRef(0);
+  const catalogTicket = useRef(0);
 
   const typedQuery = committedQuery.toLowerCase();
 
@@ -354,9 +371,9 @@ const Explore = () => {
   );
 
   const loadMoreServices = useCallback(async () => {
-    if (loadingMoreRef.current || !hasMoreServicesRef.current) return;
-    const ticket = ++loadTicket.current;
-    loadingMoreRef.current = true;
+    if (loadingMoreServicesRef.current || !hasMoreServicesRef.current) return;
+    const ticket = ++servicesTicket.current;
+    loadingMoreServicesRef.current = true;
     setLoadingMore(true);
     try {
       const page = await serviceService.listServices(DISCOVER_PAGE_SIZE, servicesOffsetRef.current, {
@@ -364,29 +381,27 @@ const Explore = () => {
         query: committedQuery || null,
         ...taxonomyFilters,
       });
-      if (loadTicket.current !== ticket) return;
+      if (servicesTicket.current !== ticket) return;
       servicesOffsetRef.current += DISCOVER_PAGE_SIZE;
       const more = page.length >= DISCOVER_PAGE_SIZE;
       hasMoreServicesRef.current = more;
       setHasMoreServices(more);
       setLiveServices((prev) => appendUnique(prev, page));
     } catch (error) {
-      if (loadTicket.current !== ticket) return;
+      if (servicesTicket.current !== ticket) return;
       console.error("Error loading more services:", error);
       hasMoreServicesRef.current = false;
       setHasMoreServices(false);
     } finally {
-      if (loadTicket.current === ticket) {
-        loadingMoreRef.current = false;
-        setLoadingMore(false);
-      }
+      loadingMoreServicesRef.current = false;
+      if (servicesTicket.current === ticket) setLoadingMore(false);
     }
   }, [cityFilter, taxonomyFilters, committedQuery]);
 
   const loadMoreProfiles = useCallback(async () => {
-    if (loadingMoreRef.current || !hasMoreProfilesRef.current) return;
-    const ticket = ++loadTicket.current;
-    loadingMoreRef.current = true;
+    if (loadingMoreProfilesRef.current || !hasMoreProfilesRef.current) return;
+    const ticket = ++profilesTicket.current;
+    loadingMoreProfilesRef.current = true;
     setLoadingMore(true);
     try {
       const { rows: page, nextOffset } = await profileService.listProfessionals(
@@ -394,22 +409,20 @@ const Explore = () => {
         profilesOffsetRef.current,
         { city: cityFilter, query: committedQuery || null, ...taxonomyFilters },
       );
-      if (loadTicket.current !== ticket) return;
+      if (profilesTicket.current !== ticket) return;
       profilesOffsetRef.current = nextOffset;
       const more = page.length >= DISCOVER_PAGE_SIZE;
       hasMoreProfilesRef.current = more;
       setHasMoreProfiles(more);
       setLiveProfiles((prev) => appendUnique(prev, page));
     } catch (error) {
-      if (loadTicket.current !== ticket) return;
+      if (profilesTicket.current !== ticket) return;
       console.error("Error loading more professionals:", error);
       hasMoreProfilesRef.current = false;
       setHasMoreProfiles(false);
     } finally {
-      if (loadTicket.current === ticket) {
-        loadingMoreRef.current = false;
-        setLoadingMore(false);
-      }
+      loadingMoreProfilesRef.current = false;
+      if (profilesTicket.current === ticket) setLoadingMore(false);
     }
   }, [cityFilter, taxonomyFilters, committedQuery]);
 
@@ -417,7 +430,8 @@ const Explore = () => {
   useEffect(() => {
     let cancelled = false;
     const bootProfiles = async () => {
-      const ticket = ++loadTicket.current;
+      const ticket = ++profilesTicket.current;
+      loadingMoreProfilesRef.current = false;
       setLoadingProfiles(true);
       setLiveProfiles([]);
       profilesOffsetRef.current = 0;
@@ -429,16 +443,19 @@ const Explore = () => {
           query: committedQuery || null,
           ...taxonomyFilters,
         });
-        if (cancelled || loadTicket.current !== ticket) return;
+        if (cancelled || profilesTicket.current !== ticket) return;
         profilesOffsetRef.current = nextOffset;
         const more = profiles.length >= DISCOVER_PAGE_SIZE;
         hasMoreProfilesRef.current = more;
         setHasMoreProfiles(more);
         setLiveProfiles(profiles);
       } catch (error) {
-        console.error("Error loading professionals:", error);
+        if (!cancelled && profilesTicket.current === ticket) {
+          console.error("Error loading professionals:", error);
+        }
       } finally {
-        if (!cancelled && loadTicket.current === ticket) setLoadingProfiles(false);
+        // Always clear when this effect is superseded/unmounted — shared tickets used to strand "Chargement…".
+        if (cancelled || profilesTicket.current === ticket) setLoadingProfiles(false);
       }
     };
     void bootProfiles();
@@ -447,12 +464,12 @@ const Explore = () => {
     };
   }, [cityFilter, taxonomyFilters, committedQuery]);
 
-  // Lazy-load / reload services when that tab is open or city/query/category filters change.
+  // Prefetch services with the same filters so the tab count stays accurate (and tab switches stay instant).
   useEffect(() => {
-    if (searchType !== "services") return;
     let cancelled = false;
     const bootServices = async () => {
-      const ticket = ++loadTicket.current;
+      const ticket = ++servicesTicket.current;
+      loadingMoreServicesRef.current = false;
       setLoadingServices(true);
       setLiveServices([]);
       servicesOffsetRef.current = 0;
@@ -466,7 +483,7 @@ const Explore = () => {
           query: committedQuery || null,
           ...taxonomyFilters,
         });
-        if (cancelled || loadTicket.current !== ticket) return;
+        if (cancelled || servicesTicket.current !== ticket) return;
         servicesOffsetRef.current = DISCOVER_PAGE_SIZE;
         const more = services.length >= DISCOVER_PAGE_SIZE;
         hasMoreServicesRef.current = more;
@@ -475,46 +492,77 @@ const Explore = () => {
         servicesBootedRef.current = true;
         setServicesBooted(true);
       } catch (error) {
-        console.error("Error loading services:", error);
+        if (!cancelled && servicesTicket.current === ticket) {
+          console.error("Error loading services:", error);
+        }
       } finally {
-        if (!cancelled && loadTicket.current === ticket) setLoadingServices(false);
+        if (cancelled || servicesTicket.current === ticket) setLoadingServices(false);
       }
     };
     void bootServices();
     return () => {
       cancelled = true;
     };
-  }, [searchType, cityFilter, taxonomyFilters, committedQuery]);
+  }, [cityFilter, taxonomyFilters, committedQuery]);
 
-  // Lazy-load projects / biens when those tabs open, and reload on city filter change.
+  // Prefetch projects with filters so tab counts stay useful.
   useEffect(() => {
-    if (searchType !== "projets" && searchType !== "biens") return;
     let cancelled = false;
     const bootCatalog = async () => {
+      const ticket = ++catalogTicket.current;
       setLoadingCatalog(true);
       catalogBootedRef.current = false;
       setCatalogBooted(false);
       try {
-        const [projects, properties] = await Promise.all([
-          catalogService.listProjects(40, 0, { city: cityFilter }),
-          catalogService.listProperties(40, 0, { city: cityFilter }),
-        ]);
-        if (cancelled) return;
+        const projects = await catalogService.listProjects(40, 0, { city: cityFilter, projectType });
+        if (cancelled || catalogTicket.current !== ticket) return;
         setLiveProjects(projects);
-        setLiveProperties(properties);
         catalogBootedRef.current = true;
         setCatalogBooted(true);
       } catch (error) {
-        console.error("Error loading catalog:", error);
+        if (!cancelled && catalogTicket.current === ticket) {
+          console.error("Error loading catalog:", error);
+        }
       } finally {
-        if (!cancelled) setLoadingCatalog(false);
+        if (cancelled || catalogTicket.current === ticket) setLoadingCatalog(false);
       }
     };
     void bootCatalog();
     return () => {
       cancelled = true;
     };
-  }, [searchType, cityFilter]);
+  }, [cityFilter, projectType]);
+
+  // Exact totals from Supabase (not the currently loaded page).
+  useEffect(() => {
+    let cancelled = false;
+    const loadCounts = async () => {
+      setServerCounts({ comptes: null, services: null, projets: null });
+      try {
+        const [comptes, services, projets] = await Promise.all([
+          profileService.countProfessionals({
+            city: cityFilter,
+            query: committedQuery || null,
+            ...taxonomyFilters,
+          }),
+          serviceService.countServices({
+            city: cityFilter,
+            query: committedQuery || null,
+            ...taxonomyFilters,
+          }),
+          catalogService.countProjects({ city: cityFilter, projectType }),
+        ]);
+        if (cancelled) return;
+        setServerCounts({ comptes, services, projets });
+      } catch (error) {
+        if (!cancelled) console.error("Error loading Discover counts:", error);
+      }
+    };
+    void loadCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [cityFilter, taxonomyFilters, committedQuery, projectType]);
 
   const catalogItems = useMemo(() => {
     const services: MockItem[] = liveServices.map((row) => {
@@ -549,23 +597,6 @@ const Explore = () => {
       progress: Number(row.progress) || 0,
       description: row.description || "",
     }));
-    const biens: MockItem[] = liveProperties.map((row) => {
-      const details = row.details && typeof row.details === "object" ? row.details : {};
-      return {
-        id: row.id,
-        feed_category: "gestion-services-immobiliers",
-        feed_sub_category: "promotion-immobiliere",
-        kind: "bien" as const,
-        profileName: details.title || row.title || "Bien",
-        image: Array.isArray(row.images) ? row.images[0] || "" : "",
-        title: details.title || row.title || "Bien",
-        city: details.city || row.city || "",
-        price: details.priceDh || row.price || "",
-        surface: details.builtSurface || row.surface || "",
-        beds: details.beds ?? row.beds ?? undefined,
-        description: details.description || row.description || "",
-      };
-    });
     const accounts: MockItem[] = liveProfiles.map((row) => {
       const extras = Array.isArray(row.profile_internal_categories) ? row.profile_internal_categories : [];
       const codes = [
@@ -591,8 +622,8 @@ const Explore = () => {
         description: row.profession || "",
       };
     });
-    return [...DISCOVER_ITEMS, ...accounts, ...projects, ...biens, ...services];
-  }, [liveServices, liveProjects, liveProperties, liveProfiles]);
+    return [...DISCOVER_ITEMS, ...accounts, ...projects, ...services];
+  }, [liveServices, liveProjects, liveProfiles]);
 
   const searched = useMemo(
     () =>
@@ -630,20 +661,30 @@ const Explore = () => {
     return map;
   }, [liveProjects]);
 
-  const searchResults = searched.filter((item) => {
-    if (searchType === "biens") return item.kind === "bien";
-    if (searchType === "services") return item.kind === "annonce";
-    if (searchType === "projets") {
+  const matchesProjectFilters = useCallback(
+    (item: MockItem) => {
       if (item.kind !== "projet") return false;
       const data = projectFilterData.get(item.id);
       if (projectType && (!data || data.type !== projectType)) return false;
       if (projectStage && (!data || PROJECT_MILESTONES[data.stage]?.id !== projectStage)) return false;
       if (projectCommercial && (!data || data.commercial !== projectCommercial)) return false;
       return true;
-    }
+    },
+    [projectFilterData, projectType, projectStage, projectCommercial],
+  );
+
+  const searchResults = searched.filter((item) => {
+    if (searchType === "services") return item.kind === "annonce";
+    if (searchType === "projets") return matchesProjectFilters(item);
     return false;
   });
   const accounts = useMemo(() => searched.filter((item) => item.kind === "agence"), [searched]);
+
+  const tabCountText = (id: SearchType): string | null => {
+    const value = serverCounts[id];
+    return value == null ? null : String(value);
+  };
+
   const selectedLabel = feedCategoryLabel(selectedCategory);
 
   // The Catégories button lists project types while the Projets tab is active.
@@ -661,16 +702,12 @@ const Explore = () => {
   const tabLoading =
     (searchType === "comptes" && loadingProfiles) ||
     (searchType === "services" && (loadingServices || !servicesBooted)) ||
-    ((searchType === "projets" || searchType === "biens") && (loadingCatalog || !catalogBooted));
+    (searchType === "projets" && (loadingCatalog || !catalogBooted));
 
   const openItem = (item: MockItem) => {
     window.scrollTo(0, 0);
     if (item.kind === "projet") {
       navigate(`/projet/${item.id}`);
-      return;
-    }
-    if (item.kind === "bien") {
-      navigate(`/bien/${item.id}`);
       return;
     }
     if (item.kind === "annonce") {
@@ -694,46 +731,52 @@ const Explore = () => {
         }}
       >
         <div className="relative min-w-0">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Rechercher entreprises, catégories…"
-            className="h-11 w-full rounded-full border border-neutral-300 bg-white pl-9 pr-3 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-orange-400"
+            className="h-14 w-full rounded-full border border-neutral-300 bg-white pl-12 pr-4 text-base text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-orange-400 sm:text-lg"
           />
         </div>
       </form>
-      <div className="mt-3">
+      <div className="mt-4">
         <CategoryPicker
           open={false}
           onToggle={() => setCategoriesOpen(true)}
           selectedLabel={pickerLabel}
           categories={FEED_PICKER_CATEGORIES}
           onSelect={() => {}}
+          size="lg"
         />
         {searchType !== "projets" ? (
-          <SubCategoryChips category={selectedCategory} value={subCategory} onChange={setSubCategory} />
+          <SubCategoryChips
+            category={selectedCategory}
+            value={subCategory}
+            onChange={setSubCategory}
+            size="lg"
+          />
         ) : null}
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setCitySheetOpen(true)}
-            className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 text-left shadow-sm transition hover:border-[#174f43]"
+            className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 text-left shadow-sm transition hover:border-[#174f43]"
           >
-            <MapPin className="h-4 w-4 shrink-0 text-neutral-500" />
-            <span className={`min-w-0 flex-1 truncate text-sm ${selectedCity ? "font-medium text-neutral-900" : "text-neutral-400"}`}>
+            <MapPin className="h-5 w-5 shrink-0 text-neutral-500" />
+            <span className={`min-w-0 flex-1 truncate text-base sm:text-lg ${selectedCity ? "font-medium text-neutral-900" : "text-neutral-400"}`}>
               {selectedCity || "Filtrer par ville"}
             </span>
-            <ChevronDown className="h-4 w-4 shrink-0 text-neutral-500" />
+            <ChevronDown className="h-5 w-5 shrink-0 text-neutral-500" />
           </button>
           {selectedCity ? (
             <button
               type="button"
               onClick={() => setSelectedCity("")}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+              className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
               aria-label="Effacer la ville"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
           ) : null}
         </div>
@@ -743,19 +786,29 @@ const Explore = () => {
           onSelect={setSelectedCity}
         />
       </div>
-      <div className="mt-4 flex border-b border-neutral-200">
+      <div className="mt-5 flex border-b border-neutral-200">
         {SEARCH_TYPES.map((item) => {
           const active = searchType === item.id;
+          const count = tabCountText(item.id);
           return (
             <button
               key={item.id}
               type="button"
               onClick={() => setSearchType(item.id)}
-              className={`flex-1 border-b-2 pb-2.5 text-sm font-semibold ${
+              className={`flex flex-1 flex-col items-center gap-0.5 border-b-2 pb-3 sm:flex-row sm:justify-center sm:gap-2 ${
                 active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500"
               }`}
             >
-              {item.label}
+              <span className="text-base font-semibold sm:text-lg">{item.label}</span>
+              {count != null ? (
+                <span
+                  className={`text-sm font-semibold tabular-nums sm:text-base ${
+                    active ? "text-[#174f43]/80" : "text-neutral-400"
+                  }`}
+                >
+                  {count}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -772,6 +825,7 @@ const Explore = () => {
             onToggle={() => setCategoriesOpen(false)}
             selectedLabel={pickerLabel}
             categories={searchType === "projets" ? PROJECT_TYPE_OPTIONS : FEED_PICKER_CATEGORIES}
+            size="lg"
             onSelect={(id) => {
               if (searchType === "projets") {
                 setProjectType(id === "tout" ? null : id);
@@ -791,26 +845,26 @@ const Explore = () => {
     <DesktopRailFrame className="min-h-screen bg-white pb-20 lg:pb-0">
       <div className="mx-auto w-full max-w-2xl px-3 pt-4 lg:mx-0 lg:max-w-none lg:px-0 lg:pt-0">
         {searchFields}
-        <div className="mt-3 flex items-center justify-end gap-2 pb-1">
-          <div className="flex items-center gap-1.5">
+        <div className="mt-4 flex items-center justify-end gap-2 pb-1">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ${
+              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-base font-medium ${
                 viewMode === "list" ? "bg-[#174f43] text-white" : "bg-neutral-100 text-neutral-900"
               }`}
             >
-              <List className="h-4 w-4" />
+              <List className="h-5 w-5" />
               Liste
             </button>
             <button
               type="button"
               onClick={() => setViewMode("map")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ${
+              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-base font-medium ${
                 viewMode === "map" ? "bg-[#174f43] text-white" : "bg-neutral-100 text-neutral-900"
               }`}
             >
-              <MapIcon className="h-4 w-4" />
+              <MapIcon className="h-5 w-5" />
               Carte
             </button>
           </div>
@@ -822,21 +876,21 @@ const Explore = () => {
               type="button"
               onClick={() => setFiltersOpen((open) => !open)}
               aria-expanded={filtersOpen}
-              className={`inline-flex items-center gap-[0.8vh] rounded-full border px-[1.6vh] py-[0.9vh] text-[1.4vh] font-semibold shadow-sm transition ${
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-base font-semibold shadow-sm transition ${
                 activeProjectFilters > 0
                   ? "border-[#174f43] text-[#174f43]"
                   : "border-neutral-200 bg-white text-neutral-700 hover:border-[#174f43] hover:text-[#174f43]"
               }`}
             >
-              <SlidersHorizontal className="h-[1.8vh] w-[1.8vh]" />
+              <SlidersHorizontal className="h-5 w-5" />
               Filtres
               {activeProjectFilters > 0 ? (
-                <span className="inline-flex h-[2vh] min-w-[2vh] items-center justify-center rounded-full bg-[#174f43] px-[0.5vh] text-[1.15vh] font-bold text-white">
+                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#174f43] px-1.5 text-sm font-bold text-white">
                   {activeProjectFilters}
                 </span>
               ) : null}
               <ChevronDown
-                className={`h-[1.8vh] w-[1.8vh] transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
+                className={`h-5 w-5 transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
               />
             </button>
             <div
@@ -847,13 +901,13 @@ const Explore = () => {
               <div className="min-h-0 overflow-hidden">
                 <div className="flex max-w-full items-start gap-[1.5vh] pt-[1.2vh]">
                   <div className="w-[24vh] max-w-[48%] shrink-0">
-                    <p className="mb-[0.7vh] text-[1.25vh] font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400 sm:text-sm">
                       État du projet
                     </p>
                     <StageSlider value={projectStageIdx} onChange={setProjectStageIdx} />
                   </div>
                   <div className="w-[24vh] max-w-[48%] shrink-0">
-                    <p className="mb-[0.7vh] text-[1.25vh] font-semibold uppercase tracking-wide text-neutral-400">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400 sm:text-sm">
                       Commercialisation
                     </p>
                     <div className="flex flex-col rounded-[2.2vh] bg-neutral-100 p-[0.5vh]">
@@ -868,7 +922,7 @@ const Explore = () => {
                     type="button"
                     onClick={() => setProjectCommercial(option.id)}
                     aria-pressed={projectCommercial === option.id}
-                    className={`w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[0.95vh] text-left text-[1.35vh] font-semibold leading-none transition ${
+                    className={`w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[1.1vh] text-left text-[1.55vh] font-semibold leading-none transition ${
                       projectCommercial === option.id
                         ? "bg-[#174f43] text-white shadow-sm"
                         : "text-neutral-500 hover:text-neutral-800"
@@ -893,10 +947,10 @@ const Explore = () => {
           ((searchType === "comptes" && accounts.length === 0) ||
             (searchType === "services" && searchResults.length === 0) ||
             (searchType !== "comptes" && searchType !== "services" && searchResults.length === 0)) ? (
-          <p className="px-4 py-8 text-center text-muted-foreground">Chargement…</p>
+          <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Chargement…</p>
         ) : searchType === "comptes" ? (
           accounts.length === 0 && !hasMoreProfiles && !loadingProfiles ? (
-            <p className="px-4 py-8 text-center text-muted-foreground">Aucune entreprise pour cette recherche</p>
+            <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucune entreprise pour cette recherche</p>
           ) : (
             <>
               <ul>
@@ -923,7 +977,7 @@ const Explore = () => {
         ) : searchResults.length === 0 &&
           !(searchType === "services" && (hasMoreServices || loadingServices)) &&
           !tabLoading ? (
-          <p className="px-4 py-8 text-center text-muted-foreground">Aucun résultat pour cette recherche</p>
+          <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucun résultat pour cette recherche</p>
         ) : (
           <>
             <CardList items={searchResults} onOpen={openItem} serviceRows={liveServices} projectRows={liveProjects} />

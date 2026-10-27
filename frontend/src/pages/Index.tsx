@@ -23,11 +23,11 @@ import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from
 import { CategoryPicker, FEED_PICKER_CATEGORIES } from "@/components/CategoryPicker";
 import { FilterChips, SubCategoryChips } from "@/components/FilterChips";
 import FeedDesktopRail from "@/components/FeedDesktopRail";
+import { FeedFirmsStrip, FeedPartnersRail, FeedProjectsStrip, RECOMMENDED_FIRMS } from "@/components/FeedSpotlight";
 import { CreateAndBell } from "@/components/AppHeader";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { ServiceCard } from "@/components/service/ServiceCard.tsx";
 import { PropertyCard } from "@/components/property/PropertyCard";
-import { SHOWCASE_POSTS } from "@/lib/showcasePosts";
 import { offerFromRow } from "@/lib/serviceOffer";
 import { serviceFirmName, serviceFeedTags, serviceService, type ServiceRow } from "@/services/serviceService";
 import { realisationService } from "@/services/realisationService";
@@ -101,6 +101,11 @@ const Index = () => {
   const showCategories = feedView !== "biens" && feedView !== "projets" && feedView !== "marche";
   const matchesPost = (post: TaxonomyPost) =>
     (!showCategories || matchesFeedCategory(category, subCategory, post)) && matchesFeedView(feedView, typeFilter, post);
+
+  // Produits BTP (ex-Marché) → Sifarah Matériaux only (no properties chooser).
+  useEffect(() => {
+    if (vue === "marche") navigate("/produits", { replace: true });
+  }, [vue, navigate]);
 
   useEffect(() => {
     setTypeFilter(null);
@@ -421,7 +426,7 @@ const Index = () => {
   const buildFeed = (): ReactElement[] => {
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
-    const posts = (feedView === "all" ? [...SHOWCASE_POSTS, ...allPosts] : allPosts).filter(matchesPost);
+    const posts = allPosts.filter(matchesPost);
     if (feedView === "services") {
       const annonces = feedListings.filter((listing) => matchesFeedCategory(category, subCategory, listing));
       if (!annonces.length) return [];
@@ -466,6 +471,9 @@ const Index = () => {
       ];
     }
     let bannerIndex = 0;
+    /** Implant projets strip once after a few posts on Accueil. */
+    const projectsStripAfter = Math.min(2, Math.max(posts.length, 1));
+    let projectsStripInserted = false;
 
     posts.forEach((post, index) => {
       const profile = post.profiles || {};
@@ -501,6 +509,16 @@ const Index = () => {
             phone={contactPhone(post.property_details, profile.phone)}
           />
         );
+
+        if (feedView === "all" && !projectsStripInserted && feedItemCount === projectsStripAfter) {
+          projectsStripInserted = true;
+          if (catalogProjects.length) {
+            feed.push(
+              <FeedProjectsStrip key="feed-projects-spotlight" projects={catalogProjects} />,
+            );
+          }
+          feed.push(<FeedFirmsStrip key="feed-firms-spotlight" firms={RECOMMENDED_FIRMS} />);
+        }
 
         // Add 2 sponsored banners after every 8 posts
         if (feedItemCount % 8 === 0 && banners.length >= 2) {
@@ -551,20 +569,25 @@ const Index = () => {
       <div className="lg:flex lg:min-h-screen lg:w-full">
       <FeedDesktopRail />
       <div className="min-w-0 lg:flex-1 lg:py-5">
-      <div className="mx-auto flex w-full max-w-2xl flex-col lg:w-[56rem] lg:max-w-[calc(100vw-22rem)] lg:px-8">
+      <div
+        className={`mx-auto flex w-full max-w-2xl lg:px-8 ${
+          feedView === "all" && !categoriesOpen
+            ? "flex-col xl:max-w-[calc(100vw-20rem)] xl:flex-row xl:items-start xl:gap-8"
+            : "flex-col lg:w-[56rem] lg:max-w-[calc(100vw-22rem)]"
+        }`}
+      >
+      <div className="flex min-w-0 w-full flex-col xl:flex-1">
         {categoriesOpen ? null : (
         <div className="order-1 mb-[1.5vh] flex items-end justify-between gap-4 border-b border-neutral-200 px-[1vh] lg:mb-4 lg:px-0">
           <div className="flex w-full min-w-0 items-end overflow-x-auto [scrollbar-width:none] lg:w-auto lg:gap-1 [&::-webkit-scrollbar]:hidden">
             {[
-              { id: "all" as const, label: "Accueil" },
-              { id: "projets" as const, label: "Projets" },
-              { id: "marche" as const, label: "Marché" },
-              { id: "services" as const, label: "Services" },
-              { id: "opportunites" as const, label: "Business", mobileOnly: true },
+              { id: "all" as const, label: "Accueil", order: "order-1" },
+              { id: "projets" as const, label: "Projets", order: "order-2" },
+              { id: "services" as const, label: "Services", order: "order-3" },
+              { id: "marche" as const, label: "Matériaux et fournisseurs", mobileLabel: "Produits", order: "order-4" },
+              { id: "opportunites" as const, label: "Business", mobileOnly: true, order: "order-5" },
             ].map((item) => {
-              const active =
-                item.id !== "opportunites" &&
-                (feedView === item.id || (item.id === "marche" && feedView === "biens"));
+              const active = item.id !== "opportunites" && feedView === item.id;
               return (
                 <button
                   key={item.id}
@@ -574,31 +597,42 @@ const Index = () => {
                       navigate("/opportunites");
                       return;
                     }
+                    if (item.id === "marche") {
+                      navigate("/produits");
+                      return;
+                    }
                     setCategoriesOpen(false);
                     const next = new URLSearchParams(searchParams);
                     if (item.id === "all") {
                       next.delete("vue");
                       setCategory(null);
                       setSubCategory(null);
-                    } else if (feedView === item.id || (item.id === "marche" && feedView === "biens")) {
+                    } else if (feedView === item.id) {
                       next.delete("vue");
                     } else {
                       next.set("vue", item.id);
                     }
                     setSearchParams(next, { replace: true });
                   }}
-                  className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.4vh] py-[1.6vh] text-[1.65vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3 lg:py-3 lg:text-base ${
+                  className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.45vh] py-[1.75vh] text-[1.8vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3.5 lg:py-3.5 lg:text-lg ${item.order} ${
                     "mobileOnly" in item && item.mobileOnly ? "lg:hidden" : ""
                   } ${
                     active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
                   }`}
                 >
-                  {item.label}
+                  {"mobileLabel" in item && item.mobileLabel ? (
+                    <>
+                      <span className="lg:hidden">{item.mobileLabel}</span>
+                      <span className="hidden lg:inline">{item.label}</span>
+                    </>
+                  ) : (
+                    item.label
+                  )}
                 </button>
               );
             })}
           </div>
-          <CreateAndBell calm showBell={false} className="hidden self-center lg:flex" pillClassName="h-12 px-4" />
+          <CreateAndBell calm showBell={false} className="hidden self-center lg:flex" pillClassName="h-[3.25rem] px-4 text-base" />
         </div>
         )}
         {categoriesOpen ? null : (
@@ -677,34 +711,6 @@ const Index = () => {
         />
 
         {/* Feed with posts and sponsored banners */}
-        {feedView === "marche" ? (
-          <div className="grid grid-cols-1 gap-3 px-3 pb-6 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2 lg:gap-4 lg:px-0">
-            <button
-              type="button"
-              onClick={() => {
-                const next = new URLSearchParams(searchParams);
-                next.set("vue", "biens");
-                setSearchParams(next, { replace: true });
-              }}
-              className="rounded-2xl border border-neutral-200 bg-white p-5 text-left shadow-sm transition hover:border-[#174f43]/40 hover:shadow-md"
-            >
-              <p className="text-lg font-semibold text-neutral-950">Propriétés</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-neutral-600">
-                Parcourez les biens immobiliers publiés sur Sifarah — appartements, villas, terrains et locaux.
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/produits")}
-              className="rounded-2xl border border-neutral-200 bg-white p-5 text-left shadow-sm transition hover:border-[#174f43]/40 hover:shadow-md"
-            >
-              <p className="text-lg font-semibold text-neutral-950">Matériaux et fournisseurs</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-neutral-600">
-                Catalogue Sifarah Matériaux : produits BTP et fournisseurs pour vos chantiers.
-              </p>
-            </button>
-          </div>
-        ) : null}
         {feedView === "projets" || feedView === "biens" ? (
           <div className="px-3 pb-[1.2vh] lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:px-0">
             <FilterChips
@@ -773,6 +779,8 @@ const Index = () => {
         ) : null}
         </div>
         )}
+      </div>
+      {feedView === "all" && !categoriesOpen ? <FeedPartnersRail firms={RECOMMENDED_FIRMS} /> : null}
       </div>
       </div>
       </div>

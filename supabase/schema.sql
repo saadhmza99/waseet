@@ -514,7 +514,16 @@ CREATE POLICY "Posts are viewable by everyone"
 DROP POLICY IF EXISTS "Users can create their own posts" ON public.posts;
 CREATE POLICY "Users can create their own posts"
   ON public.posts FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND (
+      COALESCE(post_type, 'standard') <> 'standard'
+      OR EXISTS (
+        SELECT 1 FROM public.profiles pr
+        WHERE pr.id = user_id AND pr.is_verified IS TRUE
+      )
+    )
+  );
 
 DROP POLICY IF EXISTS "Users can update their own posts" ON public.posts;
 CREATE POLICY "Users can update their own posts"
@@ -2857,7 +2866,10 @@ AS $feed$
       (
         a.uid IS NOT NULL
         AND EXISTS (SELECT 1 FROM public.follows f WHERE f.follower_id = a.uid)
-        AND EXISTS (SELECT 1 FROM public.visible_feed_posts v WHERE NOT v.from_following)
+        AND EXISTS (
+          SELECT 1 FROM public.visible_feed_posts v
+          WHERE NOT v.from_following OR COALESCE(v.is_verified, false)
+        )
       ) AS mix
     FROM args a
   ),
@@ -2885,15 +2897,23 @@ AS $feed$
       CASE WHEN c.mix THEN c.lim - c.follow_count ELSE c.lim END AS general_count
     FROM counts c
   ),
+  -- Verified (badge) authors always ride the public Accueil stream — no follow required.
+  -- When mixing with follows, keep verified posts out of the follow slots to avoid duplicates.
   general_slice AS (
-    SELECT q.*, row_number() OVER (ORDER BY q.created_at DESC, q.id DESC) - 1 AS local_index
+    SELECT q.*, row_number() OVER (
+      ORDER BY COALESCE(q.is_verified, false) DESC, q.created_at DESC, q.id DESC
+    ) - 1 AS local_index
     FROM (
       SELECT v.*
       FROM public.visible_feed_posts v
       CROSS JOIN sized s
       WHERE s.general_count > 0
-        AND (NOT s.mix OR NOT v.from_following)
-      ORDER BY v.created_at DESC, v.id DESC
+        AND (
+          NOT s.mix
+          OR NOT v.from_following
+          OR COALESCE(v.is_verified, false)
+        )
+      ORDER BY COALESCE(v.is_verified, false) DESC, v.created_at DESC, v.id DESC
       OFFSET (SELECT general_before FROM sized)
       LIMIT (SELECT general_count FROM sized)
     ) q
@@ -2907,6 +2927,7 @@ AS $feed$
       WHERE s.mix
         AND s.follow_count > 0
         AND v.from_following
+        AND NOT COALESCE(v.is_verified, false)
       ORDER BY v.created_at DESC, v.id DESC
       OFFSET (SELECT follow_before FROM sized)
       LIMIT (SELECT follow_count FROM sized)
@@ -2946,8 +2967,8 @@ AS $feed$
         SELECT 1
         FROM public.visible_feed_posts v
         CROSS JOIN sized s
-        WHERE NOT s.mix OR NOT v.from_following
-        ORDER BY v.created_at DESC, v.id DESC
+        WHERE NOT s.mix OR NOT v.from_following OR COALESCE(v.is_verified, false)
+        ORDER BY COALESCE(v.is_verified, false) DESC, v.created_at DESC, v.id DESC
         OFFSET (
           SELECT s.general_before + (SELECT count(*)::integer FROM picked pk WHERE pk.kind = 'general')
           FROM sized s
@@ -2958,7 +2979,7 @@ AS $feed$
         SELECT 1
         FROM public.visible_feed_posts v
         CROSS JOIN sized s
-        WHERE s.mix AND v.from_following
+        WHERE s.mix AND v.from_following AND NOT COALESCE(v.is_verified, false)
         ORDER BY v.created_at DESC, v.id DESC
         OFFSET (
           SELECT s.follow_before + (SELECT count(*)::integer FROM picked pk WHERE pk.kind = 'follow')
@@ -3000,7 +3021,7 @@ AS $feed$
 $feed$;
 
 COMMENT ON FUNCTION public.feed_page(integer, integer) IS
-  'Newest visible posts, paged. Signed-in viewers who follow people get one followed post after every three others.';
+  'Newest visible posts, paged. Verified-badge authors are boosted on Accueil without requiring a follow. Signed-in viewers who follow people get one non-verified followed post after every three others.';
 
 REVOKE ALL ON FUNCTION public.feed_page(integer, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.feed_page(integer, integer) TO anon, authenticated;
@@ -3329,6 +3350,9 @@ FROM (VALUES
   (3, '3.4.4', 'Ingénierie & études', 'Contrôle technique', 'ingenierie-etudes'),
   (3, '3.4.5', 'Ingénierie & études', 'Économie de la construction', 'ingenierie-etudes'),
   (3, '3.4.6', 'Ingénierie & études', 'Coordination de chantier', 'ingenierie-etudes'),
+  (3, '3.4.7', 'Ingénierie & études', 'Géomètre-topographe', 'ingenierie-etudes'),
+  (3, '3.4.8', 'Ingénierie & études', 'Topographie', 'ingenierie-etudes'),
+  (3, '3.4.9', 'Ingénierie & études', 'Études de terrain', 'ingenierie-etudes'),
   (3, '3.5.1', 'Matériaux & équipements', 'Matériaux de construction', 'materiaux-equipements'),
   (3, '3.5.2', 'Matériaux & équipements', 'Équipements de chantier', 'materiaux-equipements'),
   (3, '3.5.3', 'Matériaux & équipements', 'Équipements techniques', 'materiaux-equipements'),
@@ -3393,10 +3417,7 @@ FROM (VALUES
   (6, '6.1.8', 'Foncier & développement', 'Lotissement', 'foncier-developpement'),
   (6, '6.2.1', 'Expertise & études foncières', 'Expertise foncière', 'expertise-etudes'),
   (6, '6.2.2', 'Expertise & études foncières', 'Études foncières', 'expertise-etudes'),
-  (6, '6.2.3', 'Expertise & études foncières', 'Géomètre-topographe', 'expertise-etudes'),
-  (6, '6.2.4', 'Expertise & études foncières', 'Topographie', 'expertise-etudes'),
   (6, '6.2.5', 'Expertise & études foncières', 'Cadastre', 'expertise-etudes'),
-  (6, '6.2.6', 'Expertise & études foncières', 'Études de terrain', 'expertise-etudes'),
   (6, '6.3.1', 'Droit', 'Droit immobilier', 'droit-immobilier-foncier'),
   (6, '6.3.2', 'Droit', 'Droit foncier', 'droit-immobilier-foncier'),
   (6, '6.3.3', 'Droit', 'Titres fonciers', 'droit-immobilier-foncier'),
@@ -3695,6 +3716,33 @@ DROP TRIGGER IF EXISTS trg_posts_20_check_property_author ON public.posts;
 CREATE TRIGGER trg_posts_20_check_property_author
   BEFORE INSERT OR UPDATE OF post_type ON public.posts
   FOR EACH ROW EXECUTE FUNCTION public.check_post_property_author();
+
+-- Feed posts (post_type = standard) are reserved for verified badge profiles.
+CREATE OR REPLACE FUNCTION public.check_post_standard_verified()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF COALESCE(NEW.post_type, 'standard') <> 'standard' THEN
+    RETURN NEW;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles pr
+    WHERE pr.id = NEW.user_id AND pr.is_verified IS TRUE
+  ) THEN
+    RAISE EXCEPTION 'POST_AUTHOR_NOT_VERIFIED'
+      USING DETAIL = 'Seuls les profils vérifiés (badge) peuvent publier des posts sur le fil.';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_posts_15_check_standard_verified ON public.posts;
+CREATE TRIGGER trg_posts_15_check_standard_verified
+  BEFORE INSERT OR UPDATE OF post_type, user_id ON public.posts
+  FOR EACH ROW EXECUTE FUNCTION public.check_post_standard_verified();
 
 -- Same rule for the portfolio. Particuliers have no profile row and keep their 3 biens.
 CREATE OR REPLACE FUNCTION public.check_property_owner()

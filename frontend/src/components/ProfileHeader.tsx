@@ -431,7 +431,7 @@ const ProfileHeader = ({
                     {specialties.map((label) => (
                       <span
                         key={label}
-                        className="inline-flex max-w-full items-center rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-card-foreground"
+                        className="inline-flex max-w-full items-center rounded-md border border-border bg-muted/40 px-2.5 py-1 text-sm font-medium text-card-foreground"
                       >
                         <span className="truncate">{label}</span>
                       </span>
@@ -484,7 +484,7 @@ const ProfileHeader = ({
                       {specialties.map((label) => (
                         <span
                           key={label}
-                          className="inline-flex max-w-full items-center rounded-md border border-border bg-muted/40 px-2 py-0.5 text-sm font-medium text-card-foreground"
+                          className="inline-flex max-w-full items-center rounded-md border border-border bg-muted/40 px-2.5 py-1 text-base font-medium text-card-foreground"
                         >
                           <span className="truncate">{label}</span>
                         </span>

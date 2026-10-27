@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { catalogService } from "@/services/catalogService";
+import { profileService } from "@/services/profileService";
 import { taxonomyService } from "@/services/taxonomyService";
 import {
   profileSectionsForInternalCodes,
@@ -133,17 +134,23 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
       return;
     }
     let cancelled = false;
-    Promise.all([taxonomyService.listInternalCategories(), taxonomyService.getProfileInternalCategoryIds(user.id)])
-      .then(([rows, ids]) => {
+    Promise.all([
+      taxonomyService.listInternalCategories(),
+      taxonomyService.getProfileInternalCategoryIds(user.id),
+      profileService.getProfile(user.id),
+    ])
+      .then(([rows, ids, profile]) => {
         if (cancelled) return;
         const codes = ids
           .map((id) => rows.find((row) => row.id === id)?.code || null)
           .filter(Boolean) as string[];
-        setProfileSections(profileSectionsForInternalCodes(codes));
+        setProfileSections(
+          profileSectionsForInternalCodes(codes, { isVerified: Boolean(profile?.is_verified) }),
+        );
       })
       .catch((error) => {
         console.error("Error loading create-type visibility:", error);
-        if (!cancelled) setProfileSections(profileSectionsForInternalCodes([]));
+        if (!cancelled) setProfileSections(profileSectionsForInternalCodes([], { isVerified: false }));
       });
     return () => {
       cancelled = true;
@@ -152,7 +159,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
   const visiblePostTypes = useMemo(() => {
     if (particulier) return postTypes.filter((type) => type.id === "property");
-    if (!profileSections) return postTypes.filter((type) => type.id === "standard");
+    if (!profileSections) return [];
     return postTypes.filter((type) => createKindAllowed(type.id, profileSections));
   }, [particulier, profileSections]);
 
@@ -433,9 +440,13 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
               </p>
             ) : !profileSections ? (
               <p className="mt-2 text-xs leading-snug text-muted-foreground">Chargement des types disponibles…</p>
+            ) : !visiblePostTypes.length ? (
+              <p className="mt-2 text-xs leading-snug text-muted-foreground">
+                Le post sur le fil est réservé aux profils vérifiés (badge bleu). Les autres types dépendent de vos spécialités.
+              </p>
             ) : visiblePostTypes.length <= 1 ? (
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
-                Types alignés sur les onglets de votre profil. Ajoutez des spécialités dans Paramètres pour en débloquer d'autres.
+                Types alignés sur les onglets de votre profil. Le post fil nécessite un badge vérifié.
               </p>
             ) : null}
           </div>

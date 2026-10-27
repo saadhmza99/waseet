@@ -388,7 +388,10 @@ const Profile = () => {
   );
   const [profile, setProfile] = useState<any>(bootBundle?.profile ?? null);
   const profileSections = useMemo(
-    () => profileSectionsForInternalCodes(internalCategoryCodesOf(profile)),
+    () =>
+      profileSectionsForInternalCodes(internalCategoryCodesOf(profile), {
+        isVerified: Boolean(profile?.is_verified),
+      }),
     [profile]
   );
   const visibleTabs = useMemo(() => {
@@ -403,6 +406,12 @@ const Profile = () => {
       return false;
     });
   }, [profileSections]);
+
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab("Infos");
+    }
+  }, [visibleTabs, activeTab]);
   const [posts, setPosts] = useState<any[]>(bootBundle?.posts ?? []);
   const [postsHasMore, setPostsHasMore] = useState(Boolean(bootBundle?.postsHasMore));
   const [loadingMorePosts, setLoadingMorePosts] = useState(false);

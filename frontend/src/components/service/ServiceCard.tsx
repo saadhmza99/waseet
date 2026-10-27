@@ -46,7 +46,7 @@ export const ServiceCard = ({ row }: { row: { id: string; firm: string; offer: S
             }
           />
           {offer.category ? (
-            <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-[11px] font-semibold text-neutral-800 shadow-sm">
+            <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2.5 py-1.5 text-sm font-semibold text-neutral-800 shadow-sm sm:text-base">
               {offer.category}
             </span>
           ) : null}

@@ -1,9 +1,13 @@
+import { RECOMMENDED_FIRMS } from "@/lib/recommendedFirms";
 import { FEED_CATEGORIES } from "@/lib/taxonomy";
 
 const photo = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1600&q=80`;
 
 export const SHOWCASE_PROFILE_USERNAME = "rahma_immobilier";
+
+const firmAvatar = (username: string, fallback: string) =>
+  RECOMMENDED_FIRMS.find((firm) => firm.username === username)?.avatar_url || fallback;
 
 export type ShowcasePost = {
   id: string;
@@ -61,9 +65,9 @@ const post = (
     feed_sub_category: subCategorySlug,
     profiles: {
       id: `showcase-${username}`,
-      username: SHOWCASE_PROFILE_USERNAME,
+      username,
       full_name: firm,
-      avatar_url: images[0] || "",
+      avatar_url: firmAvatar(username, images[0] || ""),
       location: city,
       profession: subCategory?.label || "",
       is_verified: true,

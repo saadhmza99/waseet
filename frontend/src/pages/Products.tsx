@@ -530,7 +530,7 @@ const Products = () => {
     </div>
   );
 
-  // Full remaining width beside the desktop rail (Marché → Matériaux).
+  // Full remaining width beside the desktop rail (Produits BTP → Matériaux).
   const railContentClass = "mx-auto w-full max-w-none px-4 lg:px-6 lg:pr-8";
 
   if (categoriesOpen) {
@@ -661,7 +661,9 @@ const Products = () => {
             ) : mode === "fournisseurs" ? (
               <ul
                 className={`mt-5 grid gap-3 sm:gap-4 ${
-                  selectedCategory ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1 sm:grid-cols-2"
+                  selectedCategory
+                    ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5"
                 }`}
               >
                 {pageSuppliers.map((pro) => {
@@ -752,8 +754,8 @@ const Products = () => {
               <ul
                 className={`mt-5 grid gap-3 sm:gap-4 ${
                   selectedCategory
-                    ? "grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3"
-                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+                    ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5"
                 }`}
               >
                 {pageProducts.map((row) => (
