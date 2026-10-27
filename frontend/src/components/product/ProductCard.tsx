@@ -7,6 +7,7 @@ import {
   productPriceLabel,
   type ProductRow,
 } from "@/services/productService";
+import { devisPath } from "@/services/devisService";
 
 const coverFallback =
   "data:image/svg+xml;utf8," +
@@ -51,26 +52,44 @@ export const ProductCard = ({ row }: { row: ProductRow }) => {
           <span className="text-sm font-semibold text-[#174f43] sm:text-base">{productPriceLabel(row)}</span>
         </span>
       </button>
-      <div className="mt-auto flex min-w-0 flex-col gap-2 px-3 pb-3 sm:flex-row sm:gap-2.5 sm:px-4 sm:pb-4">
+      <div className="mt-auto flex min-w-0 flex-col gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
         <button
           type="button"
-          onClick={openProduct}
-          className="h-10 w-full rounded-lg bg-[#174f43] text-sm font-semibold text-white sm:h-11 sm:flex-1 sm:text-base"
+          onClick={() =>
+            navigate(
+              devisPath({
+                sellerId: row.user_id,
+                sellerName: firm,
+                productId: row.id,
+                projectType: "achat-materiaux",
+              }),
+            )
+          }
+          className="h-10 w-full rounded-lg bg-[#174f43] text-sm font-semibold text-white sm:h-11 sm:text-base"
         >
-          Voir le produit
+          Demander devis
         </button>
-        {username ? (
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:gap-2.5">
           <button
             type="button"
-            onClick={() => {
-              window.scrollTo(0, 0);
-              navigate(`/profile/${username}`);
-            }}
-            className="h-10 w-full shrink-0 rounded-lg border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 sm:h-11 sm:w-auto sm:px-3.5 sm:text-base"
+            onClick={openProduct}
+            className="h-10 w-full rounded-lg border border-neutral-300 text-sm font-semibold text-neutral-800 sm:h-11 sm:flex-1 sm:text-base"
           >
-            Fournisseur
+            Voir le produit
           </button>
-        ) : null}
+          {username ? (
+            <button
+              type="button"
+              onClick={() => {
+                window.scrollTo(0, 0);
+                navigate(`/profile/${username}`);
+              }}
+              className="h-10 w-full shrink-0 rounded-lg border border-neutral-300 px-3 text-sm font-semibold text-neutral-800 sm:h-11 sm:w-auto sm:px-3.5 sm:text-base"
+            >
+              Fournisseur
+            </button>
+          ) : null}
+        </div>
       </div>
     </article>
   );

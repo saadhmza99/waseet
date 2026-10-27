@@ -43,6 +43,7 @@ import Tools from "./pages/Tools";
 import Courses from "./pages/Courses";
 import Hrayfi from "./pages/Hrayfi";
 import ProfessionalPreview from "./pages/ProfessionalPreview.tsx";
+import Devis from "./pages/Devis";
 
 const queryClient = new QueryClient();
 
@@ -97,7 +98,8 @@ const AppLayout = () => {
     pathname.startsWith("/admin") ||
     pathname.startsWith("/projet/nouveau") ||
     pathname.startsWith("/service/nouveau") ||
-    pathname.startsWith("/produit/nouveau");
+    pathname.startsWith("/produit/nouveau") ||
+    pathname.startsWith("/devis");
 
   /** Inject left rail for pages that don't own one (profile, details, etc.). */
   const injectDesktopRail = !hideAppChrome && !lockToReset && !pageOwnsDesktopRail;
@@ -150,6 +152,7 @@ const AppLayout = () => {
       <Route path="/outils" element={<Tools />} />
       <Route path="/courses" element={<Courses />} />
       <Route path="/hrayfi" element={<Hrayfi />} />
+      <Route path="/devis" element={<Devis />} />
       <Route path="/projet/nouveau" element={<CreateProjectWizard />} />
       <Route path="/service/nouveau" element={<CreateServiceForm />} />
       <Route path="/produit/nouveau" element={<SignedIn><CreateProductForm /></SignedIn>} />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Bell, Briefcase, GraduationCap, HardHat, Heart, Home, Package, Plus, Search, Settings, Wrench } from "lucide-react";
+import { Bell, ClipboardList, GraduationCap, Heart, Home, Plus, Search, Settings, Wrench } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logoDetailed from "@/assets/sifarah-logo-detailed.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -103,6 +103,11 @@ const FeedDesktopRail = () => {
           <Heart className="h-5 w-5" strokeWidth={2} />
           Favoris
         </button>
+        <button type="button" onClick={() => navigate("/devis")} className={itemClass(path.startsWith("/devis"))}>
+          <ClipboardList className="h-5 w-5" strokeWidth={2} />
+          Demander devis
+        </button>
+        <div className="my-3" aria-hidden />
         <button type="button" onClick={() => navigate("/courses")} className={itemClass(path.startsWith("/courses"))}>
           <GraduationCap className="h-5 w-5" strokeWidth={2} />
           Courses
@@ -110,19 +115,6 @@ const FeedDesktopRail = () => {
         <button type="button" onClick={() => navigate("/outils")} className={itemClass(path.startsWith("/outils"))}>
           <Wrench className="h-5 w-5" strokeWidth={2} />
           Tools
-        </button>
-        <div className="my-3" aria-hidden />
-        <button type="button" onClick={() => navigate("/opportunites")} className={itemClass(path.startsWith("/opportunites"))}>
-          <Briefcase className="h-5 w-5" strokeWidth={2} />
-          Sifarah Business
-        </button>
-        <button type="button" onClick={() => navigate("/produits")} className={itemClass(path.startsWith("/produits"))}>
-          <Package className="h-5 w-5" strokeWidth={2} />
-          Produits BTP
-        </button>
-        <button type="button" onClick={() => navigate("/hrayfi")} className={itemClass(path.startsWith("/hrayfi"))}>
-          <HardHat className="h-5 w-5" strokeWidth={2} />
-          Sifarah Hrayfi
         </button>
       </nav>
 

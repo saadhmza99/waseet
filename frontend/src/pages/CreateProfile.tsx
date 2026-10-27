@@ -49,7 +49,7 @@ const INTERESTS = [
   { id: "immobilier", label: "Immobilier (biens et projets)", image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=160&h=120&fit=crop" },
   { id: "architectes", label: "Architectes et bureaux d'études", image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=160&h=120&fit=crop" },
   { id: "construction", label: "Entreprises de construction et rénovation", image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=160&h=120&fit=crop" },
-  { id: "materiaux", label: "Matériaux et fournisseurs", image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=160&h=120&fit=crop" },
+  { id: "materiaux", label: "Matériaux", image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=160&h=120&fit=crop" },
   { id: "opportunites", label: "Opportunités et partenariats", image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=160&h=120&fit=crop" },
   { id: "chantiers", label: "Chantiers et réalisations", image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=160&h=120&fit=crop" },
 ];

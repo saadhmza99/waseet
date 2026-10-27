@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ExternalLink, MapPin } from "lucide-react";
 import InquiryDialog from "@/components/InquiryDialog";
 import { SafeImage } from "@/components/SafeImage";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import {
   priceLabel,
   SERVICE_COVER_FALLBACK,
@@ -12,6 +13,7 @@ import {
   offerFromRow,
   zoneLabel,
 } from "@/lib/serviceOffer";
+import { devisPath } from "@/services/devisService";
 import { serviceFirmName, serviceService, type ServiceRow } from "@/services/serviceService";
 
 const ServicePage = () => {
@@ -111,11 +113,18 @@ const ServicePage = () => {
             <div>
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{offer.title}</h1>
               {profile?.username ? (
-                <Link to={`/profile/${profile.username}`} className="mt-1 block text-base font-medium text-[#174f43]">
-                  {firm}
+                <Link
+                  to={`/profile/${profile.username}`}
+                  className="mt-1 inline-flex max-w-full items-center gap-1.5 text-base font-medium text-[#174f43]"
+                >
+                  <span className="truncate">{firm}</span>
+                  <VerifiedBadge verified={profile.is_verified} className="h-4 w-4" />
                 </Link>
               ) : (
-                <p className="mt-1 text-base font-medium text-neutral-800">{firm}</p>
+                <p className="mt-1 inline-flex max-w-full items-center gap-1.5 text-base font-medium text-neutral-800">
+                  <span className="truncate">{firm}</span>
+                  <VerifiedBadge verified={profile?.is_verified} className="h-4 w-4" />
+                </p>
               )}
               <p className="mt-2 inline-flex items-center gap-1 text-base text-neutral-500">
                 <MapPin className="h-4 w-4" />
@@ -129,7 +138,19 @@ const ServicePage = () => {
               </p>
             </div>
             <div className="flex flex-col gap-2">
-              <button type="button" onClick={() => setContactOpen(true)} className="h-11 rounded-lg bg-[#174f43] text-base font-semibold text-white">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    devisPath({
+                      sellerId: row.user_id,
+                      sellerName: firm,
+                      serviceId: row.id,
+                    }),
+                  )
+                }
+                className="h-11 rounded-lg bg-[#174f43] text-base font-semibold text-white"
+              >
                 Demander un devis
               </button>
               <button type="button" onClick={() => setContactOpen(true)} className="h-11 rounded-lg border border-neutral-300 text-base font-semibold">

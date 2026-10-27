@@ -1,4 +1,4 @@
-import { Heart, Plus, Search, User } from "lucide-react";
+import { Heart, Inbox, Search, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
@@ -35,20 +35,6 @@ const TabNav = () => {
     return null;
   }
 
-  const creating = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
-
-  const goCreate = () => {
-    if (!user && !visitorUser) {
-      navigate("/login");
-      return;
-    }
-    if (creating) {
-      navigate("/", { replace: true, state: {} });
-      return;
-    }
-    navigate("/", { state: { openCreate: true } });
-  };
-
   const profileSlugMatch = path.match(/^\/profile\/([^/?#]+)/i);
   const viewedSlug = profileSlugMatch
     ? decodeURIComponent(profileSlugMatch[1]).replace(/^@/, "").trim().toLowerCase()
@@ -84,16 +70,6 @@ const TabNav = () => {
           </span>
           Découvrir
         </button>
-        <button
-          type="button"
-          onClick={goCreate}
-          aria-label="Créer"
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg ${
-            creating ? "bg-black" : "bg-[#174f43] hover:bg-[#123d34]"
-          }`}
-        >
-          <Plus className="h-8 w-8" strokeWidth={2.5} />
-        </button>
         <button type="button" onClick={() => navigate("/saved")} className={itemClass(path.startsWith("/saved"))}>
           <span className={iconWrap}>
             <Heart
@@ -102,6 +78,12 @@ const TabNav = () => {
             />
           </span>
           Favoris
+        </button>
+        <button type="button" className={itemClass(false)} aria-label="Boîte de réception">
+          <span className={iconWrap}>
+            <Inbox className="h-7 w-7" strokeWidth={2} />
+          </span>
+          Inbox
         </button>
         <button type="button" onClick={() => navigate("/profile")} className={itemClass(onOwnProfile)}>
           <span className={iconWrap}>

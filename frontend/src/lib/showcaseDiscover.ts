@@ -23,6 +23,7 @@ export type DiscoverItem = {
   description?: string;
   highlights?: string[];
   username?: string;
+  is_verified?: boolean;
 };
 
 /** Feed mock posts only. Biens / projets / services / comptes load from Supabase in Explore. */
@@ -37,6 +38,7 @@ const posts: DiscoverItem[] = SHOWCASE_POSTS.map((row) => ({
   title: row.profiles.full_name,
   city: row.city,
   description: row.description,
+  is_verified: Boolean(row.profiles.is_verified),
 }));
 
 export const DISCOVER_ITEMS: DiscoverItem[] = posts;

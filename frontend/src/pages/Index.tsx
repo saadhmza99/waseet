@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Plus } from "lucide-react";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
 import SponsoredBanner from "@/components/SponsoredBanner";
@@ -10,6 +11,7 @@ import type { CreatePostPayload } from "@/components/CreatePost";
 import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMyCreateCapabilities } from "@/hooks/useMyCreateCapabilities";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
@@ -20,8 +22,7 @@ import { cityFromPost } from "@/lib/feedLocation";
 import { contactPhone, propertyViewFromRow } from "@/lib/propertyListing";
 import { catalogService } from "@/services/catalogService";
 import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
-import { CategoryPicker, FEED_PICKER_CATEGORIES } from "@/components/CategoryPicker";
-import { FilterChips, SubCategoryChips } from "@/components/FilterChips";
+import { FilterChips } from "@/components/FilterChips";
 import FeedDesktopRail from "@/components/FeedDesktopRail";
 import { FeedFirmsStrip, FeedPartnersRail, FeedProjectsStrip, RECOMMENDED_FIRMS } from "@/components/FeedSpotlight";
 import { CreateAndBell } from "@/components/AppHeader";
@@ -29,9 +30,9 @@ import { ProjectCard } from "@/components/project/ProjectCard";
 import { ServiceCard } from "@/components/service/ServiceCard.tsx";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { offerFromRow } from "@/lib/serviceOffer";
-import { serviceFirmName, serviceFeedTags, serviceService, type ServiceRow } from "@/services/serviceService";
+import { serviceFirmName, serviceIsVerified, serviceService, type ServiceRow } from "@/services/serviceService";
 import { realisationService } from "@/services/realisationService";
-import { PROJECT_TYPES, PROPERTY_TYPES, feedCategoryBySlug, feedCategoryLabel, matchesFeedCategory, normalizePropertyKind } from "@/lib/taxonomy";
+import { PROJECT_TYPES, PROPERTY_TYPES, normalizePropertyKind } from "@/lib/taxonomy";
 import archIcon from "@/assets/sifarah-arch-icon-clean.png";
 
 const ArchIcon = ({ className }: { className?: string }) => (
@@ -86,6 +87,7 @@ const matchesFeedView = (view: FeedView, typeFilter: string | null, post: Taxono
 
 const Index = () => {
   const { user, visitorUser, loading: authLoading } = useAuth();
+  const { sections: mySections } = useMyCreateCapabilities();
   const location = useLocation();
   const navigate = useNavigate();
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
@@ -93,14 +95,8 @@ const Index = () => {
   const vue = searchParams.get("vue");
   const feedView: FeedView =
     vue === "projets" || vue === "biens" || vue === "services" || vue === "marche" ? vue : "all";
-  const [category, setCategory] = useState<string | null>(null);
-  const [subCategory, setSubCategory] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const selectedCategory = feedCategoryBySlug(category);
-  const showCategories = feedView !== "biens" && feedView !== "projets" && feedView !== "marche";
-  const matchesPost = (post: TaxonomyPost) =>
-    (!showCategories || matchesFeedCategory(category, subCategory, post)) && matchesFeedView(feedView, typeFilter, post);
+  const matchesPost = (post: TaxonomyPost) => matchesFeedView(feedView, typeFilter, post);
 
   // Produits BTP (ex-Marché) → Sifarah Matériaux only (no properties chooser).
   useEffect(() => {
@@ -117,7 +113,7 @@ const Index = () => {
   const [catalogProjects, setCatalogProjects] = useState<any[]>([]);
   const [catalogProperties, setCatalogProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const filteredServices = liveServices.filter((row) => matchesFeedCategory(category, subCategory, serviceFeedTags(row)));
+  const filteredServices = liveServices;
   const filteredProjects = catalogProjects.filter((row) => !typeFilter || row.project_type === typeFilter);
   const filteredProperties = catalogProperties.filter((row) => !typeFilter || row.details?.propertyKind === typeFilter || row.property_kind === typeFilter);
   const [bannerImages, setBannerImages] = useState<FeedBannerImage[]>(DEFAULT_BANNER_IMAGES);
@@ -237,9 +233,8 @@ const Index = () => {
 
   useEffect(() => {
     if (feedView === "services" || loading || !hasMorePosts) return;
-    if (feedView === "all" && !category) return;
     if (!allPosts.some(matchesPost)) void loadMorePosts();
-  }, [feedView, category, subCategory, typeFilter, allPosts, hasMorePosts, loading]);
+  }, [feedView, typeFilter, allPosts, hasMorePosts, loading]);
 
   // Format time ago
   const formatTimeAgo = (date: string) => {
@@ -428,7 +423,7 @@ const Index = () => {
     const banners = getSponsoredBanners();
     const posts = allPosts.filter(matchesPost);
     if (feedView === "services") {
-      const annonces = feedListings.filter((listing) => matchesFeedCategory(category, subCategory, listing));
+      const annonces = feedListings;
       if (!annonces.length) return [];
       return annonces.map((listing) => {
         const profile = listing.profiles || {};
@@ -571,21 +566,20 @@ const Index = () => {
       <div className="min-w-0 lg:flex-1 lg:py-5">
       <div
         className={`mx-auto flex w-full max-w-2xl lg:px-8 ${
-          feedView === "all" && !categoriesOpen
+          feedView === "all"
             ? "flex-col xl:max-w-[calc(100vw-20rem)] xl:flex-row xl:items-start xl:gap-8"
             : "flex-col lg:w-[56rem] lg:max-w-[calc(100vw-22rem)]"
         }`}
       >
       <div className="flex min-w-0 w-full flex-col xl:flex-1">
-        {categoriesOpen ? null : (
         <div className="order-1 mb-[1.5vh] flex items-end justify-between gap-4 border-b border-neutral-200 px-[1vh] lg:mb-4 lg:px-0">
           <div className="flex w-full min-w-0 items-end overflow-x-auto [scrollbar-width:none] lg:w-auto lg:gap-1 [&::-webkit-scrollbar]:hidden">
             {[
               { id: "all" as const, label: "Accueil", order: "order-1" },
               { id: "projets" as const, label: "Projets", order: "order-2" },
               { id: "services" as const, label: "Services", order: "order-3" },
-              { id: "marche" as const, label: "Matériaux et fournisseurs", mobileLabel: "Produits", order: "order-4" },
-              { id: "opportunites" as const, label: "Business", mobileOnly: true, order: "order-5" },
+              { id: "marche" as const, label: "Matériaux", mobileLabel: "Produits", order: "order-4" },
+              { id: "opportunites" as const, label: "Opportunités", order: "order-5" },
             ].map((item) => {
               const active = item.id !== "opportunites" && feedView === item.id;
               return (
@@ -601,12 +595,9 @@ const Index = () => {
                       navigate("/produits");
                       return;
                     }
-                    setCategoriesOpen(false);
                     const next = new URLSearchParams(searchParams);
                     if (item.id === "all") {
                       next.delete("vue");
-                      setCategory(null);
-                      setSubCategory(null);
                     } else if (feedView === item.id) {
                       next.delete("vue");
                     } else {
@@ -615,8 +606,6 @@ const Index = () => {
                     setSearchParams(next, { replace: true });
                   }}
                   className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.45vh] py-[1.75vh] text-[1.8vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3.5 lg:py-3.5 lg:text-lg ${item.order} ${
-                    "mobileOnly" in item && item.mobileOnly ? "lg:hidden" : ""
-                  } ${
                     active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
                   }`}
                 >
@@ -634,8 +623,6 @@ const Index = () => {
           </div>
           <CreateAndBell calm showBell={false} className="hidden self-center lg:flex" pillClassName="h-[3.25rem] px-4 text-base" />
         </div>
-        )}
-        {categoriesOpen ? null : (
         <section className="relative order-2 mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white lg:mx-0 lg:min-h-[280px]">
           <img
             key={bannerImage?.image_url || "fallback"}
@@ -653,26 +640,8 @@ const Index = () => {
             </div>
           </div>
         </section>
-        )}
 
-        {showCategories ? (
-        <div className="order-3 px-3 lg:px-0">
-          <CategoryPicker
-            open={categoriesOpen}
-            onToggle={() => setCategoriesOpen((open) => !open)}
-            selectedLabel={feedCategoryLabel(category)}
-            categories={FEED_PICKER_CATEGORIES}
-            onSelect={(id) => {
-              setCategory(id);
-              setSubCategory(null);
-              setCategoriesOpen(false);
-            }}
-          />
-          {categoriesOpen ? null : <SubCategoryChips category={category} value={subCategory} onChange={setSubCategory} />}
-        </div>
-        ) : null}
-
-        {categoriesOpen ? null : sponsoredListings.length >= 2 && feedView !== "services" && (
+        {sponsoredListings.length >= 2 && feedView !== "services" && (
           <div className="order-4 my-4 space-y-3 sm:my-6 sm:space-y-4">
             {sponsoredListings.slice(0, 2).map((listing) => {
               const profile = listing.profiles || {};
@@ -695,20 +664,20 @@ const Index = () => {
           </div>
         )}
 
-        {categoriesOpen ? null : (
         <div className="order-4">
         {/* Create Post */}
-        <CreatePost
-          hideLauncher
-          startOpen={openCreate}
-          onClose={() => {
-            if (openCreate) navigate("/", { replace: true, state: {} });
-          }}
-          onPostCreated={async (postData) => {
-            await handlePostCreated(postData);
-            if (openCreate) navigate("/", { replace: true, state: {} });
-          }}
-        />
+        {feedView === "all" || feedView === "services" ? (
+          <CreatePost
+            startOpen={openCreate}
+            onClose={() => {
+              if (openCreate) navigate("/", { replace: true, state: {} });
+            }}
+            onPostCreated={async (postData) => {
+              await handlePostCreated(postData);
+              if (openCreate) navigate("/", { replace: true, state: {} });
+            }}
+          />
+        ) : null}
 
         {/* Feed with posts and sponsored banners */}
         {feedView === "projets" || feedView === "biens" ? (
@@ -724,31 +693,60 @@ const Index = () => {
           </div>
         ) : null}
         {feedView === "projets" ? (
-          <div className="grid grid-cols-1 items-start gap-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2 lg:px-0">
-            {filteredProjects.map((row) => (
-              <ProjectCard key={row.id} row={row} />
-            ))}
-            {!filteredProjects.length ? (
-              <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground">Aucun projet dans cette rubrique pour le moment.</p>
+          <div className="space-y-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:px-0">
+            {mySections.showProjets ? (
+              <button
+                type="button"
+                onClick={() => navigate("/projet/nouveau")}
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#174f43] px-4 text-sm font-semibold text-white hover:bg-[#123d34]"
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter un projet
+              </button>
             ) : null}
+            <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+              {filteredProjects.map((row) => (
+                <ProjectCard key={row.id} row={row} />
+              ))}
+              {!filteredProjects.length ? (
+                <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground lg:col-span-2">
+                  Aucun projet dans cette rubrique pour le moment.
+                </p>
+              ) : null}
+            </div>
           </div>
         ) : null}
         {feedView === "services" ? (
-          <div className="grid grid-cols-1 items-start gap-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:grid-cols-2 lg:px-0">
-            {filteredServices.map((row) => (
-              <ServiceCard
-                key={row.id}
-                row={{
-                  id: row.id,
-                  firm: serviceFirmName(row),
-                  userId: row.user_id,
-                  offer: offerFromRow(row),
-                }}
-              />
-            ))}
-            {!filteredServices.length ? (
-              <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground">Aucun service dans cette rubrique pour le moment.</p>
+          <div className="space-y-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:px-0">
+            {mySections.showServices ? (
+              <button
+                type="button"
+                onClick={() => navigate("/service/nouveau")}
+                className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#174f43] px-4 text-sm font-semibold text-white hover:bg-[#123d34]"
+              >
+                <Plus className="h-4 w-4" />
+                Créer un service
+              </button>
             ) : null}
+            <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+              {filteredServices.map((row) => (
+                <ServiceCard
+                  key={row.id}
+                  row={{
+                    id: row.id,
+                    firm: serviceFirmName(row),
+                    userId: row.user_id,
+                    offer: offerFromRow(row),
+                    isVerified: serviceIsVerified(row),
+                  }}
+                />
+              ))}
+              {!filteredServices.length ? (
+                <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground lg:col-span-2">
+                  Aucun service dans cette rubrique pour le moment.
+                </p>
+              ) : null}
+            </div>
           </div>
         ) : null}
         {feedView === "biens" ? (
@@ -778,9 +776,8 @@ const Index = () => {
           <InfiniteScrollSentinel hasMore={hasMorePosts} loading={loadingMore} onLoadMore={loadMorePosts} />
         ) : null}
         </div>
-        )}
       </div>
-      {feedView === "all" && !categoriesOpen ? <FeedPartnersRail firms={RECOMMENDED_FIRMS} /> : null}
+      {feedView === "all" ? <FeedPartnersRail firms={RECOMMENDED_FIRMS} /> : null}
       </div>
       </div>
       </div>

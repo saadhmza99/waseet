@@ -1,7 +1,5 @@
-import { useMemo, useState, type ComponentType } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, type ComponentType } from "react";
 import {
-  ArrowLeft,
   Bath,
   Boxes,
   Calculator,
@@ -420,78 +418,11 @@ const PlansTool = () => (
 
 /* ------------------------------- tool: devis ------------------------------ */
 
-const DevisTool = () => {
-  const [sent, setSent] = useState(false);
-  const [form, setForm] = useState({ type: "Construction", ville: "Casablanca", surface: "", nom: "", tel: "", desc: "" });
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
-  if (sent) {
-    return (
-      <ToolShell title="Comparateur de devis" desc="Recevez et comparez 3 à 5 devis gratuits.">
-        <div className="flex flex-col items-center py-8 text-center">
-          <CheckCircle2 className="h-14 w-14 text-[#174f43]" />
-          <h3 className="mt-3 text-lg font-bold text-neutral-900">Demande envoyée !</h3>
-          <p className="mt-1 max-w-md text-sm text-neutral-500">
-            Merci {form.nom || ""} — des professionnels de {form.ville} peuvent vous transmettre 3 à 5 devis gratuits
-            sous 48 h au {form.tel || "numéro indiqué"}.
-          </p>
-          <button
-            type="button"
-            onClick={() => setSent(false)}
-            className="mt-5 rounded-full border border-[#174f43] px-5 py-2.5 text-sm font-semibold text-[#174f43] transition hover:bg-[#174f43] hover:text-white"
-          >
-            Nouvelle demande
-          </button>
-        </div>
-      </ToolShell>
-    );
-  }
-  return (
-    <ToolShell title="Comparateur de devis" desc="Recevez et comparez 3 à 5 devis gratuits de professionnels vérifiés.">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSent(true);
-        }}
-        className="grid gap-4 sm:grid-cols-2"
-      >
-        <Field label="Type de travaux">
-          <select className={inputCls} value={form.type} onChange={set("type")}>
-            {["Construction", "Rénovation", "Extension", "Peinture", "Plomberie", "Électricité", "Autre"].map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Ville">
-          <select className={inputCls} value={form.ville} onChange={set("ville")}>
-            {VILLES.map((v) => (
-              <option key={v.label} value={v.label}>{v.label}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Surface concernée (m²)">
-          <input type="number" min={0} className={inputCls} value={form.surface} onChange={set("surface")} placeholder="Ex. 120" />
-        </Field>
-        <Field label="Votre nom">
-          <input className={inputCls} value={form.nom} onChange={set("nom")} placeholder="Nom complet" required />
-        </Field>
-        <Field label="Téléphone">
-          <input className={inputCls} value={form.tel} onChange={set("tel")} placeholder="+212 6 …" required />
-        </Field>
-        <div className="sm:col-span-2">
-          <Field label="Décrivez votre projet">
-            <textarea className={`${inputCls} h-24 py-2.5`} value={form.desc} onChange={set("desc")} placeholder="Travaux souhaités, délais, finitions…" />
-          </Field>
-        </div>
-        <div className="sm:col-span-2">
-          <button type="submit" className="h-11 w-full rounded-xl bg-[#174f43] text-[15px] font-semibold text-white transition hover:bg-[#123d34] sm:w-auto sm:px-8">
-            Recevoir mes devis gratuits
-          </button>
-        </div>
-      </form>
-    </ToolShell>
-  );
-};
+const DevisTool = () => (
+  <ToolShell title="Comparateur de devis" desc="Recevez et comparez 3 à 5 devis gratuits.">
+    <p className="py-8 text-center text-sm text-neutral-500">Outil temporairement indisponible.</p>
+  </ToolShell>
+);
 
 /* --------------------------------- catalog -------------------------------- */
 
@@ -512,64 +443,45 @@ const TOOLS: ToolDef[] = [
 /* ---------------------------------- page ---------------------------------- */
 
 const Tools = () => {
-  const [params, setParams] = useSearchParams();
-  const active = useMemo(() => TOOLS.find((t) => t.id === params.get("tool")) || null, [params]);
-  const ActiveBody = active?.Body;
-
   return (
     <DesktopRailFrame className="min-h-screen bg-[#f6f5f3] pb-20 lg:pb-0">
       <div className="mx-auto w-full px-4 py-6 lg:px-2">
-        {active && ActiveBody ? (
-          <>
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold text-neutral-900">Tools</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Calculateurs et guides gratuits pour préparer vos travaux en toute confiance.
+          </p>
+          <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-100 px-4 py-3 text-sm text-neutral-600">
+            <span className="font-semibold text-neutral-800">En maintenance</span>
+            {" — "}
+            Les outils Sifarah sont temporairement indisponibles. Merci de revenir bientôt.
+          </div>
+        </header>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {TOOLS.map((tool) => (
             <button
+              key={tool.id}
               type="button"
-              onClick={() => setParams({})}
-              className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 shadow-sm transition hover:border-[#174f43] hover:text-[#174f43]"
+              disabled
+              aria-disabled="true"
+              title="Outil en maintenance"
+              className="relative cursor-not-allowed rounded-3xl border border-neutral-200 bg-neutral-100/80 p-5 text-left opacity-70 shadow-none"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Tous les outils
+              <span className="absolute right-4 top-4 rounded-full bg-neutral-200 px-2.5 py-1 text-[11px] font-bold text-neutral-500">
+                Maintenance
+              </span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-200 text-neutral-400">
+                <tool.Icon className="h-6 w-6" />
+              </span>
+              <span className="mt-4 block text-[17px] font-bold leading-tight text-neutral-500">{tool.title}</span>
+              <span className="mt-1 block text-sm leading-relaxed text-neutral-400">{tool.desc}</span>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-neutral-400">
+                Indisponible
+                <ChevronRight className="h-4 w-4" />
+              </span>
             </button>
-            <ActiveBody />
-          </>
-        ) : (
-          <>
-            <header className="mb-6">
-              <h1 className="text-2xl font-bold text-neutral-900">Tools</h1>
-              <p className="mt-1 text-sm text-neutral-500">
-                Calculateurs et guides gratuits pour préparer vos travaux en toute confiance.
-              </p>
-            </header>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {TOOLS.map((tool) => (
-                <button
-                  key={tool.id}
-                  type="button"
-                  onClick={() => setParams({ tool: tool.id })}
-                  className="group relative rounded-3xl border border-neutral-200/80 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#174f43]/40 hover:shadow-md"
-                >
-                  {tool.badge ? (
-                    <span
-                      className={`absolute right-4 top-4 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                        tool.badge === "Nouveau" ? "bg-orange-100 text-orange-700" : "bg-[#174f43]/10 text-[#174f43]"
-                      }`}
-                    >
-                      {tool.badge}
-                    </span>
-                  ) : null}
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#174f43]/10 text-[#174f43]">
-                    <tool.Icon className="h-6 w-6" />
-                  </span>
-                  <span className="mt-4 block text-[17px] font-bold leading-tight text-neutral-900">{tool.title}</span>
-                  <span className="mt-1 block text-sm leading-relaxed text-neutral-500">{tool.desc}</span>
-                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#174f43]">
-                    Ouvrir l'outil
-                    <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
     </DesktopRailFrame>
   );

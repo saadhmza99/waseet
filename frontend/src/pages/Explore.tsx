@@ -11,12 +11,13 @@ import { ProjectCard } from "@/components/project/ProjectCard";
 import { PROJECT_MILESTONES, milestoneReachedIndex } from "@/components/project/ProjectMilestoneTrack";
 import { COMMERCIAL_STATUSES, dossierFromRow } from "@/lib/projectDossier";
 import { ServiceCard } from "@/components/service/ServiceCard";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import { DISCOVER_ITEMS, type DiscoverItem } from "@/lib/showcaseDiscover";
 import { offerFromRow, priceLabel, serviceMainImage, zoneLabel } from "@/lib/serviceOffer";
 import { catalogService } from "@/services/catalogService";
 import { profileService } from "@/services/profileService";
-import { serviceFirmName, serviceFeedTags, serviceService, type ServiceRow } from "@/services/serviceService";
+import { serviceFirmName, serviceFeedTags, serviceIsVerified, serviceService, type ServiceRow } from "@/services/serviceService";
 import {
   FOURNISSEUR_CATEGORY_ID,
   PROJECT_TYPES,
@@ -119,7 +120,10 @@ const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem)
     <span className="flex items-center gap-2.5">
       <img src={item.image} alt="" className="h-10 w-10 shrink-0 rounded-2xl object-cover" />
       <span className="min-w-0">
-        <span className="block truncate text-[15px] font-semibold text-neutral-950">{item.profileName}</span>
+        <span className="flex min-w-0 items-center gap-1">
+          <span className="truncate text-[15px] font-semibold text-neutral-950">{item.profileName}</span>
+          <VerifiedBadge verified={item.is_verified} className="h-4 w-4" />
+        </span>
         <span className="block truncate text-xs text-neutral-500">{item.city}</span>
       </span>
     </span>
@@ -159,6 +163,7 @@ const AccountRow = ({
   image,
   city,
   typeLabel,
+  isVerified,
   followed,
   onFollow,
   onOpen,
@@ -167,6 +172,7 @@ const AccountRow = ({
   image: string;
   city: string;
   typeLabel: string;
+  isVerified?: boolean;
   followed: boolean;
   onFollow: () => void;
   onOpen: () => void;
@@ -184,7 +190,10 @@ const AccountRow = ({
         }}
       />
       <span className="min-w-0">
-        <span className="block truncate text-lg font-semibold text-neutral-950 sm:text-xl">{name}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-lg font-semibold text-neutral-950 sm:text-xl">{name}</span>
+          <VerifiedBadge verified={isVerified} className="h-5 w-5 sm:h-6 sm:w-6" />
+        </span>
         <span className="mt-1 block truncate text-base text-neutral-400 sm:text-lg">{typeLabel} · {city}</span>
       </span>
     </button>
@@ -275,6 +284,7 @@ const CardList = ({
                   firm: serviceFirmName(service),
                   userId: service.user_id,
                   offer: offerFromRow(service),
+                  isVerified: serviceIsVerified(service),
                 }}
               />
             </li>
@@ -583,6 +593,7 @@ const Explore = () => {
         price: priceLabel(offer),
         description: offer.description,
         highlights: offer.included.slice(0, 4),
+        is_verified: serviceIsVerified(row),
       };
     });
     const projects: MockItem[] = liveProjects.map((row) => ({
@@ -620,6 +631,7 @@ const Explore = () => {
         title: row.full_name || row.username || "Entreprise",
         city: row.location || "",
         description: row.profession || "",
+        is_verified: Boolean(row.is_verified),
       };
     });
     return [...DISCOVER_ITEMS, ...accounts, ...projects, ...services];
@@ -963,6 +975,7 @@ const Explore = () => {
                         image={item.image}
                         city={item.city}
                         typeLabel={subCategoryLabel(item) || item.description || "Entreprise"}
+                        isVerified={item.is_verified}
                         followed={Boolean(followed[username])}
                         onFollow={() => setFollowed((current) => ({ ...current, [username]: !current[username] }))}
                         onOpen={() => openItem(item)}

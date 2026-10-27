@@ -1670,7 +1670,19 @@ const Profile = () => {
 
           {!showReviews && activeTab === "Biens" && (
             <div className="px-4 sm:px-6 md:px-8 py-6">
-              <div className="mb-3 flex justify-end">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                {isOwnProfile ? (
+                  <Button
+                    type="button"
+                    onClick={() => navigate("/", { state: { openCreate: true } })}
+                    className="h-9 bg-[#174f43] px-3 text-white hover:bg-[#174f43]/90"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Publier un bien
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1702,7 +1714,19 @@ const Profile = () => {
 
           {!showReviews && activeTab === "Réalisations" && (
             <div>
-              <div className="mb-1 flex items-center justify-end gap-1 border-b border-border px-1 py-1">
+              <div className="mb-1 flex items-center justify-between gap-1 border-b border-border px-1 py-1">
+                {isOwnProfile ? (
+                  <Button
+                    type="button"
+                    onClick={() => navigate("/", { state: { openCreate: true } })}
+                    className="h-8 bg-[#174f43] px-3 text-white hover:bg-[#174f43]/90"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Nouvelle réalisation
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1833,7 +1857,20 @@ const Profile = () => {
 
           {!showReviews && activeTab === "Posts" && (
             <div>
-              <div className="mb-1 flex items-center justify-end gap-1 border-b border-border px-1 py-1">
+              <div className="mb-1 flex items-center justify-between gap-1 border-b border-border px-1 py-1">
+                {isOwnProfile && profileSections.showPosts ? (
+                  <Button
+                    type="button"
+                    onClick={() => navigate("/", { state: { openCreate: true } })}
+                    className="h-8 bg-[#174f43] px-3 text-white hover:bg-[#174f43]/90"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Créer un post
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <div className="ml-auto inline-flex items-center gap-1">
                 <div className="inline-flex rounded-md border border-border p-0.5">
                   <button
                     type="button"
@@ -1878,6 +1915,7 @@ const Profile = () => {
                 >
                   <Share2 className="h-4 w-4" />
                 </Button>
+                </div>
               </div>
 
               {postsView === "grid" ? (
@@ -2130,6 +2168,7 @@ const Profile = () => {
                           firm: profile.full_name || profile.username || "Entreprise",
                           offer,
                           userId: listing.user_id || profile.id,
+                          isVerified: Boolean(profile.is_verified),
                         }}
                       />
                     );
@@ -2147,7 +2186,19 @@ const Profile = () => {
 
           {!showReviews && activeTab === "Produits" && (
             <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8">
-              <div className="mb-3 flex items-center justify-end gap-2">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                {isOwnProfile ? (
+                  <Button
+                    type="button"
+                    onClick={() => navigate("/produit/nouveau")}
+                    className="h-9 bg-[#174f43] px-3 text-white hover:bg-[#174f43]/90"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Publier un produit
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

@@ -3,6 +3,7 @@ import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InquiryDialog from "@/components/InquiryDialog";
 import { SafeImage } from "@/components/SafeImage";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import {
   priceLabel,
   SERVICE_COVER_FALLBACK,
@@ -11,10 +12,15 @@ import {
   zoneLabel,
   type ServiceOffer,
 } from "@/lib/serviceOffer";
+import { devisPath } from "@/services/devisService";
 
 export { serviceCoverIsLogo, SERVICE_COVER_FALLBACK };
 
-export const ServiceCard = ({ row }: { row: { id: string; firm: string; offer: ServiceOffer; userId?: string } }) => {
+export const ServiceCard = ({
+  row,
+}: {
+  row: { id: string; firm: string; offer: ServiceOffer; userId?: string; isVerified?: boolean };
+}) => {
   const navigate = useNavigate();
   const { offer } = row;
   const place = zoneLabel(offer);
@@ -25,6 +31,16 @@ export const ServiceCard = ({ row }: { row: { id: string; firm: string; offer: S
   const openService = () => {
     window.scrollTo(0, 0);
     navigate(`/service/${row.id}`);
+  };
+
+  const openDevis = () => {
+    navigate(
+      devisPath({
+        sellerId: row.userId,
+        sellerName: row.firm,
+        serviceId: row.id,
+      }),
+    );
   };
 
   return (
@@ -53,7 +69,10 @@ export const ServiceCard = ({ row }: { row: { id: string; firm: string; offer: S
         </span>
         <span className="flex flex-col gap-2 px-3.5 py-3">
           <span className="text-[17px] font-semibold leading-tight text-neutral-950">{offer.title}</span>
-          <span className="text-sm text-neutral-600">{row.firm}</span>
+          <span className="inline-flex min-w-0 items-center gap-1 text-sm text-neutral-600">
+            <span className="truncate">{row.firm}</span>
+            <VerifiedBadge verified={row.isVerified} className="h-4 w-4" />
+          </span>
           {place ? (
             <span className="inline-flex items-center gap-1 text-sm text-neutral-500">
               <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -64,8 +83,8 @@ export const ServiceCard = ({ row }: { row: { id: string; firm: string; offer: S
         </span>
       </button>
       <div className="flex flex-col gap-2 px-3.5 pb-3.5">
-        <button type="button" onClick={() => setContactOpen(true)} className="h-10 rounded-lg bg-[#174f43] text-sm font-semibold text-white">
-          Contacter
+        <button type="button" onClick={openDevis} className="h-10 rounded-lg bg-[#174f43] text-sm font-semibold text-white">
+          Demander devis
         </button>
         <button type="button" onClick={() => setContactOpen(true)} className="h-10 rounded-lg border border-neutral-300 text-sm font-semibold">
           Demander plus d'informations

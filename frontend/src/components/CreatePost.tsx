@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Building2, FolderKanban, Images, LayoutGrid, Package, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PartnerDemandDialog from "@/components/PartnerDemandDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { catalogService } from "@/services/catalogService";
@@ -116,10 +117,12 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmContact, setConfirmContact] = useState({ phone: "", email: "" });
   const [pendingBien, setPendingBien] = useState<CreatePostPayload | null>(null);
+  const [partnerOpen, setPartnerOpen] = useState(false);
+  const isGuest = !user && !visitorUser;
 
   useEffect(() => {
-    setIsOpen(Boolean(startOpen));
-  }, [startOpen]);
+    setIsOpen(Boolean(startOpen) && !isGuest);
+  }, [startOpen, isGuest]);
 
   useEffect(() => {
     if (!particulier || !isOpen) return;
@@ -284,21 +287,51 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
   if (!isOpen) {
     if (hideLauncher) return null;
+    if (isGuest) {
+      return (
+        <div className="border-b border-neutral-200 bg-white px-3 py-4 sm:px-4">
+          <div className="mx-auto max-w-2xl space-y-3.5 rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 p-4 sm:p-5">
+            <p className="px-0.5 text-[15px] leading-relaxed text-neutral-700 sm:text-base">
+              Devenez partenaire Sifarah et gagnez en visibilité auprès de{" "}
+              <span className="font-semibold text-neutral-900">364 promoteurs</span>,{" "}
+              <span className="font-semibold text-neutral-900">1 700 acteurs BTP</span> et{" "}
+              <span className="font-semibold text-neutral-900">multiples fédérations nationales</span>.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPartnerOpen(true)}
+              className="flex w-full items-center gap-3.5 rounded-xl bg-[#174f43] px-4 py-3.5 text-left text-white shadow-sm transition hover:bg-[#123d34] sm:px-5 sm:py-4"
+            >
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-12 sm:w-12">
+                <Plus className="h-6 w-6" strokeWidth={2.5} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-semibold sm:text-lg">Créer une publication</span>
+
+              </span>
+            </button>
+          </div>
+          <PartnerDemandDialog open={partnerOpen} onOpenChange={setPartnerOpen} />
+        </div>
+      );
+    }
     return (
-      <div className="flex justify-center bg-card py-3">
+      <div className="border-b border-neutral-200 bg-white px-3 py-3 sm:px-4">
         <button
-          onClick={() => {
-            if (!user && !visitorUser) {
-              navigate("/login");
-              return;
-            }
-            setIsOpen(true);
-          }}
-          className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 hover:bg-secondary sm:px-6 sm:py-3"
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-xl bg-[#174f43] px-4 py-3 text-left text-white shadow-sm transition hover:bg-[#123d34]"
         >
-          <Plus className="h-5 w-5 text-accent" />
-          <span className="text-sm font-medium text-card-foreground sm:text-base">
-            {particulier ? "Publier un bien" : user || visitorUser ? "Créer un poste" : "Se connecter pour publier"}
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
+            <Plus className="h-5 w-5" strokeWidth={2.5} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold sm:text-base">
+              {particulier ? "Publier un bien" : "Créer une publication"}
+            </span>
+            <span className="block truncate text-xs text-white/80">
+              {particulier ? "Jusqu’à 3 biens dans votre portfolio" : "Post, projet, service, produit…"}
+            </span>
           </span>
         </button>
       </div>

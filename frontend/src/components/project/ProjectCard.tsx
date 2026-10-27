@@ -51,6 +51,32 @@ export const ProjectCard = ({ row }: { row: any }) => {
       </span>
       <span className="flex flex-col gap-2 px-3.5 py-3">
         <span className="text-[17px] font-semibold leading-tight text-neutral-950">{project.title}</span>
+        {project.promoter?.name ? (
+          <span
+            role="link"
+            tabIndex={0}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const slug = project.promoter?.id || row?.user_id;
+              if (!slug) return;
+              window.scrollTo(0, 0);
+              navigate(`/profile/${slug}`);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              event.stopPropagation();
+              const slug = project.promoter?.id || row?.user_id;
+              if (!slug) return;
+              window.scrollTo(0, 0);
+              navigate(`/profile/${slug}`);
+            }}
+            className="truncate text-sm font-medium text-[#174f43] hover:underline"
+          >
+            {project.promoter.name}
+          </span>
+        ) : null}
         {place ? (
           <span className="inline-flex items-center gap-1 text-xs text-neutral-500">
             <MapPin className="h-3.5 w-3.5" />

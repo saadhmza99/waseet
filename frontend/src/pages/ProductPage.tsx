@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Heart, Info, MapPin, PackageCheck, ShieldCheck, Tag, Truck } from "lucide-react";
-import InquiryDialog from "@/components/InquiryDialog";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { savedService } from "@/services/savedService";
 import { savedToast } from "@/lib/savedToast";
 import { toast } from "@/components/ui/use-toast";
+import { devisPath } from "@/services/devisService";
 import {
   productCategoryLabel,
   productFirmName,
@@ -28,7 +28,6 @@ const ProductPage = () => {
   const [row, setRow] = useState<ProductRow | null>(null);
   const [peers, setPeers] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [contactOpen, setContactOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
 
@@ -300,7 +299,16 @@ const ProductPage = () => {
 
             <button
               type="button"
-              onClick={() => setContactOpen(true)}
+              onClick={() =>
+                navigate(
+                  devisPath({
+                    sellerId: row.user_id,
+                    sellerName: productFirmName(row),
+                    productId: row.id,
+                    projectType: "achat-materiaux",
+                  }),
+                )
+              }
               className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#e07a32] text-base font-semibold text-white transition hover:bg-[#d06c28]"
             >
               Demander un devis →
@@ -368,13 +376,6 @@ const ProductPage = () => {
           </ul>
         </section>
 
-        <InquiryDialog
-          open={contactOpen}
-          onOpenChange={setContactOpen}
-          type="service"
-          sellerId={row.user_id}
-          sellerName={productFirmName(row)}
-        />
       </div>
     </div>
   );

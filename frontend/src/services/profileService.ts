@@ -295,20 +295,28 @@ export const profileService = {
 
     query = applyProfessionalsFilters(query, filters);
 
-    // Wider window: taxonomy !inner duplicates, and browse reorders for mix / real avatars.
-    const window = browsing || needsTaxonomyFilter
-      ? Math.min(Math.max(limit * (mixCategories ? 5 : 3), limit), mixCategories ? 120 : 48)
-      : limit;
-    const { data, error } = await query.range(offset, offset + Math.max(window - 1, 0));
+    // "tout" browse: wide window + specialty mix (may skip some for diversity).
+    // Filtered lists (Promoteurs, etc.): page without gaps — only over-fetch to
+    // absorb !inner join duplicates, then advance past the raw rows consumed.
+    const fetchLimit = mixCategories
+      ? Math.min(Math.max(limit * 5, limit), 120)
+      : needsTaxonomyFilter
+        ? Math.max(limit * 2, limit)
+        : limit;
+    const { data, error } = await query.range(offset, offset + Math.max(fetchLimit - 1, 0));
     if (error) throw error;
     const raw = data || [];
     const seen = new Set<string>();
     const unique: typeof raw = [];
+    let rawUsed = 0;
     for (const row of raw) {
+      rawUsed += 1;
       const id = String((row as { id?: string }).id || "");
       if (!id || seen.has(id)) continue;
       seen.add(id);
       unique.push(row);
+      // Filtered / search pages: stop once we have a full page of unique profiles.
+      if (!mixCategories && unique.length >= limit) break;
     }
     const ranked = browsing
       ? rankDiscoverBrowse(unique as Array<{ avatar_url?: string | null } & Record<string, unknown>>, {
@@ -316,7 +324,8 @@ export const profileService = {
         })
       : unique;
     const rows = ranked.slice(0, limit);
-    return { rows, nextOffset: offset + raw.length };
+    const nextOffset = mixCategories ? offset + raw.length : offset + rawUsed;
+    return { rows, nextOffset };
   },
 
   /** Exact Supabase row count for Discover Entreprises (same filters as listProfessionals). */

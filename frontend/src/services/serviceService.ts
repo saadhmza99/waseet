@@ -58,6 +58,7 @@ export type ServiceProfile = {
   website_url?: string | null;
   phone?: string | null;
   email?: string | null;
+  is_verified?: boolean | null;
   internal_category_id?: number | null;
   internal_categories?: {
     code?: string | null;
@@ -154,6 +155,7 @@ const SERVICE_SELECT = `
     website_url,
     phone,
     email,
+    is_verified,
     internal_category_id,
     internal_categories!profiles_internal_category_id_fkey (
       code,
@@ -198,6 +200,7 @@ const SERVICE_LIST_SELECT = `
     full_name,
     avatar_url,
     location,
+    is_verified,
     internal_categories!profiles_internal_category_id_fkey (
       code,
       feed_sub_categories (
@@ -218,6 +221,8 @@ export const serviceFirmName = (row: ServiceRow) => {
   const profile = asProfile(row);
   return profile?.full_name || profile?.username || "Professionnel";
 };
+
+export const serviceIsVerified = (row: ServiceRow) => Boolean(asProfile(row)?.is_verified);
 
 export const serviceFeedTags = (row: ServiceRow) => {
   const serviceInternal = row.internal_categories;

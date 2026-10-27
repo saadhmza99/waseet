@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { ArrowLeft, Ban, Edit, Flag, Info, LogOut, MapPin, MessageSquare, MoreVertical, Phone, Settings, Share2, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import InviteToJobModal, { type RecruitService } from "./InviteToJobModal";
+import type { RecruitService } from "./InviteToJobModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +15,8 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { clampBio } from "@/lib/bio";
+import { devisPath } from "@/services/devisService";
+import { guessProType } from "@/lib/devisCatalog";
 
 /** Kill-switch: hide cover photos. */
 export const COVER_PHOTOS_ENABLED = false;
@@ -107,11 +108,10 @@ const ProfileHeader = ({
   onAboutMember,
   onAboutThisMember,
   onMuteMember,
-  services = [],
+  services: _services = [],
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const [recruitOpen, setRecruitOpen] = useState(false);
   const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
   const name =
     (fullName || "").trim() ||
@@ -342,7 +342,15 @@ const ProfileHeader = ({
               {!isOwnProfile ? (
                 <button
                   type="button"
-                  onClick={() => setRecruitOpen(true)}
+                  onClick={() =>
+                    navigate(
+                      devisPath({
+                        sellerId: profileId,
+                        sellerName: name,
+                        proType: guessProType(profession),
+                      }),
+                    )
+                  }
                   className={`${actionPill} border-emerald-800 bg-emerald-800 text-white shadow-md hover:bg-emerald-900`}
                 >
                   <span className="truncate">Demander devis</span>
@@ -502,14 +510,6 @@ const ProfileHeader = ({
         })()}
       </div>
 
-      <InviteToJobModal
-        isOpen={recruitOpen}
-        onClose={() => setRecruitOpen(false)}
-        professionalName={name}
-        professionalUserId={profileId}
-        phone={phone}
-        services={services}
-      />
     </div>
   );
 };

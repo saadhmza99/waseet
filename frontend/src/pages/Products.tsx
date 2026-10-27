@@ -24,6 +24,7 @@ import {
   PanelsTopLeft,
   Phone,
   Pipette,
+  Plus,
   RotateCcw,
   Search,
   Shield,
@@ -39,6 +40,8 @@ import { CategoryPicker, type CategoryOption } from "@/components/CategoryPicker
 import { DesktopRailFrame } from "@/components/FeedDesktopRail";
 import InquiryDialog from "@/components/InquiryDialog";
 import { ProductCard } from "@/components/product/ProductCard";
+import { devisPath } from "@/services/devisService";
+import { useMyCreateCapabilities } from "@/hooks/useMyCreateCapabilities";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -283,6 +286,7 @@ const CheckList = ({
 const Products = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { sections: mySections } = useMyCreateCapabilities();
   const [mode, setMode] = useState<Mode>(params.get("type") === "produits" ? "produits" : "fournisseurs");
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -301,6 +305,16 @@ const Products = () => {
   const openInquiry = (pro: SupplierRow) => {
     setInquiryTarget({ id: pro.id, name: pro.full_name || pro.username || "Fournisseur" });
     setInquiryOpen(true);
+  };
+
+  const openDevis = (pro: SupplierRow) => {
+    navigate(
+      devisPath({
+        sellerId: pro.id,
+        sellerName: pro.full_name || pro.username || "Fournisseur",
+        projectType: "achat-materiaux",
+      }),
+    );
   };
 
   useEffect(() => {
@@ -642,12 +656,26 @@ const Products = () => {
               <div className="mb-4 rounded-xl border border-neutral-200 bg-white px-4 py-2 lg:hidden">{leftFilters}</div>
             ) : null}
 
-            <h2 className="text-xl font-semibold text-neutral-900">
-              {mode === "fournisseurs" ? "Fournisseurs de matériaux" : "Produits & matériaux"}
-            </h2>
-            <p className="mt-1 text-base text-neutral-500">
-              {loading ? "Chargement…" : `${results.length} résultats trouvés`}
-            </p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-neutral-900">
+                  {mode === "fournisseurs" ? "Fournisseurs de matériaux" : "Produits & matériaux"}
+                </h2>
+                <p className="mt-1 text-base text-neutral-500">
+                  {loading ? "Chargement…" : `${results.length} résultats trouvés`}
+                </p>
+              </div>
+              {mode === "produits" && mySections.showProduits ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/produit/nouveau")}
+                  className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#174f43] px-4 text-sm font-semibold text-white hover:bg-[#123d34]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Créer un produit
+                </button>
+              ) : null}
+            </div>
 
             {loading ? (
               <p className="py-10 text-center text-base text-neutral-500">Chargement…</p>
@@ -730,7 +758,7 @@ const Products = () => {
                       <div className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:gap-2.5">
                         <button
                           type="button"
-                          onClick={() => openInquiry(pro)}
+                          onClick={() => openDevis(pro)}
                           className="w-full rounded-full bg-[#174f43] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123d34] sm:text-base"
                         >
                           Demander devis

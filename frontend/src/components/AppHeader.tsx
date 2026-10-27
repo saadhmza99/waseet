@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Bell, Plus, Search } from "lucide-react";
+import { ClipboardList, Search } from "lucide-react";
 import logoDetailed from "@/assets/sifarah-logo-detailed.png";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 
+/** Top-right CTA: Demander un devis (Créer lives in the feed / profile sections). */
 export const CreateAndBell = ({
   calm = false,
-  showBell = true,
+  showBell: _showBell = false,
   className = "",
   pillClassName = "",
 }: {
@@ -16,49 +16,18 @@ export const CreateAndBell = ({
   pillClassName?: string;
 }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, visitorUser } = useAuth();
-  const account = user || visitorUser;
-  const creating = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
-
-  const goCreate = () => {
-    if (!account) {
-      navigate("/login");
-      return;
-    }
-    if (creating) {
-      navigate("/", { replace: true, state: {} });
-      return;
-    }
-    navigate("/", { state: { openCreate: true } });
-  };
 
   return (
     <div className={`flex items-center gap-1 ${calm ? "shrink-0" : "min-w-0"} ${className}`}>
       <button
         type="button"
-        onClick={goCreate}
-        className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-[15px] font-semibold shadow-sm transition ${
-          creating
-            ? "bg-[#174f43] text-white hover:bg-[#123d34]"
-            : calm
-              ? "border border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50"
-              : "border border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50"
-        } ${pillClassName}`}
-        aria-label="Créer"
+        onClick={() => navigate("/devis")}
+        className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-[#174f43] px-3.5 py-1.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#123d34] ${pillClassName}`}
+        aria-label="Demander un devis"
       >
-        <Plus className="h-5 w-5" strokeWidth={2.4} />
-        <span>Créer</span>
+        <ClipboardList className="h-5 w-5" strokeWidth={2.2} />
+        <span className="truncate">Demander un devis</span>
       </button>
-      {showBell ? (
-        <button
-          type="button"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-neutral-900 transition hover:text-neutral-600"
-          aria-label="Notifications"
-        >
-          <Bell className="h-6 w-6" strokeWidth={2} />
-        </button>
-      ) : null}
     </div>
   );
 };
