@@ -1,5 +1,18 @@
 import { supabase } from '@/lib/supabase';
 
+/** Hydrate saved_projects rows via the redacted directory (not base projects). */
+const withDirectoryProjects = async <T extends { project_id?: string }>(rows: T[]) => {
+  const ids = [...new Set(rows.map((row) => row.project_id).filter(Boolean))] as string[];
+  if (!ids.length) return rows.map((row) => ({ ...row, projects: null }));
+  const { data, error } = await supabase.from('projects_directory').select('*').in('id', ids);
+  if (error) throw error;
+  const byId = new Map((data || []).map((project) => [project.id, project]));
+  return rows.map((row) => ({
+    ...row,
+    projects: (row.project_id && byId.get(row.project_id)) || null,
+  }));
+};
+
 export const savedService = {
   // Save a post
   async savePost(userId: string, postId: string) {
@@ -170,10 +183,7 @@ export const savedService = {
         .order('created_at', { ascending: false }),
       supabase
         .from('saved_projects')
-        .select(`
-          *,
-          projects:project_id (*)
-        `)
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
       supabase
@@ -195,11 +205,13 @@ export const savedService = {
         .order('created_at', { ascending: false }),
     ]);
 
+    const projects = await withDirectoryProjects(savedProjects.data || []);
+
     return {
       posts: savedPosts.data || [],
       listings: savedListings.data || [],
       reels: savedReels.data || [],
-      projects: savedProjects.data || [],
+      projects,
       products: savedProducts.data || [],
     };
   },
@@ -334,15 +346,12 @@ export const savedService = {
   async getSavedProjects(userId: string) {
     const { data, error } = await supabase
       .from('saved_projects')
-      .select(`
-        *,
-        projects:project_id (*)
-      `)
+      .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data;
+    return withDirectoryProjects(data || []);
   },
 
   async getSavedProducts(userId: string) {

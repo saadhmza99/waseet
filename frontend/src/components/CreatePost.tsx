@@ -8,10 +8,8 @@ import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { catalogService } from "@/services/catalogService";
 import { profileService } from "@/services/profileService";
 import { taxonomyService } from "@/services/taxonomyService";
-import {
-  profileSectionsForInternalCodes,
-  type ProfileSectionVisibility,
-} from "@/lib/taxonomy";
+import { sectionsForProfile } from "@/lib/institution";
+import { type ProfileSectionVisibility } from "@/lib/taxonomy";
 import { visitorService } from "@/services/visitorService";
 import { isValidEmail } from "@/lib/visitorContact";
 import { isCompletePhone } from "@/lib/phone";
@@ -147,13 +145,11 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
         const codes = ids
           .map((id) => rows.find((row) => row.id === id)?.code || null)
           .filter(Boolean) as string[];
-        setProfileSections(
-          profileSectionsForInternalCodes(codes, { isVerified: Boolean(profile?.is_verified) }),
-        );
+        setProfileSections(sectionsForProfile(profile, codes));
       })
       .catch((error) => {
         console.error("Error loading create-type visibility:", error);
-        if (!cancelled) setProfileSections(profileSectionsForInternalCodes([], { isVerified: false }));
+        if (!cancelled) setProfileSections(sectionsForProfile(null, []));
       });
     return () => {
       cancelled = true;
@@ -292,7 +288,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
         <div className="border-b border-neutral-200 bg-white px-3 py-4 sm:px-4">
           <div className="mx-auto max-w-2xl space-y-3.5 rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 p-4 sm:p-5">
             <p className="px-0.5 text-[15px] leading-relaxed text-neutral-700 sm:text-base">
-              Devenez partenaire Sifarah et gagnez en visibilité auprès de{" "}
+              Devenez notre partenaire! publiez et gagnez en visibilité auprès de{" "}
               <span className="font-semibold text-neutral-900">364 promoteurs</span>,{" "}
               <span className="font-semibold text-neutral-900">1 700 acteurs BTP</span> et{" "}
               <span className="font-semibold text-neutral-900">multiples fédérations nationales</span>.

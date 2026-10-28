@@ -132,8 +132,11 @@ const insertProject = async (userId: string, data: ProjectCatalogData) => {
 };
 
 const listByUser = async (kind: CatalogKind, userId: string, limit?: number, offset = 0) => {
+  // Projects: read through projects_directory so équipe/docs stay server-redacted
+  // for non-partners (open_dossier projects keep full fields).
+  const table = kind === "project" ? "projects_directory" : tableOf(kind);
   let query = supabase
-    .from(tableOf(kind))
+    .from(table)
     .select("*", { count: "exact" })
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -164,11 +167,9 @@ export const catalogService = {
   },
 
   async getProject(id: string) {
-    const { data, error } = await supabase.from("projects").select("*").eq("id", id).maybeSingle();
+    const { data, error } = await supabase.rpc("project_public", { p_id: id });
     if (error) throw error;
-    if (!data) return data;
-    const documents = await listProjectDocuments(id);
-    return { ...data, documents };
+    return data;
   },
 
   async updateProject(id: string, userId: string, data: ProjectCatalogData) {
@@ -199,31 +200,66 @@ export const catalogService = {
     return listByUser("project", userId, limit, offset);
   },
 
-  async listProjects(limit = 80, offset = 0, filters?: { city?: string | null; projectType?: string | null }) {
+  async listProjects(
+    limit = 80,
+    offset = 0,
+    filters?: { city?: string | null; projectType?: string | null; featuredPromoters?: boolean },
+  ) {
     // Seeded rows may repeat the same Kerix project for each linked pro.
     // Fetch a wider window, then dedupe by attributes.source_project_id (or id).
+    // Reads go through projects_directory so équipe/partners are redacted server-side
+    // unless open_dossier (or the viewer owns the project / is a partner).
     const city = (filters?.city || "").trim();
     const projectType = (filters?.projectType || "").trim();
-    const fetchLimit = Math.max(limit * 4, limit);
-    let query = supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const featured = Boolean(filters?.featuredPromoters);
+    // Over-fetch: many seeded rows have empty covers and are dropped below.
+    const fetchLimit = Math.max(limit * 10, 120);
+    let query = supabase.from("projects_directory").select("*");
+    // Always surface open dossiers first; redaction is enforced in projects_directory.
+    query = query.order("open_dossier", { ascending: false }).order("created_at", { ascending: false });
+    if (featured) query = query.eq("featured_promoter", true);
     if (city) query = query.ilike("city", `%${city}%`);
     if (projectType) query = query.eq("project_type", projectType);
     const { data, error } = await query.range(offset, offset + Math.max(fetchLimit - 1, 0));
     if (error) throw error;
+
+    const imageUrls = (row: (typeof data)[number]): string[] => {
+      const out: string[] = [];
+      const cover = String(row?.cover_image || "").trim();
+      if (cover) out.push(cover);
+      if (Array.isArray(row?.images)) {
+        for (const item of row.images) {
+          const url = String(item || "").trim();
+          if (url) out.push(url);
+        }
+      }
+      return out.filter((url) => /^https?:\/\//i.test(url));
+    };
+    const hasRealImage = (row: (typeof data)[number]) => imageUrls(row).length > 0;
+    const isChridariCover = (row: (typeof data)[number]) =>
+      imageUrls(row).some((url) => /chridari/i.test(url));
+
     const seen = new Set<string>();
-    const unique: typeof data = [];
+    const unique: NonNullable<typeof data> = [];
     for (const row of data || []) {
+      if (!hasRealImage(row)) continue;
       const attrs = row?.attributes && typeof row.attributes === "object" ? row.attributes : {};
       const key = String((attrs as { source_project_id?: string }).source_project_id || row.id);
       if (seen.has(key)) continue;
       seen.add(key);
       unique.push(row);
-      if (unique.length >= limit) break;
     }
-    return unique;
+    // Prefer open dossiers, then covers without a Chridari watermark URL.
+    unique.sort((a, b) => {
+      const openA = a?.open_dossier ? 1 : 0;
+      const openB = b?.open_dossier ? 1 : 0;
+      if (openA !== openB) return openB - openA;
+      const dirtyA = isChridariCover(a) ? 1 : 0;
+      const dirtyB = isChridariCover(b) ? 1 : 0;
+      if (dirtyA !== dirtyB) return dirtyA - dirtyB;
+      return 0;
+    });
+    return unique.slice(0, limit);
   },
 
   async listProperties(limit = 80, offset = 0, filters?: { city?: string | null }) {
@@ -239,10 +275,12 @@ export const catalogService = {
   },
 
   /** Exact Supabase row count for Discover Projets. */
-  async countProjects(filters?: { city?: string | null; projectType?: string | null }): Promise<number> {
+  async countProjects(filters?: { city?: string | null; projectType?: string | null; featuredPromoters?: boolean }): Promise<number> {
     const city = (filters?.city || "").trim();
     const projectType = (filters?.projectType || "").trim();
-    let query = supabase.from("projects").select("id", { count: "exact", head: true });
+    const featured = Boolean(filters?.featuredPromoters);
+    let query = supabase.from("projects_directory").select("id", { count: "exact", head: true });
+    if (featured) query = query.eq("featured_promoter", true);
     if (city) query = query.ilike("city", `%${city}%`);
     if (projectType) query = query.eq("project_type", projectType);
     const { count, error } = await query;

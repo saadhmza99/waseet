@@ -16,7 +16,8 @@ export interface ProfileData {
   ice?: string | null;
   avatar_url?: string | null;
   cover_photo_url?: string | null;
-  profile_type: 'individual' | 'enterprise';
+  profile_type: 'individual' | 'enterprise' | 'institution';
+  institution_kind?: 'federation' | 'order' | 'chamber' | 'public' | 'media' | 'observatory' | null;
 }
 
 /** Shared Discover filters for list + exact count queries. */
@@ -53,8 +54,12 @@ const applyProfessionalsFilters = <T extends { eq: Function; like: Function; not
     );
   }
   if (promoteurOnly) {
-    next = next.eq("profile_internal_categories.internal_categories.code", "1.2.1");
-  } else if (fournisseurOnly) {
+    // Public batch only. The flag is set in the database; this query never scans the rest.
+    next = next.eq("featured_promoter", true);
+  } else {
+    next = next.eq("directory_visible", true);
+  }
+  if (fournisseurOnly) {
     next = next.like("profile_internal_categories.internal_categories.code", "8.5.%");
   } else if (feedSubCategory) {
     next = next.eq(
@@ -85,7 +90,7 @@ const professionalsTaxonomyEmbed = (filters?: DiscoverListFilters) => {
     !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
       ? feedCategoryCodePrefix(feedCategory)
       : null;
-  const needsCodeFilter = promoteurOnly || fournisseurOnly || Boolean(categoryPrefix);
+  const needsCodeFilter = fournisseurOnly || Boolean(categoryPrefix);
   const needsFeedFilter = Boolean(feedSubCategory) || (
     Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix
   );
@@ -263,14 +268,13 @@ export const profileService = {
         ? feedCategoryCodePrefix(feedCategory)
         : null;
     const needsTaxonomyFilter =
-      promoteurOnly ||
       fournisseurOnly ||
       Boolean(categoryPrefix) ||
       Boolean(feedSubCategory) ||
       Boolean(feedCategory && feedCategory !== "tout");
 
     const browsing = !queryText;
-    const mixCategories = browsing && !needsTaxonomyFilter;
+    const mixCategories = browsing && !needsTaxonomyFilter && !promoteurOnly;
     const taxonomyEmbed = professionalsTaxonomyEmbed(filters);
 
     let query = supabase
@@ -291,18 +295,22 @@ export const profileService = {
       )
       .not("username", "is", null)
       // UUID order mixes seed batches better than created_at for "tout" browse.
-      .order(mixCategories ? "id" : "created_at", { ascending: mixCategories ? true : false });
+      // The public promoteur batch is a single alphabetical page of 50.
+      .order(promoteurOnly ? "full_name" : mixCategories ? "id" : "created_at", {
+        ascending: promoteurOnly || mixCategories,
+      });
 
     query = applyProfessionalsFilters(query, filters);
 
-    // "tout" browse: wide window + specialty mix (may skip some for diversity).
-    // Filtered lists (Promoteurs, etc.): page without gaps — only over-fetch to
-    // absorb !inner join duplicates, then advance past the raw rows consumed.
-    const fetchLimit = mixCategories
-      ? Math.min(Math.max(limit * 5, limit), 120)
+    // Never jump the cursor past unused rows: "tout" used to over-fetch then
+    // advance by the wide window, so logos / new promoteurs never appeared there
+    // even though the Promoteurs chip looked correct. Mix / avatar ranking stay
+    // within the page only.
+    const fetchLimit = promoteurOnly
+      ? limit
       : needsTaxonomyFilter
         ? Math.max(limit * 2, limit)
-        : limit;
+        : Math.max(limit * 2, limit);
     const { data, error } = await query.range(offset, offset + Math.max(fetchLimit - 1, 0));
     if (error) throw error;
     const raw = data || [];
@@ -315,17 +323,15 @@ export const profileService = {
       if (!id || seen.has(id)) continue;
       seen.add(id);
       unique.push(row);
-      // Filtered / search pages: stop once we have a full page of unique profiles.
-      if (!mixCategories && unique.length >= limit) break;
+      if (unique.length >= limit) break;
     }
-    const ranked = browsing
+    const ranked = browsing && !promoteurOnly
       ? rankDiscoverBrowse(unique as Array<{ avatar_url?: string | null } & Record<string, unknown>>, {
           mixCategories,
         })
       : unique;
     const rows = ranked.slice(0, limit);
-    const nextOffset = mixCategories ? offset + raw.length : offset + rawUsed;
-    return { rows, nextOffset };
+    return { rows, nextOffset: offset + rawUsed };
   },
 
   /** Exact Supabase row count for Discover Entreprises (same filters as listProfessionals). */
@@ -373,6 +379,28 @@ export const profileService = {
     }
 
     return withClampedBio(data);
+  },
+
+  async listFederations(): Promise<
+    Array<{
+      id: string;
+      username: string | null;
+      full_name: string | null;
+      avatar_url: string | null;
+      location: string | null;
+      bio: string | null;
+      is_verified: boolean | null;
+    }>
+  > {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, full_name, avatar_url, location, bio, is_verified")
+      .eq("profile_type", "institution")
+      .eq("institution_kind", "federation")
+      .eq("directory_visible", true)
+      .order("full_name", { ascending: true });
+    if (error) throw error;
+    return data || [];
   },
 
   /** Changes the Auth login email. Profile infos email is contact-only and does not use this. */

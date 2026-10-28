@@ -33,8 +33,11 @@ const applyServicesFilters = <T extends { eq: Function; like: Function; not: Fun
     next = next.or(`title.ilike.${needle},description.ilike.${needle},category.ilike.${needle}`);
   }
   if (promoteurOnly) {
-    next = next.eq("internal_categories.code", "1.2.1");
-  } else if (fournisseurOnly) {
+    next = next.eq("profiles.featured_promoter", true);
+  } else {
+    next = next.eq("profiles.directory_visible", true);
+  }
+  if (fournisseurOnly) {
     next = next.like("internal_categories.code", "8.5.%");
   } else if (feedSubCategory) {
     next = next.eq("internal_categories.feed_sub_categories.slug", feedSubCategory);
@@ -132,7 +135,7 @@ const servicesTaxonomyEmbed = (filters?: DiscoverListFilters) => {
     !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
       ? feedCategoryCodePrefix(feedCategory)
       : null;
-  const needsCodeFilter = promoteurOnly || fournisseurOnly || Boolean(categoryPrefix);
+  const needsCodeFilter = fournisseurOnly || Boolean(categoryPrefix);
   const needsFeedSlugFilter = Boolean(feedSubCategory) || (
     Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix
   );
@@ -194,13 +197,15 @@ const SERVICE_LIST_SELECT = `
   missions,
   created_at,
   ${SERVICE_INTERNAL_CATEGORY_EMBED},
-  profiles:user_id (
+  profiles!inner:user_id (
     id,
     username,
     full_name,
     avatar_url,
     location,
     is_verified,
+    featured_promoter,
+    directory_visible,
     internal_categories!profiles_internal_category_id_fkey (
       code,
       feed_sub_categories (
@@ -276,7 +281,7 @@ export const serviceService = {
     const embed = servicesTaxonomyEmbed(filters);
     let query = supabase
       .from("services")
-      .select(`id, ${embed}`, { count: "exact", head: true });
+      .select(`id, profiles!inner(featured_promoter, directory_visible), ${embed}`, { count: "exact", head: true });
     query = applyServicesFilters(query, filters);
     const { count, error } = await query;
     if (error) throw error;

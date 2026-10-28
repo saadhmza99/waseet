@@ -573,20 +573,25 @@ const Index = () => {
       >
       <div className="flex min-w-0 w-full flex-col xl:flex-1">
         <div className="order-1 mb-[1.5vh] flex items-end justify-between gap-4 border-b border-neutral-200 px-[1vh] lg:mb-4 lg:px-0">
-          <div className="flex w-full min-w-0 items-end overflow-x-auto [scrollbar-width:none] lg:w-auto lg:gap-1 [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-0 flex-1 items-end overflow-x-auto [scrollbar-width:none] lg:gap-1 [&::-webkit-scrollbar]:hidden">
             {[
               { id: "all" as const, label: "Accueil", order: "order-1" },
               { id: "projets" as const, label: "Projets", order: "order-2" },
               { id: "services" as const, label: "Services", order: "order-3" },
               { id: "marche" as const, label: "Matériaux", mobileLabel: "Produits", order: "order-4" },
               { id: "opportunites" as const, label: "Opportunités", order: "order-5" },
+              { id: "federations" as const, label: "Fédérations", order: "order-6", desktopOnly: true },
             ].map((item) => {
-              const active = item.id !== "opportunites" && feedView === item.id;
+              const active = item.id !== "opportunites" && item.id !== "federations" && feedView === item.id;
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => {
+                    if (item.id === "federations") {
+                      navigate("/federations");
+                      return;
+                    }
                     if (item.id === "opportunites") {
                       navigate("/opportunites");
                       return;
@@ -605,7 +610,7 @@ const Index = () => {
                     }
                     setSearchParams(next, { replace: true });
                   }}
-                  className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.45vh] py-[1.75vh] text-[1.8vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3.5 lg:py-3.5 lg:text-lg ${item.order} ${
+                  className={`${"desktopOnly" in item && item.desktopOnly ? "hidden lg:flex" : "flex"} flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.45vh] py-[1.75vh] text-[1.8vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3.5 lg:py-3.5 lg:text-lg ${item.order} ${
                     active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
                   }`}
                 >

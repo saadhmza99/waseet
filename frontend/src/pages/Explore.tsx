@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Briefcase, Building, Building2, ChevronDown, Ellipsis, Factory, HardHat, Home, Hotel, Landmark, List, Map as MapIcon, MapPin, Search, SlidersHorizontal, Store, X, type LucideIcon } from "lucide-react";
 import { DesktopRailFrame } from "@/components/FeedDesktopRail";
+import PartnerDemandDialog from "@/components/PartnerDemandDialog";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import MapView from "@/components/MapView";
 import { CategoryPicker, FEED_PICKER_CATEGORIES, type CategoryOption } from "@/components/CategoryPicker";
@@ -158,6 +159,43 @@ const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem)
   );
 };
 
+const PromoteurNetworkGate = ({ onJoin }: { onJoin: () => void }) => (
+  <div className="mx-1 mt-6 rounded-2xl border border-[#174f43]/20 bg-[#174f43]/5 px-4 py-5 text-center sm:px-6">
+    <p className="text-base leading-relaxed text-neutral-800">
+      Seuls les partenaires accèdent au réseau étendu des promoteurs, avec l&apos;ensemble de leurs détails.
+    </p>
+    <button
+      type="button"
+      onClick={onJoin}
+      className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#123d34]"
+    >
+      Deviens notre partenaire!
+    </button>
+  </div>
+);
+
+/** Top banner for Projets: open-dossier notice + partner CTA in one bordered block. */
+const ProjetDossierPartnerBanner = ({ onJoin }: { onJoin: () => void }) => (
+  <div className="mx-1 mt-4 rounded-2xl border border-[#174f43]/20 bg-[#174f43]/5 px-4 py-4 sm:px-5">
+    <p className="text-sm leading-relaxed text-neutral-800">
+      Les trois premiers dossiers sont ouverts : leur équipe et leurs documents sont consultables. Pour tous les autres
+      projets, ces sections restent réservées aux partenaires.
+    </p>
+    <p className="mt-3 text-sm leading-relaxed text-neutral-800">
+      Seuls les partenaires accèdent au réseau étendu des promoteurs, avec l&apos;ensemble de leurs détails.
+    </p>
+    <button
+      type="button"
+      onClick={onJoin}
+      className="mt-3 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123d34]"
+    >
+      Deviens notre partenaire!
+    </button>
+  </div>
+);
+
+const DISCOVER_PROJECTS_CAP = 40;
+
 const AccountRow = ({
   name,
   image,
@@ -246,11 +284,13 @@ const CardList = ({
   onOpen,
   serviceRows,
   projectRows,
+  lockDossiers = false,
 }: {
   items: MockItem[];
   onOpen: (item: MockItem) => void;
   serviceRows: ServiceRow[];
   projectRows: any[];
+  lockDossiers?: boolean;
 }) => {
   const wideGrid =
     items.length > 0 && items.every((item) => item.kind === "projet" || item.kind === "annonce");
@@ -268,7 +308,16 @@ const CardList = ({
         if (project) {
           return (
             <li key={item.id} className="min-w-0 transition duration-150 hover:scale-[0.98]">
-              <ProjectCard row={project} />
+              <ProjectCard
+                row={project}
+                dossier={
+                  project.open_dossier
+                    ? "open"
+                    : project.dossier_locked || lockDossiers
+                      ? "locked"
+                      : undefined
+                }
+              />
             </li>
           );
         }
@@ -330,6 +379,7 @@ const Explore = () => {
   const [loadingServices, setLoadingServices] = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [partnerOpen, setPartnerOpen] = useState(false);
   const [hasMoreServices, setHasMoreServices] = useState(true);
   const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
   const [servicesBooted, setServicesBooted] = useState(false);
@@ -379,6 +429,12 @@ const Explore = () => {
     () => discoverTaxonomyFilters(selectedCategory, subCategory),
     [selectedCategory, subCategory],
   );
+  const promoterBatch = taxonomyFilters.promoteurOnly;
+  // Projets always load the promoteur dossier network (open_dossier first).
+  // Category filters on Comptes must not change this. Server redacts équipe/docs
+  // for unsigned / non-partner viewers.
+  const showDossierGate = searchType === "projets";
+  const profilePageSize = promoterBatch ? 50 : DISCOVER_PAGE_SIZE;
 
   const loadMoreServices = useCallback(async () => {
     if (loadingMoreServicesRef.current || !hasMoreServicesRef.current) return;
@@ -415,13 +471,13 @@ const Explore = () => {
     setLoadingMore(true);
     try {
       const { rows: page, nextOffset } = await profileService.listProfessionals(
-        DISCOVER_PAGE_SIZE,
+        profilePageSize,
         profilesOffsetRef.current,
         { city: cityFilter, query: committedQuery || null, ...taxonomyFilters },
       );
       if (profilesTicket.current !== ticket) return;
       profilesOffsetRef.current = nextOffset;
-      const more = page.length >= DISCOVER_PAGE_SIZE;
+      const more = promoterBatch ? false : page.length >= profilePageSize;
       hasMoreProfilesRef.current = more;
       setHasMoreProfiles(more);
       setLiveProfiles((prev) => appendUnique(prev, page));
@@ -434,7 +490,7 @@ const Explore = () => {
       loadingMoreProfilesRef.current = false;
       if (profilesTicket.current === ticket) setLoadingMore(false);
     }
-  }, [cityFilter, taxonomyFilters, committedQuery]);
+  }, [cityFilter, taxonomyFilters, committedQuery, profilePageSize, promoterBatch]);
 
   // Professionnels — reload on city, query, or category/sub change (filters are server-side).
   useEffect(() => {
@@ -448,14 +504,14 @@ const Explore = () => {
       hasMoreProfilesRef.current = true;
       setHasMoreProfiles(true);
       try {
-        const { rows: profiles, nextOffset } = await profileService.listProfessionals(DISCOVER_PAGE_SIZE, 0, {
+        const { rows: profiles, nextOffset } = await profileService.listProfessionals(profilePageSize, 0, {
           city: cityFilter,
           query: committedQuery || null,
           ...taxonomyFilters,
         });
         if (cancelled || profilesTicket.current !== ticket) return;
         profilesOffsetRef.current = nextOffset;
-        const more = profiles.length >= DISCOVER_PAGE_SIZE;
+        const more = promoterBatch ? false : profiles.length >= profilePageSize;
         hasMoreProfilesRef.current = more;
         setHasMoreProfiles(more);
         setLiveProfiles(profiles);
@@ -472,7 +528,7 @@ const Explore = () => {
     return () => {
       cancelled = true;
     };
-  }, [cityFilter, taxonomyFilters, committedQuery]);
+  }, [cityFilter, taxonomyFilters, committedQuery, profilePageSize, promoterBatch]);
 
   // Prefetch services with the same filters so the tab count stays accurate (and tab switches stay instant).
   useEffect(() => {
@@ -524,9 +580,17 @@ const Explore = () => {
       catalogBootedRef.current = false;
       setCatalogBooted(false);
       try {
-        const projects = await catalogService.listProjects(40, 0, { city: cityFilter, projectType });
+        // Cap Discover projets at 40. listProjects prioritizes open dossiers then
+        // non-Chridari covers. Dossier lock/redaction stays server-side.
+        const projects = await catalogService.listProjects(DISCOVER_PROJECTS_CAP, 0, {
+          city: cityFilter,
+          projectType,
+          featuredPromoters: promoterBatch,
+        });
         if (cancelled || catalogTicket.current !== ticket) return;
-        setLiveProjects(projects);
+        const withImages = projects.slice(0, DISCOVER_PROJECTS_CAP);
+        setLiveProjects(withImages);
+        setServerCounts((prev) => ({ ...prev, projets: withImages.length }));
         catalogBootedRef.current = true;
         setCatalogBooted(true);
       } catch (error) {
@@ -541,7 +605,7 @@ const Explore = () => {
     return () => {
       cancelled = true;
     };
-  }, [cityFilter, projectType]);
+  }, [cityFilter, projectType, promoterBatch]);
 
   // Exact totals from Supabase (not the currently loaded page).
   useEffect(() => {
@@ -560,7 +624,14 @@ const Explore = () => {
             query: committedQuery || null,
             ...taxonomyFilters,
           }),
-          catalogService.countProjects({ city: cityFilter, projectType }),
+          // Same imaged + priority rules as the Projets list (no empty covers).
+          catalogService
+            .listProjects(DISCOVER_PROJECTS_CAP, 0, {
+              city: cityFilter,
+              projectType,
+              featuredPromoters: promoterBatch,
+            })
+            .then((rows) => rows.length),
         ]);
         if (cancelled) return;
         setServerCounts({ comptes, services, projets });
@@ -572,7 +643,7 @@ const Explore = () => {
     return () => {
       cancelled = true;
     };
-  }, [cityFilter, taxonomyFilters, committedQuery, projectType]);
+  }, [cityFilter, taxonomyFilters, committedQuery, projectType, promoterBatch]);
 
   const catalogItems = useMemo(() => {
     const services: MockItem[] = liveServices.map((row) => {
@@ -596,18 +667,27 @@ const Explore = () => {
         is_verified: serviceIsVerified(row),
       };
     });
-    const projects: MockItem[] = liveProjects.map((row) => ({
-      id: row.id,
-      feed_category: "",
-      feed_sub_category: "",
-      kind: "projet" as const,
-      profileName: row.promoter_name || row.title || "Projet",
-      image: Array.isArray(row.images) ? row.images[0] || "" : row.cover_image || "",
-      title: row.title || "Projet",
-      city: row.city || "",
-      progress: Number(row.progress) || 0,
-      description: row.description || "",
-    }));
+    const projects: MockItem[] = liveProjects
+      .map((row) => {
+        const gallery = Array.isArray(row.images)
+          ? row.images.map(String).filter((url) => /^https?:\/\//i.test(url.trim()))
+          : [];
+        const cover = String(row.cover_image || "").trim();
+        const image = (/^https?:\/\//i.test(cover) ? cover : "") || gallery[0] || "";
+        return {
+          id: row.id,
+          feed_category: "",
+          feed_sub_category: "",
+          kind: "projet" as const,
+          profileName: row.promoter_name || row.title || "Projet",
+          image,
+          title: row.title || "Projet",
+          city: row.city || "",
+          progress: Number(row.progress) || 0,
+          description: row.description || "",
+        };
+      })
+      .filter((item) => Boolean(item.image));
     const accounts: MockItem[] = liveProfiles.map((row) => {
       const extras = Array.isArray(row.profile_internal_categories) ? row.profile_internal_categories : [];
       const codes = [
@@ -694,7 +774,9 @@ const Explore = () => {
 
   const tabCountText = (id: SearchType): string | null => {
     const value = serverCounts[id];
-    return value == null ? null : String(value);
+    if (value == null) return null;
+    if (id === "projets") return String(Math.min(value, DISCOVER_PROJECTS_CAP));
+    return String(value);
   };
 
   const selectedLabel = feedCategoryLabel(selectedCategory);
@@ -962,7 +1044,10 @@ const Explore = () => {
           <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Chargement…</p>
         ) : searchType === "comptes" ? (
           accounts.length === 0 && !hasMoreProfiles && !loadingProfiles ? (
-            <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucune entreprise pour cette recherche</p>
+            <>
+              <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucune entreprise pour cette recherche</p>
+              {promoterBatch ? <PromoteurNetworkGate onJoin={() => setPartnerOpen(true)} /> : null}
+            </>
           ) : (
             <>
               <ul>
@@ -985,20 +1070,34 @@ const Explore = () => {
                 })}
               </ul>
               <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore} onLoadMore={loadMoreForTab} />
+              {promoterBatch ? <PromoteurNetworkGate onJoin={() => setPartnerOpen(true)} /> : null}
             </>
           )
         ) : searchResults.length === 0 &&
           !(searchType === "services" && (hasMoreServices || loadingServices)) &&
           !tabLoading ? (
-          <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucun résultat pour cette recherche</p>
+          <>
+            <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucun résultat pour cette recherche</p>
+            {showDossierGate ? <ProjetDossierPartnerBanner onJoin={() => setPartnerOpen(true)} /> : null}
+          </>
         ) : (
           <>
-            <CardList items={searchResults} onOpen={openItem} serviceRows={liveServices} projectRows={liveProjects} />
+            {showDossierGate ? <ProjetDossierPartnerBanner onJoin={() => setPartnerOpen(true)} /> : null}
+            <CardList
+              items={
+                searchType === "projets" ? searchResults.slice(0, DISCOVER_PROJECTS_CAP) : searchResults
+              }
+              onOpen={openItem}
+              serviceRows={liveServices}
+              projectRows={liveProjects}
+              lockDossiers={showDossierGate}
+            />
             {searchType === "services" ? (
               <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore || loadingServices} onLoadMore={loadMoreForTab} />
             ) : null}
           </>
         )}
+        <PartnerDemandDialog open={partnerOpen} onOpenChange={setPartnerOpen} />
       </div>
     </DesktopRailFrame>
   );

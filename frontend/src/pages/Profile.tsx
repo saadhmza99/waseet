@@ -73,19 +73,23 @@ import AboutThisMemberSheet from "@/components/AboutThisMemberSheet";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { muteService, type MuteScope } from "@/services/muteService";
 import { blockedAccountsToast } from "@/lib/blockedAccountsToast";
-import { profileSectionsForInternalCodes } from "@/lib/taxonomy";
+import { sectionsForProfile, institutionKindLabel, institutionOffersFormations, isInstitutionProfile } from "@/lib/institution";
+import { InstitutionLibrary } from "@/components/InstitutionLibrary";
+import { institutionService } from "@/services/institutionService";
 import { MAX_BIO_LENGTH } from "@/lib/bio";
 import { realisationService, type RealisationRow } from "@/services/realisationService";
 import FullScreenPopup from "@/components/FullScreenPopup";
 import { ArrowLeft, Camera, Heart, ImagePlus, LayoutGrid, Pencil, Plus, Share2, Trash2, Video } from "lucide-react";
 
-const tabs = ["Infos", "Posts", "Réalisations", "Projets", "Biens", "Services", "Produits"] as const;
+const tabs = ["Infos", "Posts", "Articles", "Formations", "Réalisations", "Projets", "Biens", "Services", "Produits"] as const;
 type ProfileTab = (typeof tabs)[number];
 type PostsView = "grid" | "reels";
 const MAX_ABOUT_LENGTH = 50000;
 const tabToQuery: Record<ProfileTab, string> = {
   Infos: "infos",
   Posts: "posts",
+  Articles: "articles",
+  Formations: "formations",
   Réalisations: "realisations",
   Projets: "projets",
   Biens: "biens",
@@ -99,6 +103,8 @@ const queryToTab: Record<string, ProfileTab> = {
   details: "Infos",
   apropos: "Infos",
   posts: "Posts",
+  articles: "Articles",
+  formations: "Formations",
   realisations: "Réalisations",
   portfolio: "Projets",
   projets: "Projets",
@@ -387,15 +393,18 @@ const Profile = () => {
     postsViewFromQuery(searchParams.get("tab") || "", searchParams.get("view"))
   );
   const [profile, setProfile] = useState<any>(bootBundle?.profile ?? null);
+  const institution = isInstitutionProfile(profile);
+  const showFormations = institution && institutionOffersFormations(profile?.institution_kind);
   const profileSections = useMemo(
-    () =>
-      profileSectionsForInternalCodes(internalCategoryCodesOf(profile), {
-        isVerified: Boolean(profile?.is_verified),
-      }),
+    () => sectionsForProfile(profile, internalCategoryCodesOf(profile)),
     [profile]
   );
   const visibleTabs = useMemo(() => {
+    if (institution) {
+      return tabs.filter((tab) => tab === "Posts" || tab === "Articles" || (tab === "Formations" && showFormations));
+    }
     return tabs.filter((tab) => {
+      if (tab === "Articles" || tab === "Formations") return false;
       if (tab === "Infos") return true;
       if (tab === "Posts") return profileSections.showPosts;
       if (tab === "Réalisations") return profileSections.showRealisations;
@@ -405,13 +414,37 @@ const Profile = () => {
       if (tab === "Produits") return profileSections.showProduits;
       return false;
     });
-  }, [profileSections]);
+  }, [institution, showFormations, profileSections]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
-      setActiveTab("Infos");
+      setActiveTab(institution ? "Posts" : "Infos");
     }
-  }, [visibleTabs, activeTab]);
+  }, [visibleTabs, activeTab, institution]);
+
+  useEffect(() => {
+    if (!institution || !profile?.id) return;
+    let cancelled = false;
+    institutionService.listArticles(profile.id).then((rows) => {
+      if (!cancelled) setArticlesCount(rows.length);
+    }).catch(() => {
+      if (!cancelled) setArticlesCount(0);
+    });
+    if (!showFormations) {
+      setFormationsCount(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    institutionService.listFormations(profile.id).then((rows) => {
+      if (!cancelled) setFormationsCount(rows.length);
+    }).catch(() => {
+      if (!cancelled) setFormationsCount(0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [institution, showFormations, profile?.id]);
   const [posts, setPosts] = useState<any[]>(bootBundle?.posts ?? []);
   const [postsHasMore, setPostsHasMore] = useState(Boolean(bootBundle?.postsHasMore));
   const [loadingMorePosts, setLoadingMorePosts] = useState(false);
@@ -443,6 +476,8 @@ const Profile = () => {
   const [projectsHasMore, setProjectsHasMore] = useState(Boolean(bootBundle?.projectsHasMore));
   const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
   const [postsCount, setPostsCount] = useState<number | null>(bootBundle ? bootBundle.postsCount : null);
+  const [articlesCount, setArticlesCount] = useState<number | null>(null);
+  const [formationsCount, setFormationsCount] = useState<number | null>(null);
   const [propertiesCount, setPropertiesCount] = useState<number | null>(bootBundle?.propertiesCount ?? null);
   const [projectsCount, setProjectsCount] = useState<number | null>(bootBundle?.projectsCount ?? null);
   const [listingsCount, setListingsCount] = useState<number | null>(bootBundle ? bootBundle.listingsCount : null);
@@ -1415,7 +1450,7 @@ const Profile = () => {
         bio={profile.bio}
         ice={profile.ice}
         specialties={internalCategoryLabelsOf(profile)}
-        profession={profile.profession}
+        profession={institution ? institutionKindLabel(profile.institution_kind) : profile.profession}
         location={profile.location}
         isOwnProfile={isOwnProfile}
         isVerified={Boolean(profile.is_verified)}
@@ -1468,6 +1503,10 @@ const Profile = () => {
                     ? undefined
                     : tab === "Posts"
                       ? standardPosts.length
+                      : tab === "Articles"
+                        ? articlesCount
+                      : tab === "Formations"
+                        ? formationsCount
                       : tab === "Réalisations"
                         ? realisationsCount ?? realisations.length
                       : tab === "Projets"
@@ -2128,6 +2167,14 @@ const Profile = () => {
               )}
             </div>
           )}
+
+          {!showReviews && activeTab === "Articles" && institution ? (
+            <InstitutionLibrary mode="articles" userId={profile.id} isOwn={isOwnProfile} onCount={setArticlesCount} />
+          ) : null}
+
+          {!showReviews && activeTab === "Formations" && showFormations ? (
+            <InstitutionLibrary mode="formations" userId={profile.id} isOwn={isOwnProfile} onCount={setFormationsCount} />
+          ) : null}
 
           {!showReviews && activeTab === "Services" && (
             <div className="px-4 py-4 sm:px-6 sm:py-6 md:px-8">

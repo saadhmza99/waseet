@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, ExternalLink, FileText, Heart, MapPin, Share2 } from "lucide-react";
+import { ChevronRight, ExternalLink, FileText, Heart, Lock, MapPin, Share2, Unlock } from "lucide-react";
 import { catalogService } from "@/services/catalogService";
 import { savedService } from "@/services/savedService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import InquiryDialog from "@/components/InquiryDialog";
+import PartnerDemandDialog from "@/components/PartnerDemandDialog";
 import { ProjectCommercialTag, ProjectMilestoneTrack } from "@/components/project/ProjectMilestoneTrack";
 import { toast } from "@/components/ui/use-toast";
 import { savedToast } from "@/lib/savedToast";
@@ -25,6 +26,31 @@ const withProjectChrome = (node: ReactNode) => (
   <div className="lg:flex lg:min-h-screen lg:w-full">
     <FeedDesktopRail />
     <div className="min-w-0 flex-1">{node}</div>
+  </div>
+);
+
+const OpenDossierNote = () => (
+  <p className="rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 px-3 py-2 text-sm text-[#174f43]">
+    Dossier ouvert. L'équipe et les documents de ce projet sont consultables. Les autres dossiers du réseau s'ouvrent en devenant partenaire.
+  </p>
+);
+
+const DossierLock = ({ onJoin, section }: { onJoin: () => void; section: string }) => (
+  <div className="mx-auto max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-8 text-center">
+    <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#174f43] shadow-sm">
+      <Lock className="h-5 w-5" />
+    </span>
+    <p className="mt-4 text-base font-semibold text-neutral-900">Section réservée aux partenaires</p>
+    <p className="mt-2 text-sm leading-relaxed text-neutral-600">
+      {`Voir ${section} de ce projet demande un partenariat. Trois dossiers en tête de la liste restent ouverts pour montrer ce niveau de détail.`}
+    </p>
+    <button
+      type="button"
+      onClick={onJoin}
+      className="mt-5 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-3 text-sm font-semibold text-white hover:bg-[#123d34]"
+    >
+      Deviens notre partenaire!
+    </button>
   </div>
 );
 
@@ -48,6 +74,9 @@ const ProjectPage = () => {
   const [tab, setTab] = useState<Tab>("Aperçu");
   const [contactOpen, setContactOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [dossierLocked, setDossierLocked] = useState(false);
+  const [openDossier, setOpenDossier] = useState(false);
+  const [partnerOpen, setPartnerOpen] = useState(false);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -60,12 +89,18 @@ const ProjectPage = () => {
     let active = true;
     setMissing(false);
     setProject(null);
+    setDossierLocked(false);
+    setOpenDossier(false);
     catalogService
       .getProject(id)
       .then((row) => {
         if (!active) return;
         if (!row) setMissing(true);
-        else setProject(dossierFromRow(row));
+        else {
+          setProject(dossierFromRow(row));
+          setDossierLocked(Boolean(row.dossier_locked));
+          setOpenDossier(Boolean(row.open_dossier));
+        }
       })
       .catch(() => {
         if (active) setMissing(true);
@@ -237,18 +272,23 @@ const ProjectPage = () => {
             </div>
           </div>
           <div className="flex gap-1 overflow-x-auto border-t border-neutral-200 px-2">
-            {TABS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setTab(item)}
-                className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold ${
-                  tab === item ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
+            {TABS.map((item) => {
+              const gated = item === "Équipe" || item === "Documents";
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setTab(item)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-semibold ${
+                    tab === item ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500"
+                  }`}
+                >
+                  {gated && dossierLocked ? <Lock className="h-3.5 w-3.5" /> : null}
+                  {gated && openDossier ? <Unlock className="h-3.5 w-3.5" /> : null}
+                  {item}
+                </button>
+              );
+            })}
           </div>
           <div className="p-4 sm:p-6">
             {tab === "Aperçu" ? (
@@ -361,8 +401,11 @@ const ProjectPage = () => {
               </div>
             ) : null}
 
-            {tab === "Équipe" ? (
+            {tab === "Équipe" && dossierLocked ? (
+              <DossierLock onJoin={() => setPartnerOpen(true)} section="l'équipe" />
+            ) : tab === "Équipe" ? (
               <div className="space-y-8">
+                {openDossier ? <OpenDossierNote /> : null}
                 {project.team.filter((member) => member.name).length ? (
                   <div>
                     <h2 className="text-sm font-semibold">L'équipe du projet</h2>
@@ -431,8 +474,12 @@ const ProjectPage = () => {
               </div>
             ) : null}
 
-            {tab === "Documents" ? (
-              publicDocs.filter((doc) => doc.title).length ? (
+            {tab === "Documents" && dossierLocked ? (
+              <DossierLock onJoin={() => setPartnerOpen(true)} section="les documents" />
+            ) : tab === "Documents" ? (
+              <div className="space-y-4">
+                {openDossier ? <OpenDossierNote /> : null}
+                {publicDocs.filter((doc) => doc.title).length ? (
                 <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
                   {publicDocs.filter((doc) => doc.title).map((doc) => (
                     <li key={doc.id} className="flex items-center justify-between gap-3 px-3 py-3">
@@ -458,9 +505,10 @@ const ProjectPage = () => {
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="text-sm text-neutral-500">Aucun document public pour le moment.</p>
-              )
+                ) : (
+                  <p className="text-sm text-neutral-500">Aucun document public pour le moment.</p>
+                )}
+              </div>
             ) : null}
 
             {tab === "Mises à jour" ? (
@@ -487,6 +535,7 @@ const ProjectPage = () => {
           <Link to="/explore" className="hover:text-neutral-600">Découvrir d'autres projets</Link>
         </p>
       </div>
+      <PartnerDemandDialog open={partnerOpen} onOpenChange={setPartnerOpen} />
       <InquiryDialog
         open={contactOpen}
         onOpenChange={setContactOpen}

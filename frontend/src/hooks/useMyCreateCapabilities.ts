@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  profileSectionsForInternalCodes,
-  type ProfileSectionVisibility,
-} from "@/lib/taxonomy";
+import { sectionsForProfile } from "@/lib/institution";
+import { type ProfileSectionVisibility } from "@/lib/taxonomy";
 import { profileService } from "@/services/profileService";
 import { taxonomyService } from "@/services/taxonomyService";
 
@@ -40,9 +38,7 @@ export const useMyCreateCapabilities = () => {
         const codes = ids
           .map((id) => rows.find((row) => row.id === id)?.code || null)
           .filter(Boolean) as string[];
-        setSections(
-          profileSectionsForInternalCodes(codes, { isVerified: Boolean(profile?.is_verified) }),
-        );
+        setSections(sectionsForProfile(profile, codes));
         setReady(true);
       })
       .catch(() => {

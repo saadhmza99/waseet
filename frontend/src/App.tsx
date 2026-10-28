@@ -37,6 +37,7 @@ import CreateProductForm from "./components/product/CreateProductForm";
 import VisitorProfile, { JoinChoice } from "./pages/VisitorProfile";
 import Welcome, { hasSeenWelcome } from "./pages/Welcome";
 import Opportunities from "./pages/Opportunities.tsx";
+import Federations from "./pages/Federations";
 import Products from "./pages/Products";
 import ProductPage from "./pages/ProductPage";
 import Tools from "./pages/Tools";
@@ -80,6 +81,7 @@ const AppLayout = () => {
     pathname.startsWith("/explore") ||
     pathname.startsWith("/saved") ||
     pathname.startsWith("/opportunites") ||
+    pathname.startsWith("/federations") ||
     pathname === "/produits" ||
     pathname.startsWith("/outils") ||
     pathname.startsWith("/courses") ||
@@ -147,6 +149,7 @@ const AppLayout = () => {
       <Route path="/job/:title" element={<JobDetail />} />
       <Route path="/explore" element={<Explore />} />
       <Route path="/opportunites" element={<Opportunities />} />
+      <Route path="/federations" element={<Federations />} />
       <Route path="/produits" element={<Products />} />
       <Route path="/produits/:id" element={<ProductPage />} />
       <Route path="/outils" element={<Tools />} />
