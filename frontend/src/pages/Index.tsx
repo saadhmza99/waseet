@@ -43,9 +43,6 @@ import { realisationService } from "@/services/realisationService";
 import { PROPERTY_TYPES, normalizePropertyKind } from "@/lib/taxonomy";
 import archIcon from "@/assets/sifarah-arch-icon-clean.png";
 
-/** Full catalogue size announced on free vue=projets / Discover (listing stays capped). */
-const PROJECTS_PAID_CATALOGUE_COUNT = 477;
-
 const ArchIcon = ({ className }: { className?: string }) => (
   <span
     aria-hidden
@@ -834,13 +831,14 @@ const Index = () => {
             <div>
               <div className="flex flex-col items-start gap-3 lg:flex-row">
                 <div className="min-w-0 w-full flex-1 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
-                  <p className="text-sm leading-relaxed text-amber-950">
-                    Sélection limitée : seuls quelques projets sont affichés ici. Les{" "}
-                    <span className="font-semibold">{PROJECTS_PAID_CATALOGUE_COUNT} projets</span> complets
-                    sont réservés au plan payant.
+                  <p className="text-sm leading-relaxed text-amber-950 lg:text-lg">
+                    Sélection limitée : seuls 40 projets sont affichés ici.
                   </p>
-                  <p className="mt-3 text-sm leading-relaxed text-amber-950">
-                    {PROJECT_PLAN_NOTICE}
+                  <p className="mt-3 text-sm leading-relaxed text-amber-950 lg:text-lg">
+                    Débloquez l'accès complet aux fiches de <span className="font-bold">477</span> projets, aux documents et aux équipes BTP ayant participé.
+                  </p>
+                  <p className="mt-3 text-sm leading-relaxed text-amber-950 lg:text-lg">
+                    Accédez en priorité aux opportunités de participation sur les projets sur plan ou en cours de construction.
                   </p>
                   <button
                     type="button"

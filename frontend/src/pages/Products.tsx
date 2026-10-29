@@ -578,7 +578,11 @@ const Products = () => {
     <DesktopRailFrame className="min-h-screen bg-[#f6f5f3] pb-20 lg:pb-0" contentClassName={railContentClass}>
       <div className="mx-auto w-full pb-6 pt-4 lg:pt-0">
         <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-5xl">Sifarah Matériaux</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600 sm:mt-2.5 sm:text-base">
+        <p
+          className={`mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600 sm:mt-2.5 sm:text-base ${
+            mode === "fournisseurs" ? "hidden lg:block" : ""
+          }`}
+        >
           {mode === "fournisseurs"
             ? "Comparez les fournisseurs de matériaux de construction disponibles au Maroc, consultez leurs profils et demandez un devis."
             : "Parcourez les produits et matériaux proposés par les professionnels, comparez et contactez le fournisseur."}
