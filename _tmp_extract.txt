@@ -1,4 +1,0 @@
-u=768 m=742 s=602
-('Coin magique Anthracite', 'Pièce', '1 PièceDelivery available', '')
-('Colonne pharmacie anthracite', 'Pièce', '1 PièceDelivery available', '⚙️ Structure métallique robuste avec finition chromée, inox ou anthracite, résistante à la corrosion.🛠️ Système coulissa')
-('Poignets tirage - Wavy Wood - Marron', 'm²', '1 PiècePickup only', '4 tailles disponible')

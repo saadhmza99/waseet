@@ -1,9 +1,0 @@
-ok=0/771
-('Construisez votre projet au Maroc', 'Construction & Habitat — Le portail #1 au Maroc 🇲🇦Connexion|Inscription Pro|FRARENlechantierConstruction & HabitatProfes', '', 'Construction & Habitat — Le portail #1 au Maroc 🇲🇦Connexion|Inscription Pro|FRAR')
-('Coin magique Anthracite', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechantierConstruction & HabitatProfessionalsMat", '', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechanti")
-('Colonne pharmacie anthracite', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechantierConstruction & HabitatProfessionalsMat", '', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechanti")
-('Poignets tirage - Wavy Wood - Marron', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechantierConstruction & HabitatProfessionalsMat", '', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechanti")
-('Range epice Anthracite', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechantierConstruction & HabitatProfessionalsMat", '', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechanti")
-('Fer à béton UIS ', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechantierConstruction & HabitatProfessionalsMat", '', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechanti")
-('Treillis soudé 3,5*3,5', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechantierConstruction & HabitatProfessionalsMat", '', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechanti")
-('GRANULAT ZERO', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechantierConstruction & HabitatProfessionalsMat", '', "Construction & Housing — Morocco's #1 portal 🇲🇦Log in|Pro sign up|FRARENlechanti")

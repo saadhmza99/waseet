@@ -1,6 +1,0 @@
-match=True body_len=53555
-body_head='✅ Optimise les espaces d’angle souvent inutilisés.✅ Améliore le confort d’utilisation et l’ergonomie de la cuisine.✅ Des'
-after_strip='Optimise les espaces d’angle souvent inutilisés.\n• Améliore le confort d’utilisation et l’ergonomie de la cuisine.\n• Design moderne et discret, s’adaptant à tous les styles.Available suppliers (1)SOQA'
-clean_specs=''
-clean_text=''
-extract='• Optimise les espaces d’angle souvent inutilisés.\n• Améliore le confort d’utilisation et l’ergonomie de la cuisine.\n• Design moderne et discret, s’adaptant à tous les styles.'
