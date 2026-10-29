@@ -474,12 +474,12 @@ const AdminModeration = () => {
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <Button variant={reportType === "posts" ? "default" : "outline"} onClick={() => setReportType("posts")}>
-              Publications ({postReports.length})
-            </Button>
+          Publications ({postReports.length})
+        </Button>
             <Button variant={reportType === "reels" ? "default" : "outline"} onClick={() => setReportType("reels")}>
-              Vidéos ({reelReports.length})
-            </Button>
-          </div>
+          Vidéos ({reelReports.length})
+        </Button>
+      </div>
 
           {!reports.length ? (
             <p className="py-8 text-center text-muted-foreground">Aucun signalement pour le moment.</p>
@@ -487,46 +487,46 @@ const AdminModeration = () => {
             reports.map((report) => (
               <div key={report.id} className="rounded-lg border border-border bg-card p-4 sm:p-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-card-foreground">{getReportTitle(report)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Signalé par @{report.reporter?.username || "utilisateur"} - raison: {report.reason}
-                    </p>
-                  </div>
-                  <span className="rounded bg-secondary px-2 py-1 text-xs font-semibold uppercase text-secondary-foreground">
-                    {report.status}
-                  </span>
+                <div>
+                  <p className="font-semibold text-card-foreground">{getReportTitle(report)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Signalé par @{report.reporter?.username || "utilisateur"} - raison: {report.reason}
+                  </p>
                 </div>
+                  <span className="rounded bg-secondary px-2 py-1 text-xs font-semibold uppercase text-secondary-foreground">
+                  {report.status}
+                </span>
+              </div>
 
                 <p className="mb-3 line-clamp-3 text-sm text-card-foreground">{getReportDescription(report)}</p>
 
                 <label className="mb-1 block text-sm font-medium text-card-foreground">Note de résolution</label>
-                <textarea
-                  value={editingNoteById[report.id] || ""}
-                  onChange={(e) =>
-                    setEditingNoteById((prev) => ({
-                      ...prev,
-                      [report.id]: e.target.value,
-                    }))
-                  }
-                  rows={3}
+              <textarea
+                value={editingNoteById[report.id] || ""}
+                onChange={(e) =>
+                  setEditingNoteById((prev) => ({
+                    ...prev,
+                    [report.id]: e.target.value,
+                  }))
+                }
+                rows={3}
                   className="mb-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  placeholder="Ajouter une note interne de modération..."
-                />
+                placeholder="Ajouter une note interne de modération..."
+              />
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {statuses.map((status) => (
-                    <Button
-                      key={status}
-                      variant={report.status === status ? "default" : "outline"}
-                      size="sm"
+              <div className="flex flex-wrap items-center gap-2">
+                {statuses.map((status) => (
+                  <Button
+                    key={status}
+                    variant={report.status === status ? "default" : "outline"}
+                    size="sm"
                       onClick={() => updateStatus(report.id, status, reportType)}
-                    >
-                      {status}
-                    </Button>
-                  ))}
-                </div>
+                  >
+                    {status}
+                  </Button>
+                ))}
               </div>
+            </div>
             ))
           )}
         </div>

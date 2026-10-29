@@ -1,3 +1,0 @@
-total=1710 mapped=1710 multi=1362 unmapped=0 inferred_from_empty_trade=168
-
-unmapped trades:

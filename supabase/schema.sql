@@ -2650,7 +2650,6 @@ GRANT EXECUTE ON FUNCTION public.project_public(uuid) TO anon, authenticated;
 
 -- Media edits: the project owner may delete gallery photos.
 -- Setting the cover stays limited to the curator account (?power=1).
--- See scripts/project_media_power.sql.
 CREATE OR REPLACE FUNCTION public.patch_project_media(
   p_id uuid,
   p_action text,
