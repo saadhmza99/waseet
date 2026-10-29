@@ -1,7 +1,6 @@
 -- Server-side dossier gating for promoteur projects.
--- Non-partners (everyone except the project owner, until a partner flag exists)
--- only receive équipe / partenaires / équipe-related attributes / documents
--- for projects with open_dossier = true (the three chosen public dossiers).
+-- Équipe, partenaires, équipe attributes, and documents stay closed
+-- unless the viewer owns the project or is on the paid partner plan.
 -- Direct table SELECT is owner-only; public reads go through projects_directory
 -- and project_public (security definer / owner-bypassing view).
 
@@ -32,7 +31,6 @@ set search_path = public
 as $$
   select
     coalesce((select featured_promoter from public.profiles where id = p_user_id), false)
-    and not coalesce(p_open_dossier, false)
     and auth.uid() is distinct from p_user_id
     and not public.project_viewer_is_partner();
 $$;

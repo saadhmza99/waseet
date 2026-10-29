@@ -35,7 +35,7 @@ const ChangePassword = () => {
       setConfirmPassword("");
       const wasRecovery = isPasswordRecovery;
       clearPasswordRecovery();
-      toast({ title: "Succes", description: "Mot de passe modifie avec succes." });
+      toast({ title: "Mot de passe modifié", description: "Mot de passe modifié avec succès." });
       if (wasRecovery) navigate("/", { replace: true });
     } catch (error) {
       console.error("Error updating password:", error);
@@ -62,7 +62,7 @@ const ChangePassword = () => {
           </button>
         )}
         <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-card-foreground">
-          {isPasswordRecovery ? "Nouveau mot de passe" : "Change Password"}
+          {isPasswordRecovery ? "Nouveau mot de passe" : "Changer le mot de passe"}
         </h1>
       </div>
 
@@ -74,17 +74,17 @@ const ChangePassword = () => {
             </p>
           ) : null}
           <div>
-            <Label htmlFor="new-password">New password</Label>
+            <Label htmlFor="new-password">Nouveau mot de passe</Label>
             <Input
               id="new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
+              placeholder="8 caractères minimum"
             />
           </div>
           <div>
-            <Label htmlFor="confirm-password">Confirm password</Label>
+            <Label htmlFor="confirm-password">Confirmer le mot de passe</Label>
             <Input
               id="confirm-password"
               type="password"
@@ -94,7 +94,7 @@ const ChangePassword = () => {
           </div>
           <div className="flex justify-end">
             <Button onClick={handleSubmit} disabled={saving}>
-              {saving ? "Saving..." : isPasswordRecovery ? "Enregistrer le mot de passe" : "Save new password"}
+              {saving ? "Enregistrement…" : "Enregistrer le mot de passe"}
             </Button>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { OwnerDeleteButton } from "@/components/OwnerDeleteButton";
 import InquiryDialog from "@/components/InquiryDialog";
 import { SafeImage } from "@/components/SafeImage";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -13,15 +15,23 @@ import {
   type ServiceOffer,
 } from "@/lib/serviceOffer";
 import { devisPath } from "@/services/devisService";
+import { serviceService } from "@/services/serviceService";
 
 export { serviceCoverIsLogo, SERVICE_COVER_FALLBACK };
 
+export type ServiceCardProps = {
+  row: { id: string; firm: string; offer: ServiceOffer; userId?: string; isVerified?: boolean };
+  onDeleted?: () => void;
+};
+
 export const ServiceCard = ({
   row,
-}: {
-  row: { id: string; firm: string; offer: ServiceOffer; userId?: string; isVerified?: boolean };
-}) => {
+  onDeleted,
+}: ServiceCardProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [removed, setRemoved] = useState(false);
+  const isOwn = Boolean(user && row.userId && user.id === row.userId);
   const { offer } = row;
   const place = zoneLabel(offer);
   const [contactOpen, setContactOpen] = useState(false);
@@ -39,12 +49,24 @@ export const ServiceCard = ({
         sellerId: row.userId,
         sellerName: row.firm,
         serviceId: row.id,
+        fromLabel: "Carte service",
       }),
     );
   };
 
+  if (removed) return null;
+
   return (
-    <article className="flex w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-sm">
+    <article className="relative flex w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-sm">
+      {isOwn && user ? (
+        <OwnerDeleteButton
+          onDelete={async () => {
+            await serviceService.deleteService(row.id, user.id);
+            setRemoved(true);
+            onDeleted?.();
+          }}
+        />
+      ) : null}
       <button type="button" onClick={openService} className="block w-full text-left">
         <span
           className={`relative block aspect-[16/10] w-full overflow-hidden ${
@@ -83,8 +105,12 @@ export const ServiceCard = ({
         </span>
       </button>
       <div className="flex flex-col gap-2 px-3.5 pb-3.5">
-        <button type="button" onClick={openDevis} className="h-10 rounded-lg bg-[#174f43] text-sm font-semibold text-white">
-          Demander devis
+        <button
+          type="button"
+          onClick={isOwn ? () => navigate(`/service/${row.id}/modifier`) : openDevis}
+          className="h-10 rounded-lg bg-[#174f43] text-sm font-semibold text-white"
+        >
+          {isOwn ? "Modifier" : "Demander devis"}
         </button>
         <button type="button" onClick={() => setContactOpen(true)} className="h-10 rounded-lg border border-neutral-300 text-sm font-semibold">
           Demander plus d'informations

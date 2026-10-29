@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Briefcase, Building, Building2, ChevronDown, Ellipsis, Factory, HardHat, Home, Hotel, Landmark, List, Map as MapIcon, MapPin, Search, SlidersHorizontal, Store, X, type LucideIcon } from "lucide-react";
+import { Briefcase, Building, Building2, Ellipsis, Factory, HardHat, Home, Hotel, Landmark, Map as MapIcon, MapPin, Search, Store, X, type LucideIcon } from "lucide-react";
 import { DesktopRailFrame } from "@/components/FeedDesktopRail";
-import PartnerDemandDialog from "@/components/PartnerDemandDialog";
+import PartnerDemandDialog, { PAID_PLAN_REQUEST, PROJECT_PLAN_NOTICE } from "@/components/PartnerDemandDialog";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import MapView from "@/components/MapView";
 import { CategoryPicker, FEED_PICKER_CATEGORIES, type CategoryOption } from "@/components/CategoryPicker";
@@ -10,17 +10,21 @@ import { RegionCitySheet } from "@/components/RegionCitySheet";
 import { SubCategoryChips } from "@/components/FilterChips";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { PROJECT_MILESTONES, milestoneReachedIndex } from "@/components/project/ProjectMilestoneTrack";
-import { COMMERCIAL_STATUSES, dossierFromRow } from "@/lib/projectDossier";
+import { ProjectFiltersPanel } from "@/components/project/ProjectListFilters";
+import { dossierFromRow } from "@/lib/projectDossier";
 import { ServiceCard } from "@/components/service/ServiceCard";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import { DISCOVER_ITEMS, type DiscoverItem } from "@/lib/showcaseDiscover";
+import { featuredFirmsForDiscover } from "@/lib/recommendedFirms";
+import { RecommendedFirmsGrid } from "@/components/FeedSpotlight";
 import { offerFromRow, priceLabel, serviceMainImage, zoneLabel } from "@/lib/serviceOffer";
 import { catalogService } from "@/services/catalogService";
 import { profileService } from "@/services/profileService";
 import { serviceFirmName, serviceFeedTags, serviceIsVerified, serviceService, type ServiceRow } from "@/services/serviceService";
 import {
   FOURNISSEUR_CATEGORY_ID,
+  INGENIERIE_ETUDES_SUB_SLUG,
   PROJECT_TYPES,
   PROMOTEUR_CATEGORY_ID,
   feedCategoryLabel,
@@ -28,6 +32,7 @@ import {
   isFournisseurInternalCode,
   isPromoteurInternalCode,
   matchesFeedCategory,
+  normalizeIngenierieFilterCodes,
   projectTypeLabel,
 } from "@/lib/taxonomy";
 
@@ -62,19 +67,46 @@ type MockItem = DiscoverItem;
 const DISCOVER_PAGE_SIZE = 12;
 
 /** Map Discover category chips → server filters (avoids client-side sparse paging). */
-const discoverTaxonomyFilters = (category: string | null, sub: string | null) => {
+const discoverTaxonomyFilters = (
+  category: string | null,
+  sub: string | null,
+  betCodes: string[] = [],
+) => {
   if (!category || category === "tout") {
-    return { feedCategory: null as string | null, feedSubCategory: null as string | null, promoteurOnly: false, fournisseurOnly: false };
+    return {
+      feedCategory: null as string | null,
+      feedSubCategory: null as string | null,
+      internalCodes: null as string[] | null,
+      promoteurOnly: false,
+      fournisseurOnly: false,
+    };
   }
   if (category === PROMOTEUR_CATEGORY_ID) {
-    return { feedCategory: null, feedSubCategory: null, promoteurOnly: true, fournisseurOnly: false };
+    return {
+      feedCategory: null,
+      feedSubCategory: null,
+      internalCodes: null,
+      promoteurOnly: true,
+      fournisseurOnly: false,
+    };
   }
   if (category === FOURNISSEUR_CATEGORY_ID) {
-    return { feedCategory: null, feedSubCategory: null, promoteurOnly: false, fournisseurOnly: true };
+    return {
+      feedCategory: null,
+      feedSubCategory: null,
+      internalCodes: null,
+      promoteurOnly: false,
+      fournisseurOnly: true,
+    };
   }
+  const codes =
+    sub === INGENIERIE_ETUDES_SUB_SLUG
+      ? normalizeIngenierieFilterCodes(betCodes)
+      : betCodes.map((c) => c.trim()).filter(Boolean);
   return {
     feedCategory: category,
     feedSubCategory: sub || null,
+    internalCodes: codes.length ? codes : null,
     promoteurOnly: false,
     fournisseurOnly: false,
   };
@@ -159,10 +191,14 @@ const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem)
   );
 };
 
+const DISCOVER_PROJECTS_CAP = 40;
+/** Announced catalogue size on Discover Projets (list remains capped at DISCOVER_PROJECTS_CAP). */
+const PROJECTS_PAID_CATALOGUE_COUNT = 477;
+
 const PromoteurNetworkGate = ({ onJoin }: { onJoin: () => void }) => (
   <div className="mx-1 mt-6 rounded-2xl border border-[#174f43]/20 bg-[#174f43]/5 px-4 py-5 text-center sm:px-6">
     <p className="text-base leading-relaxed text-neutral-800">
-      Seuls les partenaires accèdent au réseau étendu des promoteurs, avec l&apos;ensemble de leurs détails.
+      Seuls les partenaires accèdent au réseau étendu des promoteurs, avec l&apos;ensemble de leurs détails. {PAID_PLAN_REQUEST}
     </p>
     <button
       type="button"
@@ -174,27 +210,26 @@ const PromoteurNetworkGate = ({ onJoin }: { onJoin: () => void }) => (
   </div>
 );
 
-/** Top banner for Projets: open-dossier notice + partner CTA in one bordered block. */
+/** Top banner for Projets: limited free list + paid catalogue CTA. */
 const ProjetDossierPartnerBanner = ({ onJoin }: { onJoin: () => void }) => (
-  <div className="mx-1 mt-4 rounded-2xl border border-[#174f43]/20 bg-[#174f43]/5 px-4 py-4 sm:px-5">
-    <p className="text-sm leading-relaxed text-neutral-800">
-      Les trois premiers dossiers sont ouverts : leur équipe et leurs documents sont consultables. Pour tous les autres
-      projets, ces sections restent réservées aux partenaires.
+  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
+    <p className="text-sm leading-relaxed text-amber-950">
+      Sélection limitée : seuls {DISCOVER_PROJECTS_CAP} projets sont listés ici. Les{" "}
+      <span className="font-semibold">{PROJECTS_PAID_CATALOGUE_COUNT} projets</span> complets sont
+      réservés au plan payant.
     </p>
-    <p className="mt-3 text-sm leading-relaxed text-neutral-800">
-      Seuls les partenaires accèdent au réseau étendu des promoteurs, avec l&apos;ensemble de leurs détails.
+    <p className="mt-3 text-sm leading-relaxed text-amber-950">
+      {PROJECT_PLAN_NOTICE}
     </p>
     <button
       type="button"
       onClick={onJoin}
       className="mt-3 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123d34]"
     >
-      Deviens notre partenaire!
+      Demander les détails du plan payant
     </button>
   </div>
 );
-
-const DISCOVER_PROJECTS_CAP = 40;
 
 const AccountRow = ({
   name,
@@ -202,6 +237,7 @@ const AccountRow = ({
   city,
   typeLabel,
   isVerified,
+  showFollow = false,
   followed,
   onFollow,
   onOpen,
@@ -211,6 +247,7 @@ const AccountRow = ({
   city: string;
   typeLabel: string;
   isVerified?: boolean;
+  showFollow?: boolean;
   followed: boolean;
   onFollow: () => void;
   onOpen: () => void;
@@ -235,49 +272,19 @@ const AccountRow = ({
         <span className="mt-1 block truncate text-base text-neutral-400 sm:text-lg">{typeLabel} · {city}</span>
       </span>
     </button>
-    <button
-      type="button"
-      onClick={onFollow}
-      className={`shrink-0 rounded-full px-4 py-2.5 text-base font-semibold transition sm:px-5 sm:text-lg ${
-        followed ? "bg-[#174f43] text-white" : "border border-[#174f43] text-[#174f43]"
-      }`}
-    >
-      {followed ? "Suivi" : "Suivre"}
-    </button>
+    {showFollow ? (
+      <button
+        type="button"
+        onClick={onFollow}
+        className={`shrink-0 rounded-full px-4 py-2.5 text-base font-semibold transition sm:px-5 sm:text-lg ${
+          followed ? "bg-[#174f43] text-white" : "border border-[#174f43] text-[#174f43]"
+        }`}
+      >
+        {followed ? "Suivi" : "Suivre"}
+      </button>
+    ) : null}
   </div>
 );
-
-/** Vertical sliding segmented control over the project stages:
- *  Tout -> Sur plan -> Construction -> Prêt à livrer -> Livré. */
-const StageSlider = ({ value, onChange }: { value: number; onChange: (value: number) => void }) => {
-  const stops = [{ id: "", label: "Tout" }, ...PROJECT_MILESTONES];
-  const count = stops.length;
-  return (
-    <div className="relative flex flex-col rounded-[2.2vh] bg-neutral-100 p-[0.5vh]" role="group" aria-label="État du projet">
-      <span
-        aria-hidden
-        className="absolute left-[0.5vh] right-[0.5vh] rounded-[1.8vh] bg-[#174f43] shadow-sm transition-all duration-200 ease-out"
-        style={{
-          height: `calc((100% - 1vh) / ${count})`,
-          top: `calc(0.5vh + ${value} * (100% - 1vh) / ${count})`,
-        }}
-      />
-      {stops.map((stop, index) => (
-        <button
-          key={stop.label}
-          type="button"
-          onClick={() => onChange(index)}
-          aria-pressed={index === value}
-          className={`relative z-[1] w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[1.1vh] text-left text-[1.55vh] font-semibold leading-none transition-colors duration-200 ${
-            index === value ? "text-white" : "text-neutral-500 hover:text-neutral-800"
-          }`}
-        >
-          {stop.label}
-        </button>
-      ))}
-    </div>
-  );
-};
 
 const CardList = ({
   items,
@@ -310,13 +317,7 @@ const CardList = ({
             <li key={item.id} className="min-w-0 transition duration-150 hover:scale-[0.98]">
               <ProjectCard
                 row={project}
-                dossier={
-                  project.open_dossier
-                    ? "open"
-                    : project.dossier_locked || lockDossiers
-                      ? "locked"
-                      : undefined
-                }
+                dossier={project.dossier_locked || lockDossiers ? "locked" : undefined}
               />
             </li>
           );
@@ -362,17 +363,17 @@ const Explore = () => {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [subCategory, setSubCategory] = useState<string | null>(null);
+  const [betCodes, setBetCodes] = useState<string[]>([]);
   const [selectedCity, setSelectedCity] = useState("");
   const [citySheetOpen, setCitySheetOpen] = useState(false);
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [projectStageIdx, setProjectStageIdx] = useState(0);
   const [projectCommercial, setProjectCommercial] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<string | null>(null);
   const projectStage = projectStageIdx === 0 ? null : PROJECT_MILESTONES[projectStageIdx - 1].id;
-  const activeProjectFilters = (projectStageIdx > 0 ? 1 : 0) + (projectCommercial ? 1 : 0);
   const [liveServices, setLiveServices] = useState<ServiceRow[]>([]);
+  const [featuredServices, setFeaturedServices] = useState<ServiceRow[]>([]);
   const [liveProjects, setLiveProjects] = useState<any[]>([]);
   const [liveProfiles, setLiveProfiles] = useState<any[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
@@ -380,6 +381,11 @@ const Explore = () => {
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [partnerOpen, setPartnerOpen] = useState(false);
+  const [partnerNote, setPartnerNote] = useState(PAID_PLAN_REQUEST);
+  const openPartner = (note: string) => {
+    setPartnerNote(note);
+    setPartnerOpen(true);
+  };
   const [hasMoreServices, setHasMoreServices] = useState(true);
   const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
   const [servicesBooted, setServicesBooted] = useState(false);
@@ -426,8 +432,8 @@ const Explore = () => {
 
   const cityFilter = selectedCity.trim() || null;
   const taxonomyFilters = useMemo(
-    () => discoverTaxonomyFilters(selectedCategory, subCategory),
-    [selectedCategory, subCategory],
+    () => discoverTaxonomyFilters(selectedCategory, subCategory, betCodes),
+    [selectedCategory, subCategory, betCodes],
   );
   const promoterBatch = taxonomyFilters.promoteurOnly;
   // Projets always load the promoteur dossier network (open_dossier first).
@@ -712,6 +718,7 @@ const Explore = () => {
         city: row.location || "",
         description: row.profession || "",
         is_verified: Boolean(row.is_verified),
+        profile_type: row.profile_type || null,
       };
     });
     return [...DISCOVER_ITEMS, ...accounts, ...projects, ...services];
@@ -771,11 +778,58 @@ const Explore = () => {
     return false;
   });
   const accounts = useMemo(() => searched.filter((item) => item.kind === "agence"), [searched]);
+  const featuredAccounts = useMemo(
+    () =>
+      featuredFirmsForDiscover({
+        category: selectedCategory,
+        sub: subCategory,
+        city: selectedCity,
+        query: committedQuery,
+      }),
+    [selectedCategory, subCategory, selectedCity, committedQuery],
+  );
+  const featuredFirmKey = featuredAccounts.map((firm) => firm.id).join(",");
+  useEffect(() => {
+    let cancelled = false;
+    const ids = featuredFirmKey ? featuredFirmKey.split(",") : [];
+    if (!ids.length) {
+      setFeaturedServices([]);
+      return;
+    }
+    void serviceService.listServicesByUsers(ids).then(
+      (rows) => {
+        if (!cancelled) setFeaturedServices(rows);
+      },
+      (error) => {
+        if (!cancelled) {
+          console.error("Error loading recommended services:", error);
+          setFeaturedServices([]);
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [featuredFirmKey]);
+  const featuredServiceIds = useMemo(
+    () => new Set(featuredServices.map((row) => row.id)),
+    [featuredServices],
+  );
+  const directoryServices = searchResults.filter((item) => !featuredServiceIds.has(item.id));
+  const featuredIds = useMemo(() => new Set(featuredAccounts.map((firm) => firm.id)), [featuredAccounts]);
+  const featuredUsernames = useMemo(
+    () => new Set(featuredAccounts.map((firm) => firm.username)),
+    [featuredAccounts],
+  );
+  const directoryAccounts = useMemo(
+    () => accounts.filter((item) => !featuredIds.has(item.id) && !featuredUsernames.has(item.username || "")),
+    [accounts, featuredIds, featuredUsernames],
+  );
 
   const tabCountText = (id: SearchType): string | null => {
+    if (id === "projets") return String(PROJECTS_PAID_CATALOGUE_COUNT);
     const value = serverCounts[id];
     if (value == null) return null;
-    if (id === "projets") return String(Math.min(value, DISCOVER_PROJECTS_CAP));
     return String(value);
   };
 
@@ -835,45 +889,53 @@ const Explore = () => {
         </div>
       </form>
       <div className="mt-4">
-        <CategoryPicker
-          open={false}
-          onToggle={() => setCategoriesOpen(true)}
-          selectedLabel={pickerLabel}
-          categories={FEED_PICKER_CATEGORIES}
-          onSelect={() => {}}
-          size="lg"
-        />
+        <div className="flex items-center gap-2">
+          <div className="w-[80%] min-w-0">
+            <CategoryPicker
+              open={false}
+              onToggle={() => setCategoriesOpen(true)}
+              selectedLabel={pickerLabel}
+              categories={FEED_PICKER_CATEGORIES}
+              onSelect={() => {}}
+              size="lg"
+            />
+          </div>
+          <div className="relative w-[20%] min-w-0">
+            <button
+              type="button"
+              onClick={() => setCitySheetOpen(true)}
+              className="flex h-16 w-full items-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-2.5 text-left shadow-sm transition hover:border-[#174f43]"
+            >
+              <MapPin className="h-5 w-5 shrink-0 text-neutral-500" />
+              <span className={`min-w-0 flex-1 truncate text-sm font-semibold sm:text-base ${selectedCity ? "text-neutral-900" : "text-neutral-400"} ${selectedCity ? "pr-6" : ""}`}>
+                {selectedCity || "Ville"}
+              </span>
+            </button>
+            {selectedCity ? (
+              <button
+                type="button"
+                onClick={() => setSelectedCity("")}
+                className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                aria-label="Effacer la ville"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        </div>
         {searchType !== "projets" ? (
           <SubCategoryChips
             category={selectedCategory}
             value={subCategory}
-            onChange={setSubCategory}
+            onChange={(id) => {
+              setSubCategory(id);
+              setBetCodes([]);
+            }}
+            betCodes={betCodes}
+            onBetCodesChange={setBetCodes}
             size="lg"
           />
         ) : null}
-        <div className="mt-4 flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setCitySheetOpen(true)}
-            className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 text-left shadow-sm transition hover:border-[#174f43]"
-          >
-            <MapPin className="h-5 w-5 shrink-0 text-neutral-500" />
-            <span className={`min-w-0 flex-1 truncate text-base sm:text-lg ${selectedCity ? "font-medium text-neutral-900" : "text-neutral-400"}`}>
-              {selectedCity || "Filtrer par ville"}
-            </span>
-            <ChevronDown className="h-5 w-5 shrink-0 text-neutral-500" />
-          </button>
-          {selectedCity ? (
-            <button
-              type="button"
-              onClick={() => setSelectedCity("")}
-              className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
-              aria-label="Effacer la ville"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          ) : null}
-        </div>
         <RegionCitySheet
           open={citySheetOpen}
           onClose={() => setCitySheetOpen(false)}
@@ -926,6 +988,7 @@ const Explore = () => {
               } else {
                 setSelectedCategory(id);
                 setSubCategory(null);
+                setBetCodes([]);
               }
               setCategoriesOpen(false);
             }}
@@ -939,97 +1002,17 @@ const Explore = () => {
     <DesktopRailFrame className="min-h-screen bg-white pb-20 lg:pb-0">
       <div className="mx-auto w-full max-w-2xl px-3 pt-4 lg:mx-0 lg:max-w-none lg:px-0 lg:pt-0">
         {searchFields}
-        <div className="mt-4 flex items-center justify-end gap-2 pb-1">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-base font-medium ${
-                viewMode === "list" ? "bg-[#174f43] text-white" : "bg-neutral-100 text-neutral-900"
-              }`}
-            >
-              <List className="h-5 w-5" />
-              Liste
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("map")}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-base font-medium ${
-                viewMode === "map" ? "bg-[#174f43] text-white" : "bg-neutral-100 text-neutral-900"
-              }`}
-            >
-              <MapIcon className="h-5 w-5" />
-              Carte
-            </button>
-          </div>
-        </div>
 
         {searchType === "projets" && viewMode === "list" ? (
-          <div className="mt-[1vh]">
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((open) => !open)}
-              aria-expanded={filtersOpen}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-base font-semibold shadow-sm transition ${
-                activeProjectFilters > 0
-                  ? "border-[#174f43] text-[#174f43]"
-                  : "border-neutral-200 bg-white text-neutral-700 hover:border-[#174f43] hover:text-[#174f43]"
-              }`}
-            >
-              <SlidersHorizontal className="h-5 w-5" />
-              Filtres
-              {activeProjectFilters > 0 ? (
-                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#174f43] px-1.5 text-sm font-bold text-white">
-                  {activeProjectFilters}
-                </span>
-              ) : null}
-              <ChevronDown
-                className={`h-5 w-5 transition-transform duration-300 ${filtersOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            <div
-              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-              }`}
-            >
-              <div className="min-h-0 overflow-hidden">
-                <div className="flex max-w-full items-start gap-[1.5vh] pt-[1.2vh]">
-                  <div className="w-[24vh] max-w-[48%] shrink-0">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400 sm:text-sm">
-                      État du projet
-                    </p>
-                    <StageSlider value={projectStageIdx} onChange={setProjectStageIdx} />
-                  </div>
-                  <div className="w-[24vh] max-w-[48%] shrink-0">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400 sm:text-sm">
-                      Commercialisation
-                    </p>
-                    <div className="flex flex-col rounded-[2.2vh] bg-neutral-100 p-[0.5vh]">
-                {[
-                  { id: null as string | null, label: "Tous" },
-                  ...COMMERCIAL_STATUSES.filter(
-                    (status) => status.id === "en_commercialisation" || status.id === "commercialise",
-                  ).map((status) => ({ id: status.id as string | null, label: status.label })),
-                ].map((option) => (
-                  <button
-                    key={option.label}
-                    type="button"
-                    onClick={() => setProjectCommercial(option.id)}
-                    aria-pressed={projectCommercial === option.id}
-                    className={`w-full whitespace-nowrap rounded-[1.8vh] px-[1.8vh] py-[1.1vh] text-left text-[1.55vh] font-semibold leading-none transition ${
-                      projectCommercial === option.id
-                        ? "bg-[#174f43] text-white shadow-sm"
-                        : "text-neutral-500 hover:text-neutral-800"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="mt-4">
+            <ProjetDossierPartnerBanner onJoin={() => openPartner(PROJECT_PLAN_NOTICE)} />
+            <ProjectFiltersPanel
+              open
+              stageIdx={projectStageIdx}
+              onStage={setProjectStageIdx}
+              commercial={projectCommercial}
+              onCommercial={setProjectCommercial}
+            />
           </div>
         ) : null}
 
@@ -1038,20 +1021,31 @@ const Explore = () => {
             <MapView />
           </div>
         ) : tabLoading &&
-          ((searchType === "comptes" && accounts.length === 0) ||
-            (searchType === "services" && searchResults.length === 0) ||
+          ((searchType === "comptes" && accounts.length === 0 && featuredAccounts.length === 0) ||
+            (searchType === "services" && searchResults.length === 0 && featuredServices.length === 0) ||
             (searchType !== "comptes" && searchType !== "services" && searchResults.length === 0)) ? (
           <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Chargement…</p>
         ) : searchType === "comptes" ? (
-          accounts.length === 0 && !hasMoreProfiles && !loadingProfiles ? (
+          directoryAccounts.length === 0 && featuredAccounts.length === 0 && !hasMoreProfiles && !loadingProfiles ? (
             <>
               <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucune entreprise pour cette recherche</p>
-              {promoterBatch ? <PromoteurNetworkGate onJoin={() => setPartnerOpen(true)} /> : null}
+              {promoterBatch ? <PromoteurNetworkGate onJoin={() => openPartner(PAID_PLAN_REQUEST)} /> : null}
             </>
           ) : (
             <>
+              {featuredAccounts.length ? (
+                <div className="border-b border-neutral-200 px-3 pb-4 sm:px-0">
+                  <h2 className="px-0 pb-3 pt-4 text-lg font-semibold text-neutral-950 sm:text-xl">
+                    Entreprises recommandées
+                  </h2>
+                  <RecommendedFirmsGrid firms={featuredAccounts} />
+                </div>
+              ) : null}
+              {directoryAccounts.length ? (
+                <h2 className="px-3 pt-4 text-lg font-semibold text-neutral-950 sm:px-0 sm:text-xl">Résultats</h2>
+              ) : null}
               <ul>
-                {accounts.map((item) => {
+                {directoryAccounts.map((item) => {
                   const username = item.username || item.id;
                   return (
                     <li key={item.id}>
@@ -1061,6 +1055,7 @@ const Explore = () => {
                         city={item.city}
                         typeLabel={subCategoryLabel(item) || item.description || "Entreprise"}
                         isVerified={item.is_verified}
+                        showFollow={item.profile_type === "enterprise" && Boolean(item.is_verified)}
                         followed={Boolean(followed[username])}
                         onFollow={() => setFollowed((current) => ({ ...current, [username]: !current[username] }))}
                         onOpen={() => openItem(item)}
@@ -1070,19 +1065,53 @@ const Explore = () => {
                 })}
               </ul>
               <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore} onLoadMore={loadMoreForTab} />
-              {promoterBatch ? <PromoteurNetworkGate onJoin={() => setPartnerOpen(true)} /> : null}
+              {promoterBatch ? <PromoteurNetworkGate onJoin={() => openPartner(PAID_PLAN_REQUEST)} /> : null}
             </>
           )
-        ) : searchResults.length === 0 &&
-          !(searchType === "services" && (hasMoreServices || loadingServices)) &&
-          !tabLoading ? (
+        ) : searchType === "services" ? (
+          directoryServices.length === 0 && featuredServices.length === 0 && !hasMoreServices && !loadingServices && !tabLoading ? (
+            <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucun résultat pour cette recherche</p>
+          ) : (
+            <>
+              {featuredServices.length ? (
+                <div className="border-b border-neutral-200 px-3 pb-4 sm:px-0">
+                  <h2 className="px-0 pb-3 pt-4 text-lg font-semibold text-neutral-950 sm:text-xl">À la une</h2>
+                  <ul className="grid grid-cols-1 items-start gap-3 md:grid-cols-2">
+                    {featuredServices.map((service) => (
+                      <li key={service.id} className="min-w-0">
+                        <ServiceCard
+                          row={{
+                            id: service.id,
+                            firm: serviceFirmName(service),
+                            userId: service.user_id,
+                            offer: offerFromRow(service),
+                            isVerified: serviceIsVerified(service),
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {directoryServices.length ? (
+                <h2 className="px-3 pt-4 text-lg font-semibold text-neutral-950 sm:px-0 sm:text-xl">Résultats</h2>
+              ) : null}
+              <CardList
+                items={directoryServices}
+                onOpen={openItem}
+                serviceRows={liveServices}
+                projectRows={liveProjects}
+                lockDossiers={showDossierGate}
+              />
+              <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore || loadingServices} onLoadMore={loadMoreForTab} />
+            </>
+          )
+        ) : searchResults.length === 0 && !tabLoading ? (
           <>
             <p className="px-4 py-8 text-center text-base text-muted-foreground sm:text-lg">Aucun résultat pour cette recherche</p>
-            {showDossierGate ? <ProjetDossierPartnerBanner onJoin={() => setPartnerOpen(true)} /> : null}
           </>
         ) : (
           <>
-            {showDossierGate ? <ProjetDossierPartnerBanner onJoin={() => setPartnerOpen(true)} /> : null}
             <CardList
               items={
                 searchType === "projets" ? searchResults.slice(0, DISCOVER_PROJECTS_CAP) : searchResults
@@ -1092,12 +1121,17 @@ const Explore = () => {
               projectRows={liveProjects}
               lockDossiers={showDossierGate}
             />
-            {searchType === "services" ? (
-              <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore || loadingServices} onLoadMore={loadMoreForTab} />
-            ) : null}
           </>
         )}
-        <PartnerDemandDialog open={partnerOpen} onOpenChange={setPartnerOpen} />
+        <PartnerDemandDialog
+          open={partnerOpen}
+          onOpenChange={setPartnerOpen}
+          title="Débloquer les bonnes affaires"
+          description={partnerNote}
+          successTitle="Demande reçue"
+          successMessage="Merci. Nous vous enverrons les détails du plan payant."
+          submitLabel="Envoyer ma demande"
+        />
       </div>
     </DesktopRailFrame>
   );

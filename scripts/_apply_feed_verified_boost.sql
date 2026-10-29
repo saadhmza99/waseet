@@ -1,4 +1,4 @@
--- Boost verified-badge posts on Accueil (no follow required) + restore CHB Unsplash images.
+-- Boost verified professionals inside the Accueil mix, and keep institution posts alternating after the first professional post.
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.feed_page(p_limit integer DEFAULT 8, p_offset integer DEFAULT 0)
@@ -80,21 +80,72 @@ AS $feed$
       CASE WHEN c.mix THEN c.lim - c.follow_count ELSE c.lim END AS general_count
     FROM counts c
   ),
+  -- Verified authors stay ahead inside the professional pool. The public stream
+  -- opens with a professional, then alternates one institution post. Institution
+  -- posts rotate across accounts: newest of each, then the next newest of each.
+  general_base AS (
+    SELECT
+      v.*,
+      (pr.profile_type = 'institution') AS is_institution
+    FROM public.visible_feed_posts v
+    JOIN public.profiles pr ON pr.id = v.user_id
+    CROSS JOIN sized s
+    WHERE s.general_count > 0
+      AND (
+        NOT s.mix
+        OR NOT v.from_following
+        OR COALESCE(v.is_verified, false)
+      )
+  ),
+  institution_turns AS (
+    SELECT
+      b.id,
+      b.user_id,
+      row_number() OVER (
+        PARTITION BY b.user_id
+        ORDER BY b.created_at DESC, b.id DESC
+      ) AS author_rn,
+      max(b.created_at) OVER (PARTITION BY b.user_id) AS author_latest
+    FROM general_base b
+    WHERE b.is_institution
+  ),
+  pool_order AS (
+    SELECT
+      b.id,
+      row_number() OVER (
+        ORDER BY COALESCE(b.is_verified, false) DESC, b.created_at DESC, b.id DESC
+      ) AS pool_rn
+    FROM general_base b
+    WHERE NOT b.is_institution
+    UNION ALL
+    SELECT
+      t.id,
+      row_number() OVER (
+        ORDER BY t.author_rn, t.author_latest DESC, t.user_id, t.id DESC
+      ) AS pool_rn
+    FROM institution_turns t
+  ),
+  general_ranked AS (
+    SELECT b.*, o.pool_rn
+    FROM general_base b
+    JOIN pool_order o ON o.id = b.id
+  ),
+  general_ordered AS (
+    SELECT
+      r.*,
+      CASE
+        WHEN NOT r.is_institution AND r.pool_rn = 1 THEN 0
+        WHEN r.is_institution THEN r.pool_rn * 2 - 1
+        ELSE (r.pool_rn - 1) * 2
+      END AS weave
+    FROM general_ranked r
+  ),
   general_slice AS (
-    SELECT q.*, row_number() OVER (
-      ORDER BY COALESCE(q.is_verified, false) DESC, q.created_at DESC, q.id DESC
-    ) - 1 AS local_index
+    SELECT q.*, row_number() OVER (ORDER BY q.weave, q.id) - 1 AS local_index
     FROM (
-      SELECT v.*
-      FROM public.visible_feed_posts v
-      CROSS JOIN sized s
-      WHERE s.general_count > 0
-        AND (
-          NOT s.mix
-          OR NOT v.from_following
-          OR COALESCE(v.is_verified, false)
-        )
-      ORDER BY COALESCE(v.is_verified, false) DESC, v.created_at DESC, v.id DESC
+      SELECT g.*
+      FROM general_ordered g
+      ORDER BY g.weave, g.id
       OFFSET (SELECT general_before FROM sized)
       LIMIT (SELECT general_count FROM sized)
     ) q
@@ -146,10 +197,8 @@ AS $feed$
     SELECT
       EXISTS (
         SELECT 1
-        FROM public.visible_feed_posts v
-        CROSS JOIN sized s
-        WHERE NOT s.mix OR NOT v.from_following OR COALESCE(v.is_verified, false)
-        ORDER BY COALESCE(v.is_verified, false) DESC, v.created_at DESC, v.id DESC
+        FROM general_ordered g
+        ORDER BY g.weave, g.id
         OFFSET (
           SELECT s.general_before + (SELECT count(*)::integer FROM picked pk WHERE pk.kind = 'general')
           FROM sized s
@@ -202,7 +251,7 @@ AS $feed$
 $feed$;
 
 COMMENT ON FUNCTION public.feed_page(integer, integer) IS
-  'Newest visible posts, paged. Verified-badge authors are boosted on Accueil without requiring a follow. Signed-in viewers who follow people get one non-verified followed post after every three others.';
+  'Newest visible posts, paged. Accueil opens with a professional, then alternates institution posts one account at a time. Verified professionals stay ahead of other professionals. Signed-in viewers who follow people get one non-verified followed post after every three others.';
 
 -- Restore original CHB Architects post images (Unsplash set from showcase).
 UPDATE public.posts SET

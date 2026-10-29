@@ -94,9 +94,25 @@ const mapFeedRow = (row: any) => ({
     location: row.location || "",
     profession: row.profession || "",
     is_verified: row.is_verified,
+    profile_type: row.profile_type || null,
     phone: row.phone || "",
   },
 });
+
+const withAuthorTypes = async (posts: any[]) => {
+  const ids = [...new Set(posts.map((post) => post.user_id).filter(Boolean))];
+  if (!ids.length) return posts;
+  const { data, error } = await supabase.from("profiles").select("id, profile_type").in("id", ids);
+  if (error || !data) return posts;
+  const types = new Map(data.map((row) => [row.id, row.profile_type]));
+  return posts.map((post) => ({
+    ...post,
+    profiles: {
+      ...(post.profiles || {}),
+      profile_type: types.get(post.user_id) ?? post.profiles?.profile_type ?? null,
+    },
+  }));
+};
 
 // feed_page can return no rows when every visible post is from someone the viewer
 // follows and the database function still uses the old slot mix. Read the view directly.
@@ -153,12 +169,12 @@ export const postService = {
     if (rows.length === 0 && offset === 0) {
       const fallback = await fallbackFeedPage(limit);
       if (fallback) {
-        return { ...fallback, posts: await attachPortfolioLinks(fallback.posts) };
+        return { ...fallback, posts: await withAuthorTypes(await attachPortfolioLinks(fallback.posts)) };
       }
     }
     return {
       hasMore: Boolean(rows[0]?.has_more),
-      posts: await attachPortfolioLinks(rows.map(mapFeedRow)),
+      posts: await withAuthorTypes(await attachPortfolioLinks(rows.map(mapFeedRow))),
     };
   },
 
@@ -176,6 +192,7 @@ export const postService = {
           location,
           profession,
           is_verified,
+          profile_type,
           phone
         )
       `)

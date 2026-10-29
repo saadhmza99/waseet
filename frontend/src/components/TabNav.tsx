@@ -79,13 +79,20 @@ const TabNav = () => {
           </span>
           Favoris
         </button>
-        <button type="button" className={itemClass(false)} aria-label="Boîte de réception">
+        <button type="button" onClick={() => navigate("/inbox")} className={itemClass(path.startsWith("/inbox"))} aria-label="Boîte de réception">
           <span className={iconWrap}>
-            <Inbox className="h-7 w-7" strokeWidth={2} />
+            <Inbox
+              className={`h-7 w-7 ${path.startsWith("/inbox") ? "text-[#237a5d]" : ""}`}
+              strokeWidth={path.startsWith("/inbox") ? 1.8 : 2}
+            />
           </span>
-          Inbox
+          Messages
         </button>
-        <button type="button" onClick={() => navigate("/profile")} className={itemClass(onOwnProfile)}>
+        <button
+          type="button"
+          onClick={() => navigate(user || visitorUser ? "/profile" : "/login")}
+          className={itemClass(onOwnProfile)}
+        >
           <span className={iconWrap}>
             <User
               className={`h-7 w-7 ${onOwnProfile ? "fill-[#237a5d] text-[#237a5d]" : ""}`}

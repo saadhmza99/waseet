@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { withActivityLog } from "@/lib/activityLog";
 import { offerFromRow, priceLabel, rowFromOffer, serviceMainImage, zoneLabel, type ServiceOffer } from "@/lib/serviceOffer";
 import type { DiscoverListFilters } from "@/services/profileService";
 import {
@@ -8,7 +9,9 @@ import {
   isPromoteurInternalCode,
 } from "@/lib/taxonomy";
 
-const applyServicesFilters = <T extends { eq: Function; like: Function; not: Function; or: Function }>(
+const applyServicesFilters = <
+  T extends { eq: Function; like: Function; not: Function; or: Function; in: Function },
+>(
   query: T,
   filters?: DiscoverListFilters,
 ): T => {
@@ -16,10 +19,16 @@ const applyServicesFilters = <T extends { eq: Function; like: Function; not: Fun
   const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
   const feedCategory = (filters?.feedCategory || "").trim();
   const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const internalCodes = (filters?.internalCodes || []).map((c) => String(c || "").trim()).filter(Boolean);
   const promoteurOnly = Boolean(filters?.promoteurOnly);
   const fournisseurOnly = Boolean(filters?.fournisseurOnly);
   const categoryPrefix =
-    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+    !promoteurOnly &&
+    !fournisseurOnly &&
+    !feedSubCategory &&
+    !internalCodes.length &&
+    feedCategory &&
+    feedCategory !== "tout"
       ? feedCategoryCodePrefix(feedCategory)
       : null;
 
@@ -39,6 +48,8 @@ const applyServicesFilters = <T extends { eq: Function; like: Function; not: Fun
   }
   if (fournisseurOnly) {
     next = next.like("internal_categories.code", "8.5.%");
+  } else if (internalCodes.length) {
+    next = next.in("internal_categories.code", internalCodes);
   } else if (feedSubCategory) {
     next = next.eq("internal_categories.feed_sub_categories.slug", feedSubCategory);
   } else if (categoryPrefix) {
@@ -129,16 +140,23 @@ const SERVICE_INTERNAL_CATEGORY_EMBED_INNER = `
 const servicesTaxonomyEmbed = (filters?: DiscoverListFilters) => {
   const feedCategory = (filters?.feedCategory || "").trim();
   const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const internalCodes = (filters?.internalCodes || []).map((c) => String(c || "").trim()).filter(Boolean);
   const promoteurOnly = Boolean(filters?.promoteurOnly);
   const fournisseurOnly = Boolean(filters?.fournisseurOnly);
   const categoryPrefix =
-    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+    !promoteurOnly &&
+    !fournisseurOnly &&
+    !feedSubCategory &&
+    !internalCodes.length &&
+    feedCategory &&
+    feedCategory !== "tout"
       ? feedCategoryCodePrefix(feedCategory)
       : null;
-  const needsCodeFilter = fournisseurOnly || Boolean(categoryPrefix);
-  const needsFeedSlugFilter = Boolean(feedSubCategory) || (
-    Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix
-  );
+  const needsCodeFilter = fournisseurOnly || Boolean(categoryPrefix) || internalCodes.length > 0;
+  const needsFeedSlugFilter =
+    !internalCodes.length &&
+    (Boolean(feedSubCategory) ||
+      (Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix));
   if (needsFeedSlugFilter) return SERVICE_INTERNAL_CATEGORY_EMBED_INNER;
   if (needsCodeFilter) return SERVICE_INTERNAL_CATEGORY_EMBED_CODE_INNER;
   return SERVICE_INTERNAL_CATEGORY_EMBED;
@@ -197,7 +215,7 @@ const SERVICE_LIST_SELECT = `
   missions,
   created_at,
   ${SERVICE_INTERNAL_CATEGORY_EMBED},
-  profiles!inner:user_id (
+  profiles!user_id!inner (
     id,
     username,
     full_name,
@@ -245,16 +263,28 @@ export const serviceFeedTags = (row: ServiceRow) => {
 
 export const serviceService = {
   async createService(userId: string, offer: ServiceOffer) {
-    const { data, error } = await supabase
-      .from("services")
-      .insert({
-        user_id: userId,
-        ...rowFromOffer(offer),
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    return data as ServiceRow;
+    return withActivityLog(
+      {
+        action: "service_create",
+        targetType: "service",
+        targetLabel: offer.title || null,
+        message: "Création d'un service",
+        meta: { userId },
+      },
+      async () => {
+        const { data, error } = await supabase
+          .from("services")
+          .insert({
+            user_id: userId,
+            ...rowFromOffer(offer),
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        return data as ServiceRow;
+      },
+      (row) => ({ targetId: row.id, targetLabel: offer.title || row.id }),
+    );
   },
 
   async getService(id: string) {
@@ -274,6 +304,21 @@ export const serviceService = {
     const { data, error } = await query.range(offset, offset + Math.max(limit - 1, 0));
     if (error) throw error;
     return (data || []) as ServiceRow[];
+  },
+
+  /** Services owned by the curated recommended firms, in caller order. */
+  async listServicesByUsers(userIds: string[]) {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    if (!ids.length) return [] as ServiceRow[];
+    const { data, error } = await supabase
+      .from("services")
+      .select(SERVICE_LIST_SELECT)
+      .in("user_id", ids);
+    if (error) throw error;
+    const order = new Map(ids.map((id, index) => [id, index]));
+    return ((data || []) as ServiceRow[]).sort(
+      (a, b) => (order.get(a.user_id) ?? ids.length) - (order.get(b.user_id) ?? ids.length),
+    );
   },
 
   /** Exact Supabase row count for Discover Services (same filters as listServices). */
@@ -312,15 +357,33 @@ export const serviceService = {
   },
 
   async updateService(id: string, userId: string, offer: ServiceOffer) {
-    const { data, error } = await supabase
-      .from("services")
-      .update(rowFromOffer(offer))
-      .eq("id", id)
-      .eq("user_id", userId)
-      .select()
-      .single();
+    return withActivityLog(
+      {
+        action: "service_update",
+        targetType: "service",
+        targetId: id,
+        targetLabel: offer.title || null,
+        message: "Modification d'un service",
+        meta: { userId },
+      },
+      async () => {
+        const { data, error } = await supabase
+          .from("services")
+          .update(rowFromOffer(offer))
+          .eq("id", id)
+          .eq("user_id", userId)
+          .select()
+          .single();
+        if (error) throw error;
+        return data as ServiceRow;
+      },
+      (row) => ({ targetId: row.id, targetLabel: offer.title || row.id }),
+    );
+  },
+
+  async deleteService(id: string, userId: string) {
+    const { error } = await supabase.from("services").delete().eq("id", id).eq("user_id", userId);
     if (error) throw error;
-    return data as ServiceRow;
   },
 
   /** Shape used by profile ListingCard-style service cards. */

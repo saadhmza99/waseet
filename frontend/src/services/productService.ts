@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { withActivityLog } from "@/lib/activityLog";
 import { productCategoryFr } from "@/lib/productTaxonomy";
 
 export type ProductProfile = {
@@ -8,6 +9,8 @@ export type ProductProfile = {
   avatar_url?: string | null;
   location?: string | null;
   profession?: string | null;
+  profile_type?: string | null;
+  is_verified?: boolean | null;
   phone?: string | null;
   email?: string | null;
   website_url?: string | null;
@@ -59,6 +62,8 @@ const PRODUCT_LIST_SELECT = `
     avatar_url,
     location,
     profession,
+    profile_type,
+    is_verified,
     phone,
     email,
     website_url
@@ -74,6 +79,28 @@ export const productPhotos = (row: ProductRow): string[] => {
   push(row.cover);
   if (Array.isArray(row.gallery)) row.gallery.forEach((url) => push(url));
   return urls;
+};
+
+export const productDeliveryCities = (row: ProductRow): string[] => {
+  const raw = row.delivery_cities as unknown;
+  const values = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string" && raw.trim().startsWith("[")
+      ? (() => {
+          try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  const cities: string[] = [];
+  for (const item of values) {
+    const city = String(item || "").trim();
+    if (city && !cities.includes(city)) cities.push(city);
+  }
+  return cities;
 };
 
 export const productProfile = (row: ProductRow): ProductProfile | null => {
@@ -183,40 +210,106 @@ export type CreateProductInput = {
 
 export const productService = {
   async createProduct(userId: string, input: CreateProductInput): Promise<ProductRow> {
-    const title = (input.title || "").trim();
-    if (!title) throw new Error("Le titre est requis");
-    const gallery = Array.isArray(input.gallery) ? input.gallery.filter(Boolean) : [];
-    const cover = (input.cover || "").trim() || gallery[0] || null;
-    const delivery_cities = Array.isArray(input.delivery_cities)
-      ? input.delivery_cities.map((c) => c.trim()).filter(Boolean)
-      : [];
-    const priceRaw = input.price;
-    const price =
-      priceRaw == null || Number.isNaN(Number(priceRaw)) ? null : Number(priceRaw);
+    return withActivityLog(
+      {
+        action: "product_create",
+        targetType: "product",
+        targetLabel: (input.title || "").trim() || null,
+        message: "Création d'un produit",
+        meta: { userId },
+      },
+      async () => {
+        const title = (input.title || "").trim();
+        if (!title) throw new Error("Le titre est requis");
+        const gallery = Array.isArray(input.gallery) ? input.gallery.filter(Boolean) : [];
+        const cover = (input.cover || "").trim() || gallery[0] || null;
+        const delivery_cities = Array.isArray(input.delivery_cities)
+          ? input.delivery_cities.map((c) => c.trim()).filter(Boolean)
+          : [];
+        const priceRaw = input.price;
+        const price =
+          priceRaw == null || Number.isNaN(Number(priceRaw)) ? null : Number(priceRaw);
 
-    const { data, error } = await supabase
-      .from("products")
-      .insert({
-        user_id: userId,
-        title,
-        description: (input.description || "").trim() || null,
-        category: (input.category || "").trim() || null,
-        brand: (input.brand || "").trim() || null,
-        sku: (input.sku || "").trim() || null,
-        price,
-        currency: (input.currency || "MAD").trim() || "MAD",
-        unit: (input.unit || "").trim() || null,
-        min_quantity: (input.min_quantity || "").trim() || null,
-        cover,
-        gallery,
-        delivery_cities,
-        attributes: input.attributes && typeof input.attributes === "object" ? input.attributes : {},
-        source_url: (input.source_url || "").trim() || null,
-      })
-      .select(PRODUCT_LIST_SELECT)
-      .single();
+        const { data, error } = await supabase
+          .from("products")
+          .insert({
+            user_id: userId,
+            title,
+            description: (input.description || "").trim() || null,
+            category: (input.category || "").trim() || null,
+            brand: (input.brand || "").trim() || null,
+            sku: (input.sku || "").trim() || null,
+            price,
+            currency: (input.currency || "MAD").trim() || "MAD",
+            unit: (input.unit || "").trim() || null,
+            min_quantity: (input.min_quantity || "").trim() || null,
+            cover,
+            gallery,
+            delivery_cities,
+            attributes: input.attributes && typeof input.attributes === "object" ? input.attributes : {},
+            source_url: (input.source_url || "").trim() || null,
+          })
+          .select(PRODUCT_LIST_SELECT)
+          .single();
+        if (error) throw error;
+        return data as ProductRow;
+      },
+      (row) => ({ targetId: row.id, targetLabel: row.title }),
+    );
+  },
+
+  async updateProduct(id: string, userId: string, input: CreateProductInput): Promise<ProductRow> {
+    return withActivityLog(
+      {
+        action: "product_update",
+        targetType: "product",
+        targetId: id,
+        targetLabel: (input.title || "").trim() || null,
+        message: "Modification d'un produit",
+        meta: { userId },
+      },
+      async () => {
+        const title = (input.title || "").trim();
+        if (!title) throw new Error("Le titre est requis");
+        const gallery = Array.isArray(input.gallery) ? input.gallery.filter(Boolean) : [];
+        const cover = (input.cover || "").trim() || gallery[0] || null;
+        const delivery_cities = Array.isArray(input.delivery_cities)
+          ? input.delivery_cities.map((city) => city.trim()).filter(Boolean)
+          : [];
+        const priceRaw = input.price;
+        const price = priceRaw == null || Number.isNaN(Number(priceRaw)) ? null : Number(priceRaw);
+
+        const { data, error } = await supabase
+          .from("products")
+          .update({
+            title,
+            description: (input.description || "").trim() || null,
+            category: (input.category || "").trim() || null,
+            brand: (input.brand || "").trim() || null,
+            sku: (input.sku || "").trim() || null,
+            price,
+            currency: (input.currency || "MAD").trim() || "MAD",
+            unit: (input.unit || "").trim() || null,
+            min_quantity: (input.min_quantity || "").trim() || null,
+            cover,
+            gallery,
+            delivery_cities,
+            attributes: input.attributes && typeof input.attributes === "object" ? input.attributes : {},
+          })
+          .eq("id", id)
+          .eq("user_id", userId)
+          .select(PRODUCT_LIST_SELECT)
+          .single();
+        if (error) throw error;
+        return data as ProductRow;
+      },
+      (row) => ({ targetId: row.id, targetLabel: row.title }),
+    );
+  },
+
+  async deleteProduct(id: string, userId: string) {
+    const { error } = await supabase.from("products").delete().eq("id", id).eq("user_id", userId);
     if (error) throw error;
-    return data as ProductRow;
   },
 
   async listProducts(limit = 300, offset = 0): Promise<ProductRow[]> {

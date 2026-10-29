@@ -41,6 +41,7 @@ import { DesktopRailFrame } from "@/components/FeedDesktopRail";
 import InquiryDialog from "@/components/InquiryDialog";
 import { ProductCard } from "@/components/product/ProductCard";
 import { devisPath } from "@/services/devisService";
+import { showFollowButton } from "@/services/followService";
 import { useMyCreateCapabilities } from "@/hooks/useMyCreateCapabilities";
 import {
   DropdownMenu,
@@ -146,8 +147,8 @@ const SupplierCallMenu = ({
 
   const unavailable = (kind: string) => {
     toast({
-      title: "Unavailable",
-      description: kind === "whatsapp" ? "This profile has no WhatsApp number." : "This profile has no phone number.",
+      title: "Indisponible",
+      description: kind === "whatsapp" ? "Ce profil n'a pas de numéro WhatsApp." : "Ce profil n'a pas de numéro de téléphone.",
     });
   };
 
@@ -313,6 +314,7 @@ const Products = () => {
         sellerId: pro.id,
         sellerName: pro.full_name || pro.username || "Fournisseur",
         projectType: "achat-materiaux",
+        fromLabel: "Catalogue matériaux",
       }),
     );
   };
@@ -575,14 +577,14 @@ const Products = () => {
   return (
     <DesktopRailFrame className="min-h-screen bg-[#f6f5f3] pb-20 lg:pb-0" contentClassName={railContentClass}>
       <div className="mx-auto w-full pb-6 pt-4 lg:pt-0">
-        <h1 className="text-5xl font-semibold tracking-tight text-neutral-900">Sifarah Matériaux</h1>
-        <p className="mt-2.5 max-w-2xl text-base leading-relaxed text-neutral-600">
+        <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-5xl">Sifarah Matériaux</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600 sm:mt-2.5 sm:text-base">
           {mode === "fournisseurs"
             ? "Comparez les fournisseurs de matériaux de construction disponibles au Maroc, consultez leurs profils et demandez un devis."
             : "Parcourez les produits et matériaux proposés par les professionnels, comparez et contactez le fournisseur."}
         </p>
 
-        <div className="mt-6 flex items-start gap-5">
+        <div className="mt-4 flex items-start gap-5 sm:mt-6">
           {selectedCategory ? (
             <aside className="sticky top-4 hidden w-80 shrink-0 rounded-xl border border-neutral-200 bg-white px-5 py-3 lg:block">
               {leftFilters}
@@ -590,20 +592,26 @@ const Products = () => {
           ) : null}
 
           <div className="min-w-0 flex-1">
-            <div className="mb-5 grid h-14 grid-cols-1 items-center gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,25rem)_minmax(0,1fr)] sm:gap-3">
-              <div className="flex h-14 min-w-0 justify-start">
-                <div className="flex h-14 shrink-0 items-stretch gap-0.5 rounded-2xl border border-neutral-200 bg-white p-1">
+            <div
+              className={
+                selectedCategory
+                  ? "mb-4 flex flex-col gap-2.5 lg:mb-5"
+                  : "mb-4 flex flex-col gap-2.5 sm:mb-5 sm:grid sm:h-14 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,25rem)_minmax(0,1fr)] sm:items-center sm:gap-3"
+              }
+            >
+              <div className="flex min-w-0 justify-start">
+                <div className="flex h-11 w-full shrink-0 items-stretch gap-0.5 rounded-2xl border border-neutral-200 bg-white p-1 sm:h-14 sm:w-auto">
                   {(
                     [
                       { id: "fournisseurs", label: "Fournisseurs", Icon: Building2 },
-                      { id: "produits", label: "Produits", Icon: Package },
+                      { id: "produits", label: "Matériaux", Icon: Package },
                     ] as const
                   ).map(({ id, label, Icon }) => (
                     <button
                       key={id}
                       type="button"
                       onClick={() => setMode(id)}
-                      className={`inline-flex h-full items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition sm:gap-2 sm:px-4 sm:text-base ${
+                      className={`inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-semibold transition sm:flex-none sm:gap-2 sm:px-4 sm:text-base ${
                         mode === id ? "bg-[#174f43] text-white" : "text-neutral-700 hover:text-[#174f43]"
                       }`}
                     >
@@ -614,34 +622,48 @@ const Products = () => {
                 </div>
               </div>
 
-              <div className="h-14 min-w-0 w-full">
-                <CategoryPicker
-                  open={false}
-                  columns={3}
-                  size="lg"
-                  onToggle={() => setCategoriesOpen(true)}
-                  selectedLabel={pickerLabel}
-                  categories={PRODUCT_PICKER_CATEGORIES}
-                  onSelect={() => {}}
-                />
-              </div>
-
-              <div className="flex h-14 min-w-0 w-full items-center gap-2.5">
-                <div className="relative h-14 min-w-0 flex-1">
-                  <Search className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder={mode === "fournisseurs" ? "Rechercher…" : "Rechercher…"}
-                    aria-label={mode === "fournisseurs" ? "Rechercher un fournisseur" : "Rechercher un produit"}
-                    className="h-14 w-full rounded-2xl border border-neutral-200 bg-white pl-4 pr-11 text-base outline-none focus:border-[#174f43]"
+              <div className={`flex min-h-11 min-w-0 w-full items-center gap-2 sm:h-14 ${selectedCategory ? "lg:hidden" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  <CategoryPicker
+                    open={false}
+                    columns={3}
+                    size="lg"
+                    onToggle={() => setCategoriesOpen(true)}
+                    selectedLabel={pickerLabel}
+                    categories={PRODUCT_PICKER_CATEGORIES}
+                    onSelect={() => {}}
                   />
                 </div>
                 {selectedCategory ? (
                   <button
                     type="button"
                     onClick={() => setFiltersOpen((open) => !open)}
-                    className="inline-flex h-14 shrink-0 items-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-800 sm:text-base lg:hidden"
+                    className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-800 sm:hidden"
+                  >
+                    Filtres
+                    {activeFilterCount ? (
+                      <span className="rounded-full bg-[#174f43] px-2 text-xs text-white">{activeFilterCount}</span>
+                    ) : null}
+                  </button>
+                ) : null}
+              </div>
+
+              <div className={`flex min-w-0 w-full items-center gap-2.5 ${selectedCategory ? "lg:hidden" : ""}`}>
+                <div className="relative h-11 min-w-0 flex-1 sm:h-14">
+                  <Search className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 sm:h-5 sm:w-5" />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder={mode === "fournisseurs" ? "Rechercher…" : "Rechercher…"}
+                    aria-label={mode === "fournisseurs" ? "Rechercher un fournisseur" : "Rechercher un produit"}
+                    className="h-11 w-full rounded-2xl border border-neutral-200 bg-white pl-4 pr-11 text-sm outline-none focus:border-[#174f43] sm:h-14 sm:text-base"
+                  />
+                </div>
+                {selectedCategory ? (
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen((open) => !open)}
+                    className="hidden h-14 shrink-0 items-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-800 sm:inline-flex sm:text-base lg:hidden"
                   >
                     Filtres
                     {activeFilterCount ? (
@@ -656,15 +678,40 @@ const Products = () => {
               <div className="mb-4 rounded-xl border border-neutral-200 bg-white px-4 py-2 lg:hidden">{leftFilters}</div>
             ) : null}
 
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900">
-                  {mode === "fournisseurs" ? "Fournisseurs de matériaux" : "Produits & matériaux"}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-neutral-900 sm:text-xl">
+                  {mode === "fournisseurs" ? "Fournisseurs de matériaux" : "Matériaux de construction"}
                 </h2>
-                <p className="mt-1 text-base text-neutral-500">
+                <p className="mt-1 text-sm text-neutral-500 sm:text-base">
                   {loading ? "Chargement…" : `${results.length} résultats trouvés`}
                 </p>
               </div>
+              {selectedCategory ? (
+                <div className="hidden min-w-0 flex-1 items-center justify-end gap-3 lg:flex">
+                  <div className="w-full max-w-[22rem] shrink-0">
+                    <CategoryPicker
+                      open={false}
+                      columns={3}
+                      size="lg"
+                      onToggle={() => setCategoriesOpen(true)}
+                      selectedLabel={pickerLabel}
+                      categories={PRODUCT_PICKER_CATEGORIES}
+                      onSelect={() => {}}
+                    />
+                  </div>
+                  <div className="relative h-16 min-w-[12rem] max-w-md flex-1">
+                    <Search className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Rechercher…"
+                      aria-label={mode === "fournisseurs" ? "Rechercher un fournisseur" : "Rechercher un matériau"}
+                      className="h-16 w-full rounded-2xl border border-neutral-200 bg-white pl-4 pr-11 text-base outline-none focus:border-[#174f43]"
+                    />
+                  </div>
+                </div>
+              ) : null}
               {mode === "produits" && mySections.showProduits ? (
                 <button
                   type="button"
@@ -688,11 +735,7 @@ const Products = () => {
               </p>
             ) : mode === "fournisseurs" ? (
               <ul
-                className={`mt-5 grid gap-3 sm:gap-4 ${
-                  selectedCategory
-                    ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5"
-                }`}
+                className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
               >
                 {pageSuppliers.map((pro) => {
                   const username = pro.username || pro.id;
@@ -725,19 +768,21 @@ const Products = () => {
                             </span>
                           </span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFollowed((current) => ({ ...current, [username]: !current[username] }))
-                          }
-                          className={`shrink-0 rounded-full px-2.5 py-1.5 text-xs font-semibold transition sm:px-3.5 sm:py-2 sm:text-sm ${
-                            isFollowed
-                              ? "bg-[#174f43] text-white"
-                              : "border border-[#174f43] text-[#174f43] hover:bg-[#174f43]/5"
-                          }`}
-                        >
-                          {isFollowed ? "Suivi" : "Suivre"}
-                        </button>
+                        {showFollowButton(pro.profile_type, pro.is_verified) ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFollowed((current) => ({ ...current, [username]: !current[username] }))
+                            }
+                            className={`shrink-0 rounded-full px-2.5 py-1.5 text-xs font-semibold transition sm:px-3.5 sm:py-2 sm:text-sm ${
+                              isFollowed
+                                ? "bg-[#174f43] text-white"
+                                : "border border-[#174f43] text-[#174f43] hover:bg-[#174f43]/5"
+                            }`}
+                          >
+                            {isFollowed ? "Suivi" : "Suivre"}
+                          </button>
+                        ) : null}
                       </div>
                       <p className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-neutral-500 sm:mt-3.5 sm:gap-2 sm:text-sm">
                         {profession ? (
@@ -782,8 +827,8 @@ const Products = () => {
               <ul
                 className={`mt-5 grid gap-3 sm:gap-4 ${
                   selectedCategory
-                    ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5"
+                    ? "grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3"
+                    : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
                 }`}
               >
                 {pageProducts.map((row) => (

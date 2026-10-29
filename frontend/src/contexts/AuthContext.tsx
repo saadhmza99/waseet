@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/components/ui/use-toast';
@@ -43,6 +43,9 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
+  /** True from the logout click until the app has returned to the feed. */
+  loggingOut: boolean;
+  acknowledgeLogout: () => void;
   /** `restored` is true when name + phone matched a stored visitor whose saves moved to this session. */
   startVisitorSession: (details: VisitorDetails) => Promise<{ user: User; restored: boolean }>;
   /** Turns this particulier session into an email + password login. Skipped when no password is set. */
@@ -302,9 +305,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return { error: null, pendingConfirmation };
   };
 
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const acknowledgeLogout = useCallback(() => setLoggingOut(false), []);
+
   const signOut = async () => {
     clearPasswordRecovery();
-    await supabase.auth.signOut();
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      setLoggingOut(false);
+      throw error;
+    }
   };
 
   const value = {
@@ -321,6 +334,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     resetPassword,
     clearPasswordRecovery,
     signOut,
+    loggingOut,
+    acknowledgeLogout,
     startVisitorSession,
     setVisitorPassword,
   };

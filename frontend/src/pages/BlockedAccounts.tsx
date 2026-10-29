@@ -64,7 +64,7 @@ const BlockedAccounts = () => {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-[57px] sm:top-[60px] z-40 flex items-center gap-3 border-b border-border bg-background px-4 py-3 sm:px-6 sm:py-4 md:px-8">
+      <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background px-4 py-3 sm:px-6 sm:py-4 md:px-8">
         <button
           type="button"
           onClick={() => navigate("/settings")}
@@ -74,7 +74,7 @@ const BlockedAccounts = () => {
           <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
         <h1 className="text-lg font-semibold text-card-foreground sm:text-xl md:text-2xl">
-          Manage blocked accounts
+          Comptes bloqués
         </h1>
       </div>
 
@@ -101,7 +101,7 @@ const BlockedAccounts = () => {
                   </p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => setPendingUnblock(row)}>
-                  Unblock
+                  Débloquer
                 </Button>
               </li>
             ))}
@@ -112,10 +112,10 @@ const BlockedAccounts = () => {
       <BlockMemberModal
         isOpen={Boolean(pendingUnblock)}
         onClose={() => setPendingUnblock(null)}
-        title="Unblock member"
-        message="Are you sure you want to unblock this account? You can't block it again until after 48 hours."
-        confirmLabel="Unblock"
-        submittingLabel="Unblocking…"
+        title="Débloquer ce membre"
+        message="Voulez-vous débloquer ce compte ? Vous ne pourrez le bloquer à nouveau qu'après 48 heures."
+        confirmLabel="Débloquer"
+        submittingLabel="Déblocage…"
         submitting={unblocking}
         onConfirm={confirmUnblock}
       />

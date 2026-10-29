@@ -60,6 +60,7 @@ import PortfolioGrid from "@/components/PortfolioGrid";
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { ServiceCard } from "@/components/service/ServiceCard";
 import { ProductCard } from "@/components/product/ProductCard";
+import { ProfileCategoriesDialog } from "@/components/ProfileCategoriesDialog";
 import { locationsFrom, ProfileDetailsFields, type InfosField } from "@/components/ProfileInfosCard";
 import UploadProgressRing from "@/components/UploadProgressRing";
 import { RetryImage } from "@/components/RetryImage";
@@ -417,12 +418,6 @@ const Profile = () => {
   }, [institution, showFormations, profileSections]);
 
   useEffect(() => {
-    if (!visibleTabs.includes(activeTab)) {
-      setActiveTab(institution ? "Posts" : "Infos");
-    }
-  }, [visibleTabs, activeTab, institution]);
-
-  useEffect(() => {
     if (!institution || !profile?.id) return;
     let cancelled = false;
     institutionService.listArticles(profile.id).then((rows) => {
@@ -483,6 +478,13 @@ const Profile = () => {
   const [listingsCount, setListingsCount] = useState<number | null>(bootBundle ? bootBundle.listingsCount : null);
   const [productsCount, setProductsCount] = useState<number | null>(bootBundle ? bootBundle.productsCount : null);
   const [loading, setLoading] = useState(!bootBundle);
+
+  useEffect(() => {
+    if (loading || !profile || !visibleTabs.length) return;
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0]);
+    }
+  }, [loading, profile, visibleTabs, activeTab]);
   const [postsReady, setPostsReady] = useState(Boolean(bootBundle));
   const [reelsReady, setReelsReady] = useState(Boolean(bootBundle));
   const [portfolioReady, setPortfolioReady] = useState(Boolean(bootBundle));
@@ -500,6 +502,7 @@ const Profile = () => {
   const [isFollowing, setIsFollowing] = useState(Boolean(bootBundle?.isFollowing));
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const [showEditInfosModal, setShowEditInfosModal] = useState(false);
   const [infosEditField, setInfosEditField] = useState<InfosField | "all">("all");
   const [preferredWebsiteIndex, setPreferredWebsiteIndex] = useState(0);
@@ -610,11 +613,6 @@ const Profile = () => {
       return next.toString() === prev.toString() ? prev : next;
     }, { replace: true });
   }, [activeTab, postsView, showReviews]);
-
-  useEffect(() => {
-    if (!visibleTabs.length) return;
-    if (!visibleTabs.includes(activeTab)) setActiveTab(visibleTabs[0]);
-  }, [visibleTabs, activeTab]);
 
   const applyBundle = useCallback(
     (bundle: ProfileBufferBundle) => {
@@ -1145,6 +1143,7 @@ const Profile = () => {
       username={profile.username || "Utilisateur"}
       fullName={profile.full_name || ""}
       isVerified={Boolean(profile.is_verified)}
+      profileType={profile.profile_type}
       location={profile.location || ""}
       city={cityFromPost(post)}
       profession={profile.profession || ""}
@@ -1207,7 +1206,7 @@ const Profile = () => {
     try {
       await moderationService.reportProfile(profile.id, user.id, payload.reason, payload.details);
       setShowReportModal(false);
-      toast({ title: "Report submitted" });
+      toast({ title: "Signalement envoyé" });
     } catch (error) {
       console.error("Error reporting profile:", error);
       toast({ title: "Erreur", description: "Impossible de signaler ce profil pour le moment." });
@@ -1222,7 +1221,7 @@ const Profile = () => {
         const until = await moderationService.getReblockBlockedUntil(user.id, profile.id);
         if (until) {
           toast({
-            title: "You can't block this account again until after 48 hours.",
+            title: "Vous pourrez bloquer ce compte à nouveau après 48 heures.",
             description: `Available ${until.toLocaleString()}`,
           });
           return;
@@ -1249,7 +1248,7 @@ const Profile = () => {
       console.error("Error blocking profile:", error);
       toast({
         title: isBlockCooldownError(error)
-          ? "You can't block this account again until after 48 hours."
+          ? "Vous pourrez bloquer ce compte à nouveau après 48 heures."
           : "Erreur",
         description: isBlockCooldownError(error) ? undefined : "Impossible de bloquer ce profil.",
       });
@@ -1350,7 +1349,9 @@ const Profile = () => {
     setSavingProfile(true);
     try {
       const updated = await profileService.updateProfile(user.id, {
-        about_text: aboutHtmlIsEmpty(editForm.about) ? null : editForm.about.slice(0, MAX_ABOUT_LENGTH),
+        about_text: aboutHtmlIsEmpty(editForm.about)
+          ? null
+          : sanitizeAboutHtml(editForm.about).slice(0, MAX_ABOUT_LENGTH) || null,
       });
       setProfile(updated);
       setEditingAbout(false);
@@ -1395,10 +1396,10 @@ const Profile = () => {
       setReelDescription("");
       setReelPublishFormOpen(false);
       forgetBufferedProfile({ id: user.id, username: profile?.username });
-      toast({ title: "Reel publie", description: "Votre reel a ete ajoute." });
+      toast({ title: "Vidéo publiée", description: "Votre vidéo a été ajoutée." });
     } catch (error) {
       console.error("Error creating reel:", error);
-      const msg = error instanceof Error ? error.message : "Impossible d'ajouter ce reel.";
+      const msg = error instanceof Error ? error.message : "Impossible d'ajouter cette vidéo.";
       toast({ title: "Erreur", description: msg });
     } finally {
       setUploadingReel(false);
@@ -1454,12 +1455,14 @@ const Profile = () => {
         location={profile.location}
         isOwnProfile={isOwnProfile}
         isVerified={Boolean(profile.is_verified)}
+        profileType={profile.profile_type}
         authReady={!authLoading}
         isFollowing={isFollowing}
         phone={profile.phone}
         websiteUrl={profile.website_url}
         onToggleFollow={handleToggleFollow}
         onEditProfile={() => setShowEditProfileModal(true)}
+        onEditCategories={institution ? undefined : () => setShowCategories(true)}
         onReportMember={handleReportMember}
         onBlockMember={handleBlockMember}
         onAboutThisMember={() => setShowAboutMember(true)}
@@ -1516,6 +1519,8 @@ const Profile = () => {
                           : tab === "Services"
                             ? listingsCount
                             : productsCount;
+                const tabLabel = tab === "Posts" ? "Publications" : tab;
+                const hideZeroCount = count === 0;
                 return (
                   <button
                     key={tab}
@@ -1528,14 +1533,14 @@ const Profile = () => {
                         : "border-transparent text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {tab !== "Infos" ? (
+                    {tab !== "Infos" && !hideZeroCount ? (
                       count == null ? (
                         <span className="inline-block h-4 w-6 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700 sm:h-5 sm:w-7" />
                       ) : (
                         <span className="text-sm font-medium tabular-nums sm:text-lg">{count}</span>
                       )
                     ) : null}
-                    <span className="whitespace-nowrap text-sm font-semibold sm:text-lg">{tab}</span>
+                    <span className="whitespace-nowrap text-sm font-semibold sm:text-lg">{tabLabel}</span>
                   </button>
                 );
               })}
@@ -1693,7 +1698,14 @@ const Profile = () => {
                 <>
                   <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-3">
                     {visibleProjects.map((row) => (
-                      <ProjectCard key={row.id} row={row} />
+                      <ProjectCard
+                        key={row.id}
+                        row={row}
+                        onDeleted={() => {
+                          setProjectItems((prev) => prev.filter((item) => item.id !== row.id));
+                          setProjectsCount((count) => (count == null ? count : Math.max(0, count - 1)));
+                        }}
+                      />
                     ))}
                   </div>
                   <LoadMoreButton
@@ -1904,7 +1916,7 @@ const Profile = () => {
                     className="h-8 bg-[#174f43] px-3 text-white hover:bg-[#174f43]/90"
                   >
                     <Plus className="mr-1.5 h-4 w-4" />
-                    Créer un post
+                    Créer une publication
                   </Button>
                 ) : (
                   <span />
@@ -1928,7 +1940,7 @@ const Profile = () => {
                   </button>
                   <button
                     type="button"
-                    aria-label="Réels"
+                    aria-label="Vidéos"
                     onClick={() => {
                       setFeedPostId(null);
                       setPostsView("reels");
@@ -1946,11 +1958,18 @@ const Profile = () => {
                   variant="ghost"
                   size="icon"
                   onClick={() =>
-                    copySectionLink("Posts", postsView === "reels" ? "Réels" : "Posts")
+                    copySectionLink(
+                      "Posts",
+                      postsView === "reels" ? "Vidéos" : "Publications",
+                    )
                   }
                   className="h-8 w-8 shrink-0"
-                  aria-label={postsView === "reels" ? "Partager les réels" : "Partager les posts"}
-                  title={postsView === "reels" ? "Partager les réels" : "Partager les posts"}
+                  aria-label={
+                    postsView === "reels" ? "Partager les vidéos" : "Partager les publications"
+                  }
+                  title={
+                    postsView === "reels" ? "Partager les vidéos" : "Partager les publications"
+                  }
                 >
                   <Share2 className="h-4 w-4" />
                 </Button>
@@ -1963,7 +1982,7 @@ const Profile = () => {
                     <ProfileMediaGridSkeleton />
                   ) : tabPosts.length === 0 ? (
                     <div className="py-10 text-center text-base text-muted-foreground">
-                      Aucun post publié.
+                      Aucune publication.
                     </div>
                   ) : feedPostId ? (
                     <div className="scroll-mt-2">
@@ -1992,7 +2011,7 @@ const Profile = () => {
                             role="button"
                             tabIndex={0}
                             data-post-id={id}
-                            aria-label={post.description || "Voir le post"}
+                            aria-label={post.description || "Voir la publication"}
                             onClick={() => navigate(`/post/${id}`)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter" || event.key === " ") {
@@ -2046,7 +2065,7 @@ const Profile = () => {
                         <div className="flex justify-center">
                           <CollapsibleTrigger asChild>
                             <Button type="button" variant="outline" size="sm">
-                              Publier un reel
+                              Publier une vidéo
                             </Button>
                           </CollapsibleTrigger>
                         </div>
@@ -2056,7 +2075,7 @@ const Profile = () => {
                             plus {REEL_MAX_DURATION_SECONDS} secondes par mois (mois calendaire UTC).
                           </p>
                           <Input
-                            placeholder="Titre du reel (optionnel)"
+                            placeholder="Titre de la vidéo (optionnel)"
                             value={reelTitle}
                             onChange={(e) => setReelTitle(e.target.value)}
                           />
@@ -2075,7 +2094,7 @@ const Profile = () => {
                                 const maxMb = Math.round(REEL_UPLOAD_MAX_BYTES / (1024 * 1024));
                                 toast({
                                   title: "Fichier trop grand",
-                                  description: `Maximum ${maxMb} Mo pour un reel.`,
+                                  description: `Maximum ${maxMb} Mo pour une vidéo.`,
                                 });
                                 e.target.value = "";
                                 setReelVideoFile(null);
@@ -2111,7 +2130,7 @@ const Profile = () => {
                                 ? reelUploadProgress > 0
                                   ? `Envoi ${reelUploadProgress}%`
                                   : "Préparation…"
-                                : "Envoyer le reel"}
+                                : "Envoyer la vidéo"}
                             </Button>
                           </div>
                         </CollapsibleContent>
@@ -2121,7 +2140,7 @@ const Profile = () => {
                   {!reelsReady ? (
                     <ProfileMediaGridSkeleton />
                   ) : reels.length === 0 ? (
-                    <div className="py-10 text-center text-base text-muted-foreground">Aucun reel publie.</div>
+                    <div className="py-10 text-center text-base text-muted-foreground">Aucune vidéo publiée.</div>
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
                       {reels.map((reel) => {
@@ -2133,14 +2152,14 @@ const Profile = () => {
                           <button
                             key={reel.id}
                             type="button"
-                            aria-label={reel.title || "Voir le reel"}
+                            aria-label={reel.title || "Voir la vidéo"}
                             onClick={openInReelsViewer}
                             className="relative aspect-[3/4] overflow-hidden bg-black"
                           >
                             {reel.cloudflare_video_id ? (
                               <RetryImage
                                 src={streamService.getVideoThumbnailUrl(String(reel.cloudflare_video_id).trim())}
-                                alt={reel.title || "Reel"}
+                                alt={reel.title || "Vidéo"}
                                 compact
                                 wrapClassName="h-full w-full"
                                 className="h-full w-full object-cover"
@@ -2210,6 +2229,10 @@ const Profile = () => {
                     return (
                       <ServiceCard
                         key={listing.id}
+                        onDeleted={() => {
+                          setListings((prev) => prev.filter((item) => item.id !== listing.id));
+                          setListingsCount((count) => (count == null ? count : Math.max(0, count - 1)));
+                        }}
                         row={{
                           id: String(listing.id),
                           firm: profile.full_name || profile.username || "Entreprise",
@@ -2265,7 +2288,14 @@ const Profile = () => {
                 <>
                   <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-3">
                     {products.map((product) => (
-                      <ProductCard key={product.id} row={product} />
+                      <ProductCard
+                        key={product.id}
+                        row={product}
+                        onDeleted={() => {
+                          setProducts((prev) => prev.filter((item) => item.id !== product.id));
+                          setProductsCount((count) => (count == null ? count : Math.max(0, count - 1)));
+                        }}
+                      />
                     ))}
                   </div>
                   <LoadMoreButton
@@ -2329,11 +2359,11 @@ const Profile = () => {
       <Dialog open={showFollowersModal} onOpenChange={setShowFollowersModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Followers</DialogTitle>
+            <DialogTitle>Abonnés</DialogTitle>
           </DialogHeader>
           <div className="max-h-[50vh] overflow-y-auto space-y-3">
             {followers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun follower pour le moment.</p>
+              <p className="text-sm text-muted-foreground">Aucun abonné pour le moment.</p>
             ) : (
               followers.map((follower) => (
                 <button
@@ -2360,6 +2390,19 @@ const Profile = () => {
         </DialogContent>
       </Dialog>
 
+      <ProfileCategoriesDialog
+        open={showCategories}
+        onOpenChange={setShowCategories}
+        profileId={profile.id}
+        onSaved={() => {
+          if (!user) return;
+          void profileService.getProfile(user.id).then((fresh) => {
+            setProfile(fresh);
+            forgetBufferedProfile(fresh);
+          });
+        }}
+      />
+
       <Dialog
         open={showEditProfileModal}
         onOpenChange={(open) => {
@@ -2374,7 +2417,7 @@ const Profile = () => {
       >
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit profile</DialogTitle>
+            <DialogTitle>Modifier le profil</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {COVER_PHOTOS_ENABLED ? (
@@ -2596,7 +2639,7 @@ const Profile = () => {
         onClose={() => setShowReportModal(false)}
         variant="profile"
         subjectName={memberLabel}
-        title="Report this profile"
+        title="Signaler ce profil"
         submitting={reportSubmitting}
         onSubmit={submitProfileReport}
       />

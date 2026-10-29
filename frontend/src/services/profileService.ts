@@ -1,4 +1,4 @@
-import { isMissingAvatarUrl } from "@/lib/avatar";
+import { hasRealLogoUrl, isMonogramAvatarUrl, NON_REAL_LOGO_FRAGMENTS } from "@/lib/avatar";
 import { clampBio } from "@/lib/bio";
 import { feedCategoryCodeExcludePrefix, feedCategoryCodePrefix } from "@/lib/taxonomy";
 import { supabase } from '@/lib/supabase';
@@ -26,11 +26,18 @@ export type DiscoverListFilters = {
   query?: string | null;
   feedCategory?: string | null;
   feedSubCategory?: string | null;
+  /** Exact internal_categories.code values (e.g. BET D14–D21 multi-select). */
+  internalCodes?: string[] | null;
   promoteurOnly?: boolean;
   fournisseurOnly?: boolean;
 };
 
-const applyProfessionalsFilters = <T extends { eq: Function; like: Function; not: Function; ilike: Function; or: Function }>(
+const normalizeInternalCodes = (filters?: DiscoverListFilters) =>
+  (filters?.internalCodes || []).map((c) => String(c || "").trim()).filter(Boolean);
+
+const applyProfessionalsFilters = <
+  T extends { eq: Function; like: Function; not: Function; ilike: Function; or: Function; in: Function },
+>(
   query: T,
   filters?: DiscoverListFilters,
 ): T => {
@@ -38,10 +45,16 @@ const applyProfessionalsFilters = <T extends { eq: Function; like: Function; not
   const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
   const feedCategory = (filters?.feedCategory || "").trim();
   const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const internalCodes = normalizeInternalCodes(filters);
   const promoteurOnly = Boolean(filters?.promoteurOnly);
   const fournisseurOnly = Boolean(filters?.fournisseurOnly);
   const categoryPrefix =
-    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+    !promoteurOnly &&
+    !fournisseurOnly &&
+    !feedSubCategory &&
+    !internalCodes.length &&
+    feedCategory &&
+    feedCategory !== "tout"
       ? feedCategoryCodePrefix(feedCategory)
       : null;
 
@@ -61,6 +74,8 @@ const applyProfessionalsFilters = <T extends { eq: Function; like: Function; not
   }
   if (fournisseurOnly) {
     next = next.like("profile_internal_categories.internal_categories.code", "8.5.%");
+  } else if (internalCodes.length) {
+    next = next.in("profile_internal_categories.internal_categories.code", internalCodes);
   } else if (feedSubCategory) {
     next = next.eq(
       "profile_internal_categories.internal_categories.feed_sub_categories.slug",
@@ -84,16 +99,23 @@ const applyProfessionalsFilters = <T extends { eq: Function; like: Function; not
 const professionalsTaxonomyEmbed = (filters?: DiscoverListFilters) => {
   const feedCategory = (filters?.feedCategory || "").trim();
   const feedSubCategory = (filters?.feedSubCategory || "").trim();
+  const internalCodes = normalizeInternalCodes(filters);
   const promoteurOnly = Boolean(filters?.promoteurOnly);
   const fournisseurOnly = Boolean(filters?.fournisseurOnly);
   const categoryPrefix =
-    !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+    !promoteurOnly &&
+    !fournisseurOnly &&
+    !feedSubCategory &&
+    !internalCodes.length &&
+    feedCategory &&
+    feedCategory !== "tout"
       ? feedCategoryCodePrefix(feedCategory)
       : null;
-  const needsCodeFilter = fournisseurOnly || Boolean(categoryPrefix);
-  const needsFeedFilter = Boolean(feedSubCategory) || (
-    Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix
-  );
+  const needsCodeFilter = fournisseurOnly || Boolean(categoryPrefix) || internalCodes.length > 0;
+  const needsFeedFilter =
+    !internalCodes.length &&
+    (Boolean(feedSubCategory) ||
+      (Boolean(feedCategory && feedCategory !== "tout") && !categoryPrefix));
 
   const picEmbed = needsFeedFilter
     ? `profile_internal_categories!inner (
@@ -188,17 +210,151 @@ const interleaveByMixKey = <T extends Record<string, unknown>>(rows: T[]) => {
 };
 
 /**
- * Browse ranking (no text search): real avatars first, then specialty mix for "tout".
+ * Browse ranking (no text search): real logos first, then monogram SVGs, then missing.
+ * Specialty mix for "tout" applies within each tier.
  * Text search keeps DB order so relevance isn't reshuffled.
  */
 const rankDiscoverBrowse = <T extends { avatar_url?: string | null } & Record<string, unknown>>(
   rows: T[],
   { mixCategories }: { mixCategories: boolean },
 ) => {
-  const withPhoto = rows.filter((row) => !isMissingAvatarUrl(row.avatar_url));
-  const withoutPhoto = rows.filter((row) => isMissingAvatarUrl(row.avatar_url));
-  if (!mixCategories) return [...withPhoto, ...withoutPhoto];
-  return [...interleaveByMixKey(withPhoto), ...interleaveByMixKey(withoutPhoto)];
+  const withLogo = rows.filter((row) => hasRealLogoUrl(row.avatar_url));
+  const withMonogram = rows.filter((row) => isMonogramAvatarUrl(row.avatar_url));
+  const withoutPhoto = rows.filter(
+    (row) => !hasRealLogoUrl(row.avatar_url) && !isMonogramAvatarUrl(row.avatar_url),
+  );
+  if (!mixCategories) return [...withLogo, ...withMonogram, ...withoutPhoto];
+  return [
+    ...interleaveByMixKey(withLogo),
+    ...interleaveByMixKey(withMonogram),
+    ...interleaveByMixKey(withoutPhoto),
+  ];
+};
+
+const PROFILE_ROW_SELECT = `*, internal_category:internal_categories!profiles_internal_category_id_fkey(code, detailed_sub_category),
+        profile_internal_categories(is_primary, internal_categories(code, detailed_sub_category))`;
+
+const discoverProfileSelect = (taxonomyEmbed: string) => `
+  id,
+  username,
+  full_name,
+  avatar_url,
+  location,
+  profession,
+  profile_type,
+  is_verified,
+  created_at,
+  ${taxonomyEmbed}
+`;
+
+const dedupeProfileRows = <T extends { id?: string }>(rows: T[]) => {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const id = String(row.id || "");
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(row);
+  }
+  return out;
+};
+
+/** Every directory enterprise whose avatar is a real logo, not an initials SVG. */
+const listRealLogoEnterprises = async (filters: DiscoverListFilters | undefined, taxonomyEmbed: string) => {
+  let query = supabase
+    .from("profiles")
+    .select(discoverProfileSelect(taxonomyEmbed))
+    .not("username", "is", null)
+    .eq("profile_type", "enterprise")
+    .not("avatar_url", "is", null)
+    .neq("avatar_url", "")
+    .order("full_name", { ascending: true })
+    .limit(500);
+  for (const fragment of NON_REAL_LOGO_FRAGMENTS) {
+    query = query.not("avatar_url", "ilike", `%${fragment}%`);
+  }
+  query = applyProfessionalsFilters(query, filters);
+  const { data, error } = await query;
+  if (error) throw error;
+  return dedupeProfileRows((data || []) as Array<{ id?: string; avatar_url?: string | null }>).filter((row) =>
+    hasRealLogoUrl(row.avatar_url),
+  );
+};
+
+/** Profiles that are not real-logo enterprises, continuing after `restSkip` raw rows. */
+const listDiscoverRest = async (
+  filters: DiscoverListFilters | undefined,
+  taxonomyEmbed: string,
+  logoIds: string[],
+  restSkip: number,
+  restNeed: number,
+  mixCategories: boolean,
+) => {
+  if (restNeed <= 0) return { rows: [] as Array<{ id?: string; avatar_url?: string | null }>, rawUsed: 0 };
+  const excluded = NON_REAL_LOGO_FRAGMENTS.map((fragment) => `avatar_url.ilike.%${fragment}%`).join(",");
+  const notLogo = `profile_type.neq.enterprise,avatar_url.is.null,avatar_url.eq."",${excluded}`;
+  const logoIdSet = new Set(logoIds);
+  const collected: Array<{ id?: string; avatar_url?: string | null } & Record<string, unknown>> = [];
+  const seen = new Set<string>();
+  let rawUsed = 0;
+  let cursor = restSkip;
+
+  while (collected.length < restNeed) {
+    let query = supabase
+      .from("profiles")
+      .select(discoverProfileSelect(taxonomyEmbed))
+      .not("username", "is", null)
+      .or(notLogo)
+      .order(mixCategories ? "id" : "created_at", { ascending: mixCategories });
+    if (logoIds.length) query = query.not("id", "in", `(${logoIds.join(",")})`);
+    query = applyProfessionalsFilters(query, filters);
+    const window = Math.max(restNeed * 3, 36);
+    const { data, error } = await query.range(cursor, cursor + window - 1);
+    if (error) throw error;
+    const page = data || [];
+    if (!page.length) break;
+    for (const row of page) {
+      rawUsed += 1;
+      cursor += 1;
+      const id = String((row as { id?: string }).id || "");
+      if (!id || seen.has(id) || logoIdSet.has(id)) continue;
+      seen.add(id);
+      collected.push(row as { id?: string; avatar_url?: string | null } & Record<string, unknown>);
+      if (collected.length >= restNeed) break;
+    }
+    if (page.length < window) break;
+  }
+
+  const ranked = rankDiscoverBrowse(collected, { mixCategories });
+  return { rows: ranked.slice(0, restNeed), rawUsed };
+};
+
+/** Hide email always for non-owners; phone only when show_phone (or own profile). */
+const maskProfilePii = async <T extends { id?: string; email?: string | null; phone?: string | null }>(
+  profile: T | null,
+): Promise<T | null> => {
+  if (!profile?.id) return profile;
+  const { data: auth } = await supabase.auth.getUser();
+  const viewerId = auth.user?.id || null;
+  if (viewerId && viewerId === profile.id) return profile;
+
+  let showPhone = false;
+  try {
+    const { data: settings } = await supabase
+      .from("user_settings")
+      .select("show_phone")
+      .eq("user_id", profile.id)
+      .maybeSingle();
+    showPhone = Boolean(settings?.show_phone);
+  } catch {
+    showPhone = false;
+  }
+
+  return {
+    ...profile,
+    email: null,
+    phone: showPhone ? profile.phone : null,
+  };
 };
 
 export const profileService = {
@@ -222,15 +378,12 @@ export const profileService = {
   async getProfile(userId: string) {
     const { data, error } = await supabase
       .from("profiles")
-      .select(
-        `*, internal_category:internal_categories!profiles_internal_category_id_fkey(code, detailed_sub_category),
-        profile_internal_categories(is_primary, internal_categories(code, detailed_sub_category))`
-      )
+      .select(PROFILE_ROW_SELECT)
       .eq("id", userId)
       .single();
 
     if (error) throw error;
-    return withClampedBio(data);
+    return withClampedBio(await maskProfilePii(data));
   },
 
   // Get profile by username
@@ -242,15 +395,12 @@ export const profileService = {
     }
     const { data, error } = await supabase
       .from("profiles")
-      .select(
-        `*, internal_category:internal_categories!profiles_internal_category_id_fkey(code, detailed_sub_category),
-        profile_internal_categories(is_primary, internal_categories(code, detailed_sub_category))`
-      )
+      .select(PROFILE_ROW_SELECT)
       .ilike("username", slug)
       .maybeSingle();
 
     if (error) throw error;
-    return withClampedBio(data);
+    return withClampedBio(await maskProfilePii(data));
   },
 
   async listProfessionals(
@@ -261,16 +411,23 @@ export const profileService = {
     const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
     const feedCategory = (filters?.feedCategory || "").trim();
     const feedSubCategory = (filters?.feedSubCategory || "").trim();
+    const internalCodes = normalizeInternalCodes(filters);
     const promoteurOnly = Boolean(filters?.promoteurOnly);
     const fournisseurOnly = Boolean(filters?.fournisseurOnly);
     const categoryPrefix =
-      !promoteurOnly && !fournisseurOnly && !feedSubCategory && feedCategory && feedCategory !== "tout"
+      !promoteurOnly &&
+      !fournisseurOnly &&
+      !feedSubCategory &&
+      !internalCodes.length &&
+      feedCategory &&
+      feedCategory !== "tout"
         ? feedCategoryCodePrefix(feedCategory)
         : null;
     const needsTaxonomyFilter =
       fournisseurOnly ||
       Boolean(categoryPrefix) ||
       Boolean(feedSubCategory) ||
+      internalCodes.length > 0 ||
       Boolean(feedCategory && feedCategory !== "tout");
 
     const browsing = !queryText;
@@ -302,40 +459,94 @@ export const profileService = {
 
     query = applyProfessionalsFilters(query, filters);
 
-    // Never jump the cursor past unused rows: "tout" used to over-fetch then
-    // advance by the wide window, so logos / new promoteurs never appeared there
-    // even though the Promoteurs chip looked correct. Mix / avatar ranking stay
-    // within the page only.
-    const fetchLimit = promoteurOnly
-      ? limit
-      : needsTaxonomyFilter
-        ? Math.max(limit * 2, limit)
-        : Math.max(limit * 2, limit);
-    const { data, error } = await query.range(offset, offset + Math.max(fetchLimit - 1, 0));
-    if (error) throw error;
-    const raw = data || [];
-    const seen = new Set<string>();
-    const unique: typeof raw = [];
-    let rawUsed = 0;
-    for (const row of raw) {
-      rawUsed += 1;
-      const id = String((row as { id?: string }).id || "");
-      if (!id || seen.has(id)) continue;
-      seen.add(id);
-      unique.push(row);
-      if (unique.length >= limit) break;
+    if (promoteurOnly) {
+      const { data, error } = await query.range(offset, offset + Math.max(limit - 1, 0));
+      if (error) throw error;
+      const rows = dedupeProfileRows(data || []).slice(0, limit);
+      return { rows, nextOffset: offset + (data || []).length };
     }
-    const ranked = browsing && !promoteurOnly
-      ? rankDiscoverBrowse(unique as Array<{ avatar_url?: string | null } & Record<string, unknown>>, {
-          mixCategories,
-        })
-      : unique;
-    const rows = ranked.slice(0, limit);
-    return { rows, nextOffset: offset + rawUsed };
+
+    // Enterprises with a real logo lead every Discover page. Monogram SVGs and
+    // missing photos stay behind them, including past the first page.
+    const logos = await listRealLogoEnterprises(filters, taxonomyEmbed);
+    const rankedLogos = mixCategories ? interleaveByMixKey(logos) : logos;
+    const fromLogos = rankedLogos.slice(offset, offset + limit);
+    if (fromLogos.length >= limit) {
+      return { rows: fromLogos, nextOffset: offset + fromLogos.length };
+    }
+
+    const restNeed = limit - fromLogos.length;
+    const restSkip = Math.max(0, offset - rankedLogos.length);
+    const logoIds = rankedLogos.map((row) => String(row.id || "")).filter(Boolean);
+    const { rows: restRows, rawUsed } = await listDiscoverRest(
+      filters,
+      taxonomyEmbed,
+      logoIds,
+      restSkip,
+      restNeed,
+      mixCategories,
+    );
+    const rows = [...fromLogos, ...restRows];
+    const nextOffset =
+      restRows.length > 0 || restNeed > 0
+        ? rankedLogos.length + restSkip + rawUsed
+        : offset + fromLogos.length;
+    return { rows, nextOffset: rows.length ? nextOffset : offset };
   },
 
-  /** Exact Supabase row count for Discover Entreprises (same filters as listProfessionals). */
+  /**
+   * Exact Supabase row count for Discover Entreprises (views, not list queries).
+   * - Promoteurs chip → discover_comptes_promoteurs (featured / allowed visibility)
+   * - Tout / other → discover_comptes_all when unfiltered by taxonomy
+   *   (directory_visible + full 1.2.1 roster); taxonomy chips keep profiles filters.
+   * Lists stay on listProfessionals (featured_promoter / directory_visible).
+   */
   async countProfessionals(filters?: DiscoverListFilters): Promise<number> {
+    const city = (filters?.city || "").trim();
+    const queryText = (filters?.query || "").trim().replace(/[%_,]/g, " ").replace(/\s+/g, " ");
+    const feedCategory = (filters?.feedCategory || "").trim();
+    const feedSubCategory = (filters?.feedSubCategory || "").trim();
+    const internalCodes = normalizeInternalCodes(filters);
+    const promoteurOnly = Boolean(filters?.promoteurOnly);
+    const fournisseurOnly = Boolean(filters?.fournisseurOnly);
+    const taxonomyScoped =
+      fournisseurOnly ||
+      Boolean(feedSubCategory) ||
+      internalCodes.length > 0 ||
+      Boolean(feedCategory && feedCategory !== "tout");
+
+    const applyCityQuery = <T extends { ilike: Function; or: Function }>(q: T): T => {
+      let next = q;
+      if (city) next = next.ilike("location", `%${city}%`);
+      if (queryText) {
+        const needle = `"%${queryText}%"`;
+        next = next.or(
+          `full_name.ilike.${needle},username.ilike.${needle},profession.ilike.${needle},location.ilike.${needle}`,
+        );
+      }
+      return next;
+    };
+
+    if (promoteurOnly) {
+      let query = supabase
+        .from("discover_comptes_promoteurs")
+        .select("id", { count: "exact", head: true });
+      query = applyCityQuery(query);
+      const { count, error } = await query;
+      if (error) throw error;
+      return count ?? 0;
+    }
+
+    if (!taxonomyScoped) {
+      let query = supabase
+        .from("discover_comptes_all")
+        .select("id", { count: "exact", head: true });
+      query = applyCityQuery(query);
+      const { count, error } = await query;
+      if (error) throw error;
+      return count ?? 0;
+    }
+
     const taxonomyEmbed = professionalsTaxonomyEmbed(filters);
     let query = supabase
       .from("profiles")
@@ -355,7 +566,7 @@ export const profileService = {
       .from('profiles')
       .update(payload)
       .eq('id', userId)
-      .select()
+      .select(PROFILE_ROW_SELECT)
       .single();
 
     if (error) throw error;
@@ -381,7 +592,7 @@ export const profileService = {
     return withClampedBio(data);
   },
 
-  async listFederations(): Promise<
+  async listInstitutions(): Promise<
     Array<{
       id: string;
       username: string | null;
@@ -390,13 +601,13 @@ export const profileService = {
       location: string | null;
       bio: string | null;
       is_verified: boolean | null;
+      institution_kind: string | null;
     }>
   > {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, full_name, avatar_url, location, bio, is_verified")
+      .select("id, username, full_name, avatar_url, location, bio, is_verified, institution_kind")
       .eq("profile_type", "institution")
-      .eq("institution_kind", "federation")
       .eq("directory_visible", true)
       .order("full_name", { ascending: true });
     if (error) throw error;

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LogIn, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { LogIn, Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { logActivity } from "@/lib/activityLog";
 import { toast } from "sonner";
 
 const RESET_COOLDOWN_MS = 60_000;
@@ -32,22 +33,53 @@ const Login = () => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-    
+    const actorLabel = email.trim() || null;
+    await logActivity({
+      action: "login",
+      status: "attempt",
+      actorKind: "anon",
+      actorLabel,
+      message: "Tentative de connexion",
+    });
+
     try {
       const { error } = await signIn(email, password);
-      
+
       if (error) {
         const message = messageForAuthError(error.message);
         setError(message);
         toast.error(message);
+        await logActivity({
+          action: "login",
+          status: "failure",
+          actorKind: "anon",
+          actorLabel,
+          message: "Échec de connexion",
+          error: message,
+        });
       } else {
         toast.success("Logged in successfully!");
+        await logActivity({
+          action: "login",
+          status: "success",
+          actorKind: "member",
+          actorLabel,
+          message: "Connexion réussie",
+        });
         navigate(searchParams.get("redirect") || "/");
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(errorMessage);
       toast.error(errorMessage);
+      await logActivity({
+        action: "login",
+        status: "failure",
+        actorKind: "anon",
+        actorLabel,
+        message: "Échec de connexion",
+        error: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -96,12 +128,20 @@ const Login = () => {
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4 py-8 sm:py-12">
       <div className="w-full max-w-md">
+        <button
+          type="button"
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#174f43] hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Retour
+        </button>
         <div className="text-center mb-6 sm:mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-accent/10 rounded-full mb-4 mx-auto">
             <LogIn className="w-8 h-8 sm:w-10 sm:h-10 text-accent" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-card-foreground mb-2">Welcome Back</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Log in to your Sifarah account</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-card-foreground mb-2">Bon retour</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Connectez-vous à votre compte Sifarah</p>
           <p className="mt-2 text-sm text-muted-foreground">Particulier : email et mot de passe définis sur votre profil.</p>
         </div>
 
@@ -115,7 +155,7 @@ const Login = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Votre email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pl-10 sm:pl-12 h-11 sm:h-12"
@@ -126,14 +166,14 @@ const Login = () => {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-card-foreground mb-2">
-              Password
+              Mot de passe
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
+                placeholder="Votre mot de passe"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-10 sm:pl-12 pr-10 sm:pr-12 h-11 sm:h-12"
@@ -156,7 +196,7 @@ const Login = () => {
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" className="w-4 h-4 rounded border-border" />
-              <span className="text-muted-foreground">Remember me</span>
+              <span className="text-muted-foreground">Se souvenir de moi</span>
             </label>
             <button
               type="button"
@@ -164,7 +204,7 @@ const Login = () => {
               disabled={resettingPassword}
               className="text-accent hover:underline font-medium disabled:opacity-60"
             >
-              {resettingPassword ? "Sending..." : "Forgot password?"}
+              {resettingPassword ? "Envoi…" : "Mot de passe oublié ?"}
             </button>
           </div>
 
@@ -179,18 +219,18 @@ const Login = () => {
             className="w-full h-11 sm:h-12 bg-[#174f43] text-base font-semibold text-white hover:bg-[#123d34]"
             disabled={isLoading}
           >
-            {isLoading ? "Logging in..." : "Log In"}
+            {isLoading ? "Connexion…" : "Se connecter"}
           </Button>
         </form>
 
         <div className="mt-6 sm:mt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
+            Pas encore de compte ?{" "}
             <button
               onClick={() => navigate("/join")}
               className="font-medium text-[#174f43] hover:underline"
             >
-              Create Profile
+              Créer un profil
             </button>
           </p>
         </div>

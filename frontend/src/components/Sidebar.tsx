@@ -5,16 +5,16 @@ const Sidebar = () => {
   const navigate = useNavigate();
 
   const quickStats = [
-    { label: "Active Jobs", value: "1,234", icon: Briefcase },
-    { label: "Professionals", value: "5,678", icon: Users },
-    { label: "Completed", value: "12.5K", icon: TrendingUp },
+    { label: "Offres actives", value: "1 234", icon: Briefcase },
+    { label: "Professionnels", value: "5 678", icon: Users },
+    { label: "Terminés", value: "12,5 k", icon: TrendingUp },
   ];
 
   return (
     <aside className="hidden lg:block w-80 xl:w-96 space-y-6 pr-6 pt-6 sticky top-[120px] h-[calc(100vh-120px)] overflow-y-auto">
       {/* Quick Stats */}
       <div className="bg-card rounded-xl border border-border p-5">
-        <h3 className="text-lg font-bold text-card-foreground mb-4">Platform Stats</h3>
+        <h3 className="text-lg font-bold text-card-foreground mb-4">Chiffres de la plateforme</h3>
         <div className="space-y-3">
           {quickStats.map((stat, index) => (
             <div key={index} className="flex items-center justify-between">
@@ -43,15 +43,15 @@ const Sidebar = () => {
 
       {/* Quick Actions */}
       <div className="bg-gradient-to-br from-accent/10 to-primary/10 rounded-xl border border-accent/20 p-5">
-        <h3 className="text-lg font-bold text-card-foreground mb-3">Get Started</h3>
+        <h3 className="text-lg font-bold text-card-foreground mb-3">Commencer</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Join thousands of professionals and clients connecting on Sifarah
+          Rejoignez les professionnels et les clients qui se retrouvent sur Sifarah
         </p>
         <button
           onClick={() => navigate("/join")}
           className="w-full bg-accent text-accent-foreground font-semibold py-2.5 rounded-lg hover:bg-accent/90 transition-colors"
         >
-          Create Profile
+          Créer un profil
         </button>
       </div>
     </aside>

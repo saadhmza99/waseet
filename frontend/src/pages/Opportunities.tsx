@@ -146,9 +146,10 @@ const Opportunities = () => {
 
           Sifarah — «Ambassade» de l’écosystème immobilier, construction & BTP  au marché et au monde. Pour construire le futur ensemble.
         </p> */}
-       <br></br> <h1 className="text-4xl font-semibold tracking-tight text-neutral-900">Sifarah Business</h1>
-
-          <br></br>
+        <h1 className="text-4xl font-semibold tracking-tight text-neutral-900">Sifarah Business</h1>
+        <p className="mt-3 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+          Ce sont des exemples, pas des opportunités en ligne. Ce service sera bientôt lancé.
+        </p>
         <div className="mt-4 flex items-center gap-2">
           <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2.5 shadow-sm">
             <Search className="h-4 w-4 shrink-0 text-neutral-400" />

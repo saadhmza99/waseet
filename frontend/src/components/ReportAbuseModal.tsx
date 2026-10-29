@@ -30,100 +30,90 @@ export const REPORT_REASONS: {
 }[] = [
   {
     id: "duplicate_fraud",
-    label: "Duplicate fraud account",
+    label: "Compte frauduleux en double",
     definition:
-      "Another account created to evade a ban, copy a real profile, or run the same scam after a previous account was restricted.",
+      "Un autre compte créé pour contourner un blocage, copier un vrai profil ou relancer la même arnaque.",
   },
   {
     id: "harassment",
-    label: "Harassment",
+    label: "Harcèlement",
     definition:
-      "Attacks or intimidation towards others with abusive language, or deliberately or repeatedly disrupting conversations, including revealing others' personal or sensitive information. This includes unwanted romantic advances, sexual remarks and/or requests for sexual favors.",
+      "Attaques, intimidation ou propos abusifs, y compris la divulgation d'informations personnelles et les avances non souhaitées.",
   },
   {
     id: "fraud",
-    label: "Fraud or scam",
+    label: "Fraude ou arnaque",
     definition:
-      "Deceptive schemes meant to steal money, data, or access, including fake payments, impersonation for gain, and listings or jobs that exist only to defraud others.",
+      "Manœuvres destinées à voler de l'argent, des données ou un accès, y compris les faux paiements et les annonces trompeuses.",
   },
   {
     id: "spam",
     label: "Spam",
-    definition:
-      "Unsolicited, repetitive, or misleading content posted to promote something, farm engagement, or flood conversations rather than participate genuinely.",
+    definition: "Contenu répétitif ou non sollicité, publié pour promouvoir quelque chose ou saturer les échanges.",
   },
   {
     id: "misinformation",
-    label: "Misinformation",
-    definition:
-      "False or misleading claims presented as fact, especially about health, elections, emergencies, or people, in a way that can cause real-world harm.",
+    label: "Désinformation",
+    definition: "Affirmations fausses ou trompeuses présentées comme des faits et susceptibles de causer un préjudice.",
   },
   {
     id: "hate",
-    label: "Hateful speech",
+    label: "Discours haineux",
     definition:
-      "Attacks, slurs, or dehumanizing content targeting people because of identity such as race, religion, nationality, gender, sexual orientation, or disability.",
+      "Attaques ou propos déshumanisants visant des personnes en raison de leur identité, de leur origine, de leur religion ou de leur genre.",
   },
   {
     id: "threats",
-    label: "Threats or violence",
-    definition:
-      "Statements or content that threaten physical harm, encourage violence, or celebrate violent acts against people or groups.",
+    label: "Menaces ou violence",
+    definition: "Propos ou contenus qui menacent de faire du mal, encouragent la violence ou la célèbrent.",
   },
   {
     id: "self_harm",
-    label: "Self-harm",
+    label: "Automutilation",
     definition:
-      "Content that promotes, instructs, or glorifies suicide, self-injury, or eating disorders, or that appears to show someone in immediate danger of harming themselves.",
+      "Contenu qui encourage, explique ou valorise le suicide, l'automutilation ou les troubles alimentaires.",
   },
   {
     id: "graphic",
-    label: "Graphic content",
-    definition:
-      "Gory, shocking, or extremely violent imagery or video shared without a clear need, including real-world injury, death, or animal cruelty.",
+    label: "Contenu choquant",
+    definition: "Images ou vidéos très violentes, y compris des blessures réelles, un décès ou de la cruauté envers les animaux.",
   },
   {
     id: "extremist",
-    label: "Dangerous or extremist organizations",
-    definition:
-      "Praise, recruitment, or coordination for terrorist, violent extremist, or criminal organizations, or content that spreads their propaganda.",
+    label: "Organisations dangereuses",
+    definition: "Éloge, recrutement ou propagande d'organisations terroristes, extrémistes ou criminelles.",
   },
   {
     id: "sexual",
-    label: "Sexual content",
-    definition:
-      "Pornography or sexual activity that is not allowed on the platform, including sexual content involving anyone who appears to be a minor.",
+    label: "Contenu sexuel",
+    definition: "Pornographie ou activité sexuelle non autorisée, y compris tout contenu sexuel impliquant un mineur.",
   },
   {
     id: "fake_account",
-    label: "Fake account",
-    definition:
-      "A profile that impersonates a person, business, or organization, or that is clearly not a real user and exists to mislead others.",
+    label: "Faux compte",
+    definition: "Un profil qui se fait passer pour une personne, une entreprise ou une organisation, ou qui cherche à tromper.",
   },
   {
     id: "exploitation",
     label: "Exploitation",
-    definition:
-      "Content or behavior that takes advantage of others, including trafficking, coerced labor, or sexual exploitation.",
+    definition: "Contenu ou comportement qui abuse d'autrui, y compris la traite, le travail forcé ou l'exploitation sexuelle.",
   },
   {
     id: "restricted_goods",
-    label: "Restricted goods or services",
-    definition:
-      "Offers or requests for illegal or tightly regulated items such as weapons, drugs, stolen goods, or unauthorized professional services.",
+    label: "Biens ou services interdits",
+    definition: "Offres ou demandes d'articles illégaux ou très réglementés, comme des armes, des drogues ou des biens volés.",
   },
   {
     id: "ncii",
-    label: "Nonconsensual intimate imagery",
-    definition:
-      "Intimate photos or videos shared without the person's permission, including threats to share them (revenge porn or sextortion).",
+    label: "Images intimes non consenties",
+    definition: "Photos ou vidéos intimes partagées sans l'accord de la personne, y compris les menaces de les diffuser.",
   },
 ];
 
 export const ACCOUNT_REPORT_OPTIONS: { id: ReportReasonId; label: string }[] = [
-  { id: "impersonating", label: "This person is impersonating someone" },
-  { id: "not_real_person", label: "This account is not a real person" },
-  { id: "deceased", label: "This person is deceased" },
+  { id: "impersonating", label: "Cette personne se fait passer pour quelqu'un" },
+  { id: "not_real_person", label: "Ce compte n'est pas une vraie personne" },
+  { id: "deceased", label: "Cette personne est décédée" },
 ];
 
 type ProfileScreen = "action" | "account" | "element" | "element-confirm";
@@ -141,10 +131,10 @@ type ReportAbuseModalProps = {
 const ReportAbuseModal = ({
   isOpen,
   onClose,
-  title = "Report this post",
+  title = "Signaler cette publication",
   submitting = false,
   variant = "content",
-  subjectName = "this account",
+  subjectName = "ce compte",
   onSubmit,
 }: ReportAbuseModalProps) => {
   const [contentStep, setContentStep] = useState<1 | 2>(1);
@@ -241,7 +231,7 @@ const ReportAbuseModal = ({
           type="button"
           onClick={onClose}
           className="inline-flex h-10 w-10 items-center justify-center justify-self-end rounded-full text-foreground hover:bg-muted"
-          aria-label="Close"
+          aria-label="Fermer"
         >
           <X className="h-5 w-5" />
         </button>
@@ -258,7 +248,7 @@ const ReportAbuseModal = ({
                 setProfileScreen("account");
               }}
             >
-              Report {subjectName} or entire account
+              Signaler {subjectName} ou tout le compte
             </button>
             <button
               type="button"
@@ -269,14 +259,14 @@ const ReportAbuseModal = ({
                 setProfileScreen("element");
               }}
             >
-              Report profile element
+              Signaler un élément du profil
             </button>
           </div>
         ) : null}
 
         {isProfile && profileScreen === "account" ? (
           <div className="mx-auto max-w-2xl space-y-4">
-            <p className="text-base font-medium text-card-foreground">Select an option that applies:</p>
+            <p className="text-base font-medium text-card-foreground">Choisissez l&apos;option qui correspond :</p>
             <div className="space-y-2">
               {ACCOUNT_REPORT_OPTIONS.slice(0, 2).map((option) => {
                 const checked = accountOption === option.id;
@@ -334,7 +324,7 @@ const ReportAbuseModal = ({
 
         {showElementReasons ? (
           <div className="mx-auto max-w-2xl space-y-5">
-            <p className="text-sm text-muted-foreground">Choose a reason for this report.</p>
+            <p className="text-sm text-muted-foreground">Choisissez un motif.</p>
             <div className="flex flex-wrap gap-2">
               {REPORT_REASONS.map((reason) => (
                 <button
@@ -353,14 +343,14 @@ const ReportAbuseModal = ({
             </div>
             <div>
               <label htmlFor="report-details" className="mb-2 block text-sm font-medium text-card-foreground">
-                Additional details (optional)
+                Précisions (facultatif)
               </label>
               <textarea
                 id="report-details"
                 value={details}
                 onChange={(event) => setDetails(event.target.value.slice(0, 1000))}
                 rows={5}
-                placeholder="Tell us more about what happened…"
+                placeholder="Décrivez ce qui s'est passé…"
                 className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-card-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
@@ -369,7 +359,7 @@ const ReportAbuseModal = ({
 
         {showElementConfirm ? (
           <div className="mx-auto max-w-2xl space-y-4">
-            <p className="text-sm text-muted-foreground">You've selected the following reason</p>
+            <p className="text-sm text-muted-foreground">Vous avez choisi le motif suivant</p>
             <h2 className="text-xl font-bold text-card-foreground">{selected?.label}</h2>
             <p className="text-sm leading-relaxed text-card-foreground">{selected?.definition}</p>
           </div>
@@ -389,7 +379,7 @@ const ReportAbuseModal = ({
                   else setContentStep(2);
                 }}
               >
-                Next
+                Suivant
               </Button>
             ) : (
               <Button
@@ -401,7 +391,7 @@ const ReportAbuseModal = ({
                 }
                 onClick={() => void handleSubmit()}
               >
-                {submitting ? "Sending…" : "Submit report"}
+                {submitting ? "Envoi…" : "Envoyer le signalement"}
               </Button>
             )}
           </div>

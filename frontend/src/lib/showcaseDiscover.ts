@@ -24,6 +24,7 @@ export type DiscoverItem = {
   highlights?: string[];
   username?: string;
   is_verified?: boolean;
+  profile_type?: string | null;
 };
 
 /** Feed mock posts only. Biens / projets / services / comptes load from Supabase in Explore. */

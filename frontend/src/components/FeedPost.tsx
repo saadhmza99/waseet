@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { Ban, ChevronDown, ChevronLeft, ChevronRight, EyeOff, Flag, Globe, Heart, MoreVertical, Pencil, Settings2, Sparkles, Trash2, UserCheck, UserPlus, Users, X, XCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import CommentSection from "./CommentSection";
@@ -7,7 +7,7 @@ import { postService, type PostCommentPermission } from "@/services/postService"
 import { savedService } from "@/services/savedService";
 import { commentService } from "@/services/commentService";
 import { moderationService, isBlockCooldownError } from "@/services/moderationService";
-import { followService } from "@/services/followService";
+import { followService, showFollowButton } from "@/services/followService";
 import { notificationService } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -48,6 +48,7 @@ interface FeedPostProps {
   username: string;
   fullName?: string;
   isVerified?: boolean;
+  profileType?: string | null;
   location: string;
   city?: string;
   profession?: string;
@@ -78,6 +79,7 @@ const FeedPost = ({
   username,
   fullName,
   isVerified = false,
+  profileType = null,
   location,
   city,
   profession,
@@ -113,6 +115,7 @@ const FeedPost = ({
   const saveVersionRef = useRef(0);
   const [replyOpen, setReplyOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [leadRatio, setLeadRatio] = useState<number | null>(null);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [viewerCaptionExpanded, setViewerCaptionExpanded] = useState(false);
   const [viewerCaptionClamped, setViewerCaptionClamped] = useState(false);
@@ -274,6 +277,31 @@ const FeedPost = ({
   }
   
   const hasMultipleImages = allImages.length > 1;
+  const leadImage = allImages[0] || "";
+  // Single portrait pages keep their own height, and never grow past an A4 sheet.
+  const A4_PAGE_RATIO = 297 / 210;
+  const singlePageFrame =
+    allImages.length === 1 && leadRatio !== null && leadRatio > 1
+      ? Math.min(leadRatio, A4_PAGE_RATIO)
+      : null;
+  const singlePageStyle: CSSProperties | undefined = singlePageFrame
+    ? { aspectRatio: `1 / ${singlePageFrame}` }
+    : undefined;
+
+  useEffect(() => {
+    setLeadRatio(null);
+    if (!leadImage || allImages.length !== 1) return;
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => {
+      if (cancelled || probe.naturalWidth <= 0) return;
+      setLeadRatio(probe.naturalHeight / probe.naturalWidth);
+    };
+    probe.src = leadImage;
+    return () => {
+      cancelled = true;
+    };
+  }, [leadImage, allImages.length]);
   const postCity = (city || "").trim() || cityFromProfileLocation(location);
   const businessLine = [profession?.trim(), postCity].filter(Boolean).join(" · ");
 
@@ -293,7 +321,7 @@ const FeedPost = ({
 
   const handleLike = async () => {
     if (!postId || !user) {
-      toast({ title: "Connexion requise", description: "Connectez-vous pour aimer ce post." });
+      toast({ title: "Connexion requise", description: "Connectez-vous pour aimer cette publication." });
       return;
     }
     
@@ -334,7 +362,7 @@ const FeedPost = ({
       void navigator.share({ title: "Sifarah", text: description, url: shareUrl }).catch(() => {});
     } else {
       void navigator.clipboard.writeText(shareUrl);
-      toast({ title: "Lien copié", description: "Le lien de ce post a été copié." });
+      toast({ title: "Lien copié", description: "Le lien de cette publication a été copié." });
     }
 
     if (!user) return;
@@ -389,7 +417,7 @@ const FeedPost = ({
       }
     } catch (error) {
       console.error("Error toggling save:", error);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter ce post aux favoris." });
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter cette publication aux favoris." });
     }
   };
 
@@ -400,7 +428,7 @@ const FeedPost = ({
       try {
         const permission = await postService.getCommentPermission(postId, postUserId);
         if (permission === "off") {
-          toast({ title: "Commentaires désactivés", description: "Les commentaires sont désactivés pour ce post." });
+          toast({ title: "Commentaires désactivés", description: "Les commentaires sont désactivés pour cette publication." });
           return;
         }
         if (permission === "followers") {
@@ -419,7 +447,7 @@ const FeedPost = ({
           if (!theyFollow || !youFollow) {
             toast({
               title: "Commentaire non autorisé",
-              description: "Seules les personnes suivies en retour peuvent commenter ce post.",
+              description: "Seules les personnes suivies en retour peuvent commenter cette publication.",
             });
             return;
           }
@@ -450,7 +478,7 @@ const FeedPost = ({
 
   const handleDeletePost = async () => {
     if (!postId || !user || !isOwnPost) return;
-    if (!window.confirm("Supprimer ce post définitivement ?")) return;
+    if (!window.confirm("Supprimer cette publication définitivement ?")) return;
     try {
       await postService.deletePost(postId, user.id);
       setIsHidden(true);
@@ -476,7 +504,7 @@ const FeedPost = ({
       })
       .catch((error) => {
         console.error("Error editing post:", error);
-        toast({ title: "Erreur", description: "Impossible de modifier ce post." });
+        toast({ title: "Erreur", description: "Impossible de modifier cette publication." });
       });
   };
 
@@ -505,7 +533,7 @@ const FeedPost = ({
 
   const submitPostReport = async (payload: { reason: string; details: string }) => {
     if (!user) {
-      toast({ title: "Connexion requise", description: "Connectez-vous pour signaler ce post." });
+      toast({ title: "Connexion requise", description: "Connectez-vous pour signaler cette publication." });
       return;
     }
     if (!postId) return;
@@ -513,10 +541,10 @@ const FeedPost = ({
     try {
       await moderationService.reportPost(postId, user.id, payload.reason, payload.details);
       setShowReportModal(false);
-      toast({ title: "Signalement envoyé", description: "Merci, le post a été signalé." });
+      toast({ title: "Signalement envoyé", description: "Merci, la publication a été signalée." });
     } catch (error) {
       console.error("Error reporting post:", error);
-      toast({ title: "Erreur", description: "Impossible de signaler ce post pour le moment." });
+      toast({ title: "Erreur", description: "Impossible de signaler cette publication pour le moment." });
     } finally {
       setReportSubmitting(false);
     }
@@ -528,7 +556,7 @@ const FeedPost = ({
         const until = await moderationService.getReblockBlockedUntil(user.id, postUserId);
         if (until) {
           toast({
-            title: "You can't block this account again until after 48 hours.",
+            title: "Vous pourrez bloquer ce compte à nouveau après 48 heures.",
             description: `Available ${until.toLocaleString()}`,
           });
           return;
@@ -555,7 +583,7 @@ const FeedPost = ({
       console.error("Error blocking profile:", error);
       toast({
         title: isBlockCooldownError(error)
-          ? "You can't block this account again until after 48 hours."
+          ? "Vous pourrez bloquer ce compte à nouveau après 48 heures."
           : "Erreur",
         description: isBlockCooldownError(error) ? undefined : "Impossible de bloquer ce profil pour le moment.",
       });
@@ -634,14 +662,14 @@ const FeedPost = ({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {!isOwnPost && followedNow ? (
+          {showFollowButton(profileType, isVerified) && !isOwnPost && followedNow ? (
             <span
               className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#174f43] text-white"
               aria-label="Suivi"
             >
               <UserCheck className="h-4 w-4" />
             </span>
-          ) : !isOwnPost && followKnown && !isFollowingAuthor && !followedAuthorNow ? (
+          ) : showFollowButton(profileType, isVerified) && !isOwnPost && followKnown && !isFollowingAuthor && !followedAuthorNow ? (
             <button
               type="button"
               onClick={handleFollowAuthor}
@@ -662,11 +690,11 @@ const FeedPost = ({
               <>
                 <DropdownMenuItem onClick={handleEditPost}>
                   <Pencil className="mr-2 h-4 w-4" />
-                  Modifier le post
+                  Modifier la publication
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleDeletePost} className="text-destructive">
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Supprimer le post
+                  Supprimer la publication
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -682,28 +710,28 @@ const FeedPost = ({
                 {showCommentOptions ? (
                   <div className="px-1 pb-1">
                     <p className="px-2 pb-1 text-sm leading-snug text-muted-foreground">
-                      This post only. 
+                      Cette publication seulement.
                     </p>
                     <DropdownMenuRadioGroup value={commentOverride} onValueChange={(value) => void applyCommentOverride(value)}>
                       <DropdownMenuRadioItem value="default">
                         <Settings2 className="mr-2 h-4 w-4" />
-                        Account setting
+                        Réglage du compte
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="anyone">
                         <Globe className="mr-2 h-4 w-4" />
-                        Anyone
+                        Tout le monde
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="followers">
                         <Users className="mr-2 h-4 w-4" />
-                        Your followers
+                        Vos abonnés
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="follow_back">
                         <UserCheck className="mr-2 h-4 w-4" />
-                        Followers you follow back
+                        Les abonnés que vous suivez en retour
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="off">
                         <XCircle className="mr-2 h-4 w-4" />
-                        Off
+                        Personne
                       </DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
                   </div>
@@ -713,16 +741,16 @@ const FeedPost = ({
               <>
                 <DropdownMenuItem onClick={handleHidePost}>
                   <EyeOff className="mr-2 h-4 w-4" />
-                  Hide post
+                  Masquer la publication
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleReportPost}>
                   <Flag className="mr-2 h-4 w-4" />
-                  Report post
+                  Signaler la publication
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleBlockProfile}>
                   <Ban className="mr-2 h-4 w-4" />
-                  Block profile
+                  Bloquer le profil
                 </DropdownMenuItem>
               </>
             )}
@@ -779,7 +807,7 @@ const FeedPost = ({
         <div
           className={`relative w-full gap-1 ${
             allImages.length >= 5
-              ? "flex items-stretch"
+              ? "lg:flex lg:items-stretch"
               : allImages.length === 1
                 ? ""
                 : allImages.length === 2
@@ -791,7 +819,29 @@ const FeedPost = ({
         >
           {allImages.length >= 5 ? (
             <>
-              <div className="grid aspect-[4/3] min-w-0 flex-1 grid-cols-[1.6fr_1fr] grid-rows-2 gap-1">
+              <div className="grid aspect-[4/3] grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 lg:hidden">
+                {allImages.slice(0, 3).map((image, index) => (
+                  <div key={`${image}-m-${index}`} className={`relative min-h-0 ${index === 0 ? "row-span-2" : ""}`}>
+                    <RetryImage
+                      src={image}
+                      alt={`Photo ${index + 1}`}
+                      wrapClassName="h-full w-full"
+                      className="h-full w-full cursor-pointer object-cover"
+                      onClick={() => setSelectedImageIndex(index)}
+                    />
+                    {index === 2 ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedImageIndex(2)}
+                        className="absolute inset-0 flex items-center justify-center bg-black/50 px-2 text-center text-sm font-semibold text-white"
+                      >
+                        Voir plus
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden aspect-[4/3] min-w-0 flex-1 grid-cols-[1.6fr_1fr] grid-rows-2 gap-1 lg:grid">
                 {allImages.slice(0, 3).map((image, index) => (
                   <RetryImage
                     key={`${image}-${index}`}
@@ -803,7 +853,7 @@ const FeedPost = ({
                   />
                 ))}
               </div>
-              <div className="flex w-[26%] shrink-0 flex-col gap-1">
+              <div className="hidden w-[26%] shrink-0 flex-col gap-1 lg:flex">
                 {allImages.slice(3, 5).map((image, index) => (
                   <RetryImage
                     key={`${image}-${index + 3}`}
@@ -823,13 +873,20 @@ const FeedPost = ({
                 src={image}
                 alt={`Photo ${index + 1}`}
                 wrapClassName={
-                  allImages.length >= 3 && allImages.length !== 4 && index === 0
-                    ? "row-span-2 h-full min-h-0 w-full"
-                    : allImages.length === 1
-                      ? "aspect-[4/3] w-full"
-                      : "aspect-[4/3] h-full min-h-0 w-full"
+                  singlePageFrame
+                    ? "w-full"
+                    : allImages.length >= 3 && allImages.length !== 4 && index === 0
+                      ? "row-span-2 h-full min-h-0 w-full"
+                      : allImages.length === 1
+                        ? "aspect-[4/3] w-full"
+                        : "aspect-[4/3] h-full min-h-0 w-full"
                 }
-                className="h-full w-full cursor-pointer object-cover"
+                wrapStyle={singlePageFrame ? singlePageStyle : undefined}
+                className={
+                  singlePageFrame
+                    ? "h-full w-full cursor-pointer object-cover object-top"
+                    : "h-full w-full cursor-pointer object-cover"
+                }
                 onClick={() => setSelectedImageIndex(index)}
               />
             ))
@@ -1146,8 +1203,13 @@ const FeedPost = ({
                     <RetryImage
                       src={allImages[0]}
                       alt=""
-                      wrapClassName="rounded-lg"
-                      className="w-full max-h-96 object-cover rounded-lg"
+                      wrapClassName="w-full rounded-lg"
+                      wrapStyle={singlePageFrame ? singlePageStyle : undefined}
+                      className={
+                        singlePageFrame
+                          ? "h-full w-full rounded-lg object-cover object-top"
+                          : "max-h-96 w-full rounded-lg object-cover"
+                      }
                     />
                   </div>
                 )}
@@ -1174,7 +1236,7 @@ const FeedPost = ({
       <ReportAbuseModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        title="Report this post"
+        title="Signaler cette publication"
         submitting={reportSubmitting}
         onSubmit={submitPostReport}
       />

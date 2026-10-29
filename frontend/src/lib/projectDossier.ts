@@ -142,6 +142,8 @@ export type ProjectRecord = ProjectDossier & {
   latitude: string;
   longitude: string;
   image: string;
+  /** Dedicated cover. Empty when the project has no cover photo of its own. */
+  coverImage: string;
   images: string[];
   commercialStatus: string;
   promoter: ProjectPromoter | null;
@@ -966,6 +968,7 @@ export const dossierFromRow = (row: any): ProjectRecord => {
     latitude: plainText(row?.latitude != null ? String(row.latitude) : legacyMeta.latitude, 24),
     longitude: plainText(row?.longitude != null ? String(row.longitude) : legacyMeta.longitude, 24),
     image: cover || safeImages[0] || "",
+    coverImage: cover,
     images: safeImages.length ? safeImages : cover ? [cover] : [],
     commercialStatus: plainText(row?.commercial_status || legacyMeta.commercial_status, 40),
     promoter: promoterRaw?.name

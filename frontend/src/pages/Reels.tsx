@@ -147,7 +147,7 @@ const Reels = () => {
         }
       } catch (error) {
         console.error("Error loading reels:", error);
-        toast({ title: "Erreur", description: "Impossible de charger les reels." });
+        toast({ title: "Erreur", description: "Impossible de charger les vidéos." });
       } finally {
         setLoading(false);
       }
@@ -244,7 +244,7 @@ const Reels = () => {
 
   const handleLike = async (reelId: string) => {
     if (!user) {
-      toast({ title: "Connexion requise", description: "Connecte-toi pour aimer ce reel." });
+      toast({ title: "Connexion requise", description: "Connectez-vous pour aimer cette vidéo." });
       return;
     }
 
@@ -292,16 +292,16 @@ const Reels = () => {
           next.delete(reelId);
           return next;
         });
-        savedToast("Retiré des favoris", "Reel retiré des favoris.");
+        savedToast("Retiré des favoris", "Vidéo retirée des favoris.");
       } else {
         await savedService.saveReel(saver.id, reelId);
         localSaveTogglesRef.current.set(reelId, true);
         setSavedReels((prev) => new Set(prev).add(reelId));
-        savedToast("Ajouté aux favoris", "Reel ajouté aux favoris.");
+        savedToast("Ajouté aux favoris", "Vidéo ajoutée aux favoris.");
       }
     } catch (error) {
       console.error("Error toggling save:", error);
-      toast({ title: "Erreur", description: "Impossible d'ajouter ce reel aux favoris." });
+      toast({ title: "Erreur", description: "Impossible d'ajouter cette vidéo aux favoris." });
     }
   };
 
@@ -320,20 +320,20 @@ const Reels = () => {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: reel?.title || "Reel",
+          title: reel?.title || "Vidéo",
           text: reel?.description || "",
           url: shareUrl,
         });
       } else {
         await navigator.clipboard.writeText(shareUrl);
-        toast({ title: "Lien copié", description: "Le lien du reel est dans le presse-papiers." });
+        toast({ title: "Lien copié", description: "Le lien de la vidéo est dans le presse-papiers." });
       }
     } catch (e) {
       if ((e as Error)?.name !== "AbortError") {
         console.error(e);
         try {
           await navigator.clipboard.writeText(shareUrl);
-          toast({ title: "Lien copié", description: "Le lien du reel est dans le presse-papiers." });
+          toast({ title: "Lien copié", description: "Le lien de la vidéo est dans le presse-papiers." });
         } catch {
           toast({ title: "Partage", description: shareUrl });
         }
@@ -377,7 +377,7 @@ const Reels = () => {
 
   const handleDeleteReel = async (reelId: string) => {
     if (!user) return;
-    if (!window.confirm("Supprimer ce reel définitivement ?")) return;
+    if (!window.confirm("Supprimer cette vidéo définitivement ?")) return;
     if (deletingReelId) return;
     setDeletingReelId(reelId);
     try {
@@ -396,10 +396,10 @@ const Reels = () => {
         n.delete(reelId);
         return n;
       });
-      toast({ title: "Reel supprimé", description: "Le reel a été supprimé." });
+      toast({ title: "Vidéo supprimée", description: "La vidéo a été supprimée." });
     } catch (e) {
       console.error(e);
-      toast({ title: "Erreur", description: "Impossible de supprimer ce reel." });
+      toast({ title: "Erreur", description: "Impossible de supprimer cette vidéo." });
     } finally {
       setDeletingReelId(null);
     }
@@ -408,7 +408,7 @@ const Reels = () => {
   const submitReelReport = async (payload: { reason: string; details: string }) => {
     if (!reportReelId) return;
     if (!user) {
-      toast({ title: "Connexion requise", description: "Connecte-toi pour signaler un contenu." });
+      toast({ title: "Connexion requise", description: "Connectez-vous pour signaler un contenu." });
       return;
     }
     setReportSubmitting(true);
@@ -522,7 +522,7 @@ const Reels = () => {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Chargement des reels...</div>
+        <div className="text-muted-foreground">Chargement des vidéos...</div>
       </div>
     );
   }
@@ -592,10 +592,10 @@ const Reels = () => {
         ) : null}
         {!hasPlayable ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-4 py-8 text-center">
-            <p className="text-muted-foreground">Aucun reel disponible</p>
+            <p className="text-muted-foreground">Aucune vidéo disponible</p>
             {!user && (
               <p className="max-w-sm text-sm text-muted-foreground">
-                Connecte-toi pour publier un reel.
+                Connectez-vous pour publier une vidéo.
               </p>
             )}
           </div>
@@ -828,7 +828,7 @@ const Reels = () => {
           </DialogHeader>
           {!user ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">
-              Connecte-toi pour laisser un commentaire.
+              Connectez-vous pour laisser un commentaire.
             </p>
           ) : commentsLoading ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">Chargement…</div>
@@ -841,7 +841,7 @@ const Reels = () => {
       <ReportAbuseModal
         isOpen={Boolean(reportReelId)}
         onClose={() => setReportReelId(null)}
-        title="Report this post"
+        title="Signaler cette publication"
         submitting={reportSubmitting}
         onSubmit={submitReelReport}
       />

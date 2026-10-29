@@ -124,7 +124,7 @@ BEGIN
 
   INSERT INTO public.profiles (
     id, username, full_name, profession, location, bio, phone, email, profile_type, institution_kind,
-    signup_ip, signup_country, signup_country_code
+    is_verified, signup_ip, signup_country, signup_country_code
   )
   VALUES (
     NEW.id,
@@ -148,6 +148,12 @@ BEGIN
         AND NEW.raw_user_meta_data->>'institution_kind' IN ('federation', 'order', 'chamber', 'public', 'media', 'observatory')
       THEN NEW.raw_user_meta_data->>'institution_kind'
       ELSE NULL
+    END,
+    CASE
+      WHEN NEW.raw_user_meta_data->>'profile_type' = 'institution'
+        AND NEW.raw_user_meta_data->>'institution_kind' IN ('federation', 'order', 'chamber', 'public', 'media', 'observatory')
+      THEN TRUE
+      ELSE FALSE
     END,
     NULLIF(btrim(NEW.raw_user_meta_data->>'signup_ip'), ''),
     NULLIF(btrim(NEW.raw_user_meta_data->>'signup_country'), ''),
@@ -214,7 +220,7 @@ AND NOT EXISTS (
   SELECT 1 FROM public.muted_accounts m
   WHERE m.muter_id = auth.uid() AND m.muted_id = p.user_id AND m.mute_posts
 )
-AND pr.profile_type IS DISTINCT FROM 'institution';
+;
 
 GRANT SELECT ON public.visible_feed_posts TO anon, authenticated;
 

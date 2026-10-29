@@ -2,7 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, u
 import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@/contexts/AuthContext";
 import VisitorSignupDialog, { type VisitorFormReason, type VisitorFormValues } from "@/components/VisitorSignupDialog";
-import { readVisitorContact, storeVisitorContact } from "@/lib/visitorContact";
+import { storeVisitorContact } from "@/lib/visitorContact";
 import { visitorService, type VisitorProfile } from "@/services/visitorService";
 import { toast } from "@/components/ui/use-toast";
 import { savedToast } from "@/lib/savedToast";
@@ -31,7 +31,6 @@ export const VisitorGateProvider = ({ children }: { children: ReactNode }) => {
   const { user, visitorUser, loading: authLoading, startVisitorSession } = useAuth();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<VisitorFormReason>("save");
-  const [initialValues, setInitialValues] = useState<VisitorFormValues>(readVisitorContact);
   const [visitorProfile, setVisitorProfile] = useState<VisitorProfile | null>(null);
   const resolverRef = useRef<((user: User | null) => void) | null>(null);
 
@@ -69,7 +68,6 @@ export const VisitorGateProvider = ({ children }: { children: ReactNode }) => {
       if (authLoading) return Promise.resolve(null);
       settle(null);
       setReason(nextReason);
-      setInitialValues(readVisitorContact());
       setOpen(true);
       return new Promise<User | null>((resolve) => {
         resolverRef.current = resolve;
@@ -96,12 +94,6 @@ export const VisitorGateProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const handleSubmit = async (values: VisitorFormValues) => {
-    const newVisitor = await startVisitor(values);
-    setOpen(false);
-    settle(newVisitor);
-  };
-
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) settle(null);
@@ -113,9 +105,7 @@ export const VisitorGateProvider = ({ children }: { children: ReactNode }) => {
       <VisitorSignupDialog
         open={open && !authLoading && !user && !visitorUser}
         reason={reason}
-        initialValues={initialValues}
         onOpenChange={handleOpenChange}
-        onSubmit={handleSubmit}
       />
     </VisitorGateContext.Provider>
   );

@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { OwnerDeleteButton } from "@/components/OwnerDeleteButton";
 import {
   productCategoryLabel,
   productFirmName,
   productFirmUsername,
   productPriceLabel,
+  productService,
   type ProductRow,
 } from "@/services/productService";
 import { devisPath } from "@/services/devisService";
@@ -15,8 +19,16 @@ const coverFallback =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400"><rect width="640" height="400" fill="#e7ebe8"/><text x="50%" y="50%" text-anchor="middle" fill="#8b948e" font-family="sans-serif" font-size="18">Produit</text></svg>`,
   );
 
-export const ProductCard = ({ row }: { row: ProductRow }) => {
+export type ProductCardProps = {
+  row: ProductRow;
+  onDeleted?: () => void;
+};
+
+export const ProductCard = ({ row, onDeleted }: ProductCardProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [removed, setRemoved] = useState(false);
+  const isOwn = Boolean(user && row.user_id === user.id);
   const firm = productFirmName(row);
   const username = productFirmUsername(row);
   const category = productCategoryLabel(row);
@@ -28,8 +40,19 @@ export const ProductCard = ({ row }: { row: ProductRow }) => {
     navigate(`/produits/${row.id}`);
   };
 
+  if (removed) return null;
+
   return (
-    <article className="flex h-full min-w-0 w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-sm">
+    <article className="relative flex h-full min-w-0 w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-left shadow-sm">
+      {isOwn && user ? (
+        <OwnerDeleteButton
+          onDelete={async () => {
+            await productService.deleteProduct(row.id, user.id);
+            setRemoved(true);
+            onDeleted?.();
+          }}
+        />
+      ) : null}
       <button type="button" onClick={openProduct} className="block min-w-0 w-full flex-1 text-left">
         <span className="relative block aspect-[16/10] w-full overflow-hidden bg-neutral-100">
           <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -53,22 +76,36 @@ export const ProductCard = ({ row }: { row: ProductRow }) => {
         </span>
       </button>
       <div className="mt-auto flex min-w-0 flex-col gap-2 px-3 pb-3 sm:px-4 sm:pb-4">
-        <button
-          type="button"
-          onClick={() =>
-            navigate(
-              devisPath({
-                sellerId: row.user_id,
-                sellerName: firm,
-                productId: row.id,
-                projectType: "achat-materiaux",
-              }),
-            )
-          }
-          className="h-10 w-full rounded-lg bg-[#174f43] text-sm font-semibold text-white sm:h-11 sm:text-base"
-        >
-          Demander devis
-        </button>
+        {isOwn ? (
+          <button
+            type="button"
+            onClick={() => {
+              window.scrollTo(0, 0);
+              navigate(`/produit/${row.id}/modifier`);
+            }}
+            className="h-10 w-full rounded-lg bg-[#174f43] text-sm font-semibold text-white sm:h-11 sm:text-base"
+          >
+            Modifier
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                devisPath({
+                  sellerId: row.user_id,
+                  sellerName: firm,
+                  productId: row.id,
+                  projectType: "achat-materiaux",
+                  fromLabel: "Carte produit",
+                }),
+              )
+            }
+            className="h-10 w-full rounded-lg bg-[#174f43] text-sm font-semibold text-white sm:h-11 sm:text-base"
+          >
+            Demander devis
+          </button>
+        )}
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:gap-2.5">
           <button
             type="button"

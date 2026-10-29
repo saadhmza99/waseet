@@ -153,9 +153,9 @@ POSTS = [
             "puis la coordination avec le notaire. Le cabinet intervient aussi en M&A, infrastructures et arbitrage."
         ),
         "images": [
+            "https://ahlo.ma/wp-content/uploads/2022/06/Amin-Hajji-le-fondateur.jpg",
             "https://ahlo.ma/wp-content/uploads/2022/05/CABINET-D-AVOCAT-HAJJI-ASSOCIES-CASABLANCA-CABINET-AMIN-HAJJI-MISE-EN-AVANT.jpg",
-            "https://ahlo.ma/wp-content/uploads/2022/04/PHOTO-MENU-ACTIVITES-.jpg",
-            "https://ahlo.ma/wp-content/uploads/2022/04/PHOTO-MENU-A-PROPOS.jpg",
+            "https://ahlo.ma/wp-content/uploads/2022/04/CABINET-D-AVOCAT-HAJJI-ASSOCIES-CASABLANCA-TROPHEE-D-OR.png",
         ],
     },
 ]

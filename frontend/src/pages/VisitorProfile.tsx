@@ -225,7 +225,7 @@ const VisitorProfile = () => {
   const mute = async (profile: FollowedProfile) => {
     try {
       await muteService.muteAccount(visitorUser.id, profile.id, "posts");
-      toast({ title: "Profil masqué", description: "Ses posts n'apparaîtront plus dans votre fil." });
+      toast({ title: "Profil masqué", description: "Ses publications n'apparaîtront plus dans votre fil." });
     } catch (error) {
       console.error("Error muting profile:", error);
       toast({ title: "Erreur", description: "Impossible de masquer ce profil pour le moment." });
@@ -263,8 +263,8 @@ const VisitorProfile = () => {
       toast({ title: "Email requis", description: "Ajoutez votre email dans Modifier les infos avant de choisir un mot de passe." });
       return;
     }
-    if (password.length < 6) {
-      toast({ title: "Mot de passe trop court", description: "Utilisez au moins 6 caractères." });
+    if (password.length < 8) {
+      toast({ title: "Mot de passe trop court", description: "Utilisez au moins 8 caractères." });
       return;
     }
     if (password !== passwordConfirm) {
@@ -432,7 +432,7 @@ const VisitorProfile = () => {
             <DialogTitle>Mes biens · {biens.length}/3</DialogTitle>
           </DialogHeader>
           <p className="text-xs leading-snug text-muted-foreground">
-            Un particulier publie jusqu'à 3 biens dans son portfolio. Un post ou un projet demande un compte professionnel.
+            Un particulier publie jusqu'à 3 biens dans son portfolio. Une publication ou un projet demande un compte professionnel.
           </p>
           {biens.length < 3 ? (
             <button

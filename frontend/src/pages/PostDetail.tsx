@@ -83,15 +83,15 @@ const PostDetail = () => {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-lg font-semibold text-card-foreground">Post</h1>
+        <h1 className="text-lg font-semibold text-card-foreground">Publication</h1>
       </div>
 
       <div className="mx-auto max-w-2xl px-0 sm:px-4 py-4">
         {loading ? (
-          <div className="py-10 text-center text-muted-foreground">Chargement du post...</div>
+          <div className="py-10 text-center text-muted-foreground">Chargement de la publication...</div>
         ) : missing || !post ? (
           <div className="px-4 py-10 text-center">
-            <p className="mb-4 text-muted-foreground">Ce post est introuvable.</p>
+            <p className="mb-4 text-muted-foreground">Cette publication est introuvable.</p>
             <Button onClick={() => navigate("/")}>Retour au fil</Button>
           </div>
         ) : (
@@ -102,6 +102,7 @@ const PostDetail = () => {
             username={post.profiles?.username || "Utilisateur"}
             fullName={post.profiles?.full_name || ""}
             isVerified={Boolean(post.profiles?.is_verified)}
+            profileType={post.profiles?.profile_type}
             location={post.profiles?.location || ""}
             city={cityFromPost(post)}
             profession={post.profiles?.profession || ""}

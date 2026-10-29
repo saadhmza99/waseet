@@ -86,7 +86,7 @@ const JobFilterModal = ({ isOpen, onClose }: JobFilterModalProps) => {
             <button 
               onClick={onClose}
               className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close"
+              aria-label="Fermer"
             >
               <X className="w-5 h-5" />
           </button>

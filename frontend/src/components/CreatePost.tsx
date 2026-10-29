@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Building2, FolderKanban, Images, LayoutGrid, Package, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import PartnerDemandDialog from "@/components/PartnerDemandDialog";
+import PartnerDemandDialog, { PAID_PLAN_REQUEST } from "@/components/PartnerDemandDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { catalogService } from "@/services/catalogService";
@@ -74,7 +74,7 @@ const HandGearIcon = ({ className }: { className?: string }) => (
 );
 
 const postTypes: { id: CreateKind; label: string; Icon: typeof LayoutGrid | typeof HandGearIcon | typeof Package | typeof Images }[] = [
-  { id: "standard", label: "Post", Icon: LayoutGrid },
+  { id: "standard", label: "Publication", Icon: LayoutGrid },
   { id: "realisation", label: "Réalisation", Icon: Images },
   { id: "property", label: "Bien", Icon: Building2 },
   { id: "project", label: "Projet", Icon: FolderKanban },
@@ -275,7 +275,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
       resetForm();
     } catch (error) {
       console.error("Error creating post:", error);
-      toast({ title: "Erreur", description: "Erreur lors de la création du post. Veuillez réessayer." });
+      toast({ title: "Erreur", description: "Erreur lors de la création de la publication. Veuillez réessayer." });
     } finally {
       setIsSubmitting(false);
     }
@@ -285,25 +285,21 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
     if (hideLauncher) return null;
     if (isGuest) {
       return (
-        <div className="border-b border-neutral-200 bg-white px-3 py-4 sm:px-4">
-          <div className="mx-auto max-w-2xl space-y-3.5 rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 p-4 sm:p-5">
+        <div className="border-b border-neutral-200 bg-white px-3 py-3 sm:px-4 sm:py-4">
+          <div className="mx-auto max-w-2xl space-y-2.5 rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 p-3 sm:space-y-3.5 sm:p-5">
             <p className="px-0.5 text-[15px] leading-relaxed text-neutral-700 sm:text-base">
-              Devenez notre partenaire! publiez et gagnez en visibilité auprès de{" "}
-              <span className="font-semibold text-neutral-900">364 promoteurs</span>,{" "}
-              <span className="font-semibold text-neutral-900">1 700 acteurs BTP</span> et{" "}
-              <span className="font-semibold text-neutral-900">multiples fédérations nationales</span>.
+              {PAID_PLAN_REQUEST}
             </p>
             <button
               type="button"
               onClick={() => setPartnerOpen(true)}
-              className="flex w-full items-center gap-3.5 rounded-xl bg-[#174f43] px-4 py-3.5 text-left text-white shadow-sm transition hover:bg-[#123d34] sm:px-5 sm:py-4"
+              className="flex w-full items-center gap-2.5 rounded-xl bg-[#174f43] px-3.5 py-2.5 text-left text-white shadow-sm transition hover:bg-[#123d34] sm:gap-3.5 sm:px-5 sm:py-4"
             >
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-12 sm:w-12">
-                <Plus className="h-6 w-6" strokeWidth={2.5} />
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-12 sm:w-12">
+                <Plus className="h-4 w-4 sm:h-6 sm:w-6" strokeWidth={2.5} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-base font-semibold sm:text-lg">Créer une publication</span>
-
+                <span className="block text-sm font-semibold sm:text-lg">Demander les détails du plan</span>
               </span>
             </button>
           </div>
@@ -326,7 +322,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
               {particulier ? "Publier un bien" : "Créer une publication"}
             </span>
             <span className="block truncate text-xs text-white/80">
-              {particulier ? "Jusqu’à 3 biens dans votre portfolio" : "Post, projet, service, produit…"}
+              {particulier ? "Jusqu’à 3 biens dans votre portfolio" : "Publication, projet, service, produit…"}
             </span>
           </span>
         </button>
@@ -416,7 +412,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
           ) : null}
 
           <div>
-            <p className="mb-2 text-sm font-semibold text-card-foreground">Type de post</p>
+            <p className="mb-2 text-sm font-semibold text-card-foreground">Type de publication</p>
             <div
               className={`grid gap-1.5 sm:gap-2 ${
                 visiblePostTypes.length <= 2
@@ -471,11 +467,11 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
               <p className="mt-2 text-xs leading-snug text-muted-foreground">Chargement des types disponibles…</p>
             ) : !visiblePostTypes.length ? (
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
-                Le post sur le fil est réservé aux profils vérifiés (badge bleu). Les autres types dépendent de vos spécialités.
+                La publication sur le fil est réservée aux profils vérifiés (badge bleu). Les autres types dépendent de vos spécialités.
               </p>
             ) : visiblePostTypes.length <= 1 ? (
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
-                Types alignés sur les onglets de votre profil. Le post fil nécessite un badge vérifié.
+                Types alignés sur les onglets de votre profil. La publication sur le fil nécessite un badge vérifié.
               </p>
             ) : null}
           </div>

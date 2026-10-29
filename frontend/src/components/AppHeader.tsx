@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ClipboardList, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ClipboardList, Mail, Menu, Search, X } from "lucide-react";
 import logoDetailed from "@/assets/sifarah-logo-detailed.png";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -16,18 +16,79 @@ export const CreateAndBell = ({
   pillClassName?: string;
 }) => {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointer = (event: MouseEvent | TouchEvent) => {
+      const node = menuRef.current;
+      if (!node || !(event.target instanceof Node) || node.contains(event.target)) return;
+      setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("touchstart", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("touchstart", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   return (
-    <div className={`flex items-center gap-1 ${calm ? "shrink-0" : "min-w-0"} ${className}`}>
+    <div className={`relative flex items-center gap-1 ${calm ? "shrink-0" : "min-w-0"} ${className}`} ref={menuRef}>
+      {/* Desktop / large: keep devis pill */}
       <button
         type="button"
         onClick={() => navigate("/devis")}
-        className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-[#174f43] px-3.5 py-1.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#123d34] ${pillClassName}`}
+        className={`hidden items-center justify-center gap-1.5 rounded-full bg-[#174f43] px-3.5 py-1.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#123d34] lg:inline-flex ${pillClassName}`}
         aria-label="Demander un devis"
       >
         <ClipboardList className="h-5 w-5" strokeWidth={2.2} />
         <span className="truncate">Demander un devis</span>
       </button>
+
+      {/* Mobile: aesthetic three-line menu */}
+      <button
+        type="button"
+        onClick={() => setMenuOpen((open) => !open)}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-800 shadow-sm transition hover:border-[#174f43]/40 hover:text-[#174f43] lg:hidden"
+        aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+        aria-expanded={menuOpen}
+      >
+        {menuOpen ? <X className="h-5 w-5" strokeWidth={2} /> : <Menu className="h-5 w-5" strokeWidth={2} />}
+      </button>
+
+      {menuOpen ? (
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[60] w-56 overflow-hidden rounded-2xl border border-neutral-200 bg-white py-1.5 shadow-lg lg:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              navigate("/devis");
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-neutral-800 transition hover:bg-[#174f43]/5 hover:text-[#174f43]"
+          >
+            <ClipboardList className="h-4 w-4 shrink-0 text-[#174f43]" strokeWidth={2.2} />
+            Demander un devis
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              navigate("/contact");
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-neutral-800 transition hover:bg-[#174f43]/5 hover:text-[#174f43]"
+          >
+            <Mail className="h-4 w-4 shrink-0 text-[#174f43]" strokeWidth={2.2} />
+            Contactez-nous
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -39,7 +100,13 @@ const AppHeader = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
-  const hideSearch = pathname === "/" || pathname.startsWith("/saved") || pathname.startsWith("/explore") || pathname.startsWith("/opportunites");
+  const hideSearch =
+    pathname === "/" ||
+    pathname.startsWith("/saved") ||
+    pathname.startsWith("/explore") ||
+    pathname.startsWith("/opportunites") ||
+    pathname.startsWith("/produits") ||
+    pathname.startsWith("/inbox");
   const calm = pathname.startsWith("/opportunites");
   const [searchQuery, setSearchQuery] = useState("");
 

@@ -194,7 +194,7 @@ const PHASES: { label: string; pct: number; color: string }[] = [
 const TimelineTool = () => {
   const [mois, setMois] = useState(14);
   return (
-    <ToolShell title="Timeline projet" desc="Visualisez le planning phase par phase de votre construction.">
+    <ToolShell title="Planning du projet" desc="Visualisez le planning phase par phase de votre construction.">
       <Field label={`Durée totale estimée : ${mois} mois`}>
         <input
           type="range"
@@ -432,9 +432,9 @@ const TOOLS: ToolDef[] = [
   { id: "prix-m2", title: "Calculateur prix/m²", desc: "Estimez votre budget de construction par ville et standing", badge: "Populaire", Icon: Calculator, Body: PrixM2Tool },
   { id: "materiaux", title: "Simulateur matériaux", desc: "Calculez les quantités de ciment, fer, sable et briques", Icon: Boxes, Body: MateriauxTool },
   { id: "solaire", title: "Simulateur solaire", desc: "Calculez vos économies avec les panneaux solaires", badge: "Nouveau", Icon: Sun, Body: SolaireTool },
-  { id: "timeline", title: "Timeline projet", desc: "Visualisez le planning phase par phase de votre construction", Icon: CalendarDays, Body: TimelineTool },
+  { id: "timeline", title: "Planning du projet", desc: "Visualisez le planning phase par phase de votre construction", Icon: CalendarDays, Body: TimelineTool },
   { id: "peinture", title: "Calculateur peinture", desc: "Estimez la quantité et le coût de la peinture", Icon: PaintBucket, Body: PeintureTool },
-  { id: "sdb", title: "Estimateur SDB", desc: "Budget rénovation salle de bain ligne par ligne", badge: "Nouveau", Icon: Bath, Body: SdbTool },
+  { id: "sdb", title: "Estimateur salle de bain", desc: "Budget rénovation salle de bain ligne par ligne", badge: "Nouveau", Icon: Bath, Body: SdbTool },
   { id: "rokhas", title: "Guide permis Rokhas", desc: "Documents, étapes et délais par ville", Icon: FileCheck, Body: RokhasTool },
   { id: "plans", title: "Plans de maison", desc: "Catalogue R+1, R+2, villa, styles moderne et marocain", Icon: Home, Body: PlansTool },
   { id: "devis", title: "Comparateur de devis", desc: "Recevez et comparez 3 à 5 devis gratuits", Icon: Scale, Body: DevisTool },
@@ -447,7 +447,7 @@ const Tools = () => {
     <DesktopRailFrame className="min-h-screen bg-[#f6f5f3] pb-20 lg:pb-0">
       <div className="mx-auto w-full px-4 py-6 lg:px-2">
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-neutral-900">Tools</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Outils</h1>
           <p className="mt-1 text-sm text-neutral-500">
             Calculateurs et guides gratuits pour préparer vos travaux en toute confiance.
           </p>

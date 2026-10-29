@@ -42,12 +42,12 @@ const AboutThisMemberSheet = ({
     <Drawer open={open} onOpenChange={onOpenChange} shouldScaleBackground={false}>
       <DrawerContent className="z-[210] max-h-[85vh]">
         <DrawerHeader className="relative px-5 pb-2 pt-1">
-          <DrawerTitle className="pr-10 text-center text-lg">About this member</DrawerTitle>
+          <DrawerTitle className="pr-10 text-center text-lg">À propos de ce membre</DrawerTitle>
           <DrawerClose asChild>
             <button
               type="button"
               className="absolute right-3 top-0 inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground hover:bg-muted"
-              aria-label="Close"
+              aria-label="Fermer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -55,28 +55,28 @@ const AboutThisMemberSheet = ({
         </DrawerHeader>
         <div className="space-y-5 overflow-y-auto px-5 pb-8 pt-2">
           <section>
-            <h3 className="text-sm font-semibold text-card-foreground">Account history</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Joined Sifarah {formatDay(createdAt)}</p>
+            <h3 className="text-sm font-semibold text-card-foreground">Historique du compte</h3>
+            <p className="mt-1 text-sm text-muted-foreground">A rejoint Sifarah le {formatDay(createdAt)}</p>
             {signupCountry?.trim() ? (
-              <p className="mt-1 text-sm text-muted-foreground">Created from {signupCountry.trim()}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Créé depuis {signupCountry.trim()}</p>
             ) : null}
           </section>
           <section>
-            <h3 className="text-sm font-semibold text-card-foreground">Contact info</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Updated {formatDay(contactUpdatedAt || createdAt)}</p>
+            <h3 className="text-sm font-semibold text-card-foreground">Coordonnées</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Mises à jour le {formatDay(contactUpdatedAt || createdAt)}</p>
           </section>
           <section>
-            <h3 className="text-sm font-semibold text-card-foreground">Profile photo</h3>
+            <h3 className="text-sm font-semibold text-card-foreground">Photo de profil</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Last updated {formatDay(avatarUpdatedAt || createdAt)}
+              Dernière mise à jour le {formatDay(avatarUpdatedAt || createdAt)}
             </p>
           </section>
           <section>
-            <h3 className="text-sm font-semibold text-card-foreground">Verifications</h3>
+            <h3 className="text-sm font-semibold text-card-foreground">Vérifications</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {verified
-                ? `Verified${verifiedAt ? ` on ${formatDay(verifiedAt)}` : ""}`
-                : "Not verified yet"}
+                ? `Vérifié${verifiedAt ? ` le ${formatDay(verifiedAt)}` : ""}`
+                : "Pas encore vérifié"}
             </p>
           </section>
         </div>

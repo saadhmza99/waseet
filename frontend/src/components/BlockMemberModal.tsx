@@ -17,7 +17,7 @@ type BlockMemberModalProps = {
 const BlockMemberModal = ({
   isOpen,
   onClose,
-  title = "Block member",
+  title = "Bloquer ce membre",
   message,
   confirmLabel = "Bloquer",
   submittingLabel = "Blocage…",
@@ -50,7 +50,7 @@ const BlockMemberModal = ({
           type="button"
           onClick={onClose}
           className="inline-flex h-10 w-10 items-center justify-center justify-self-end rounded-full text-foreground hover:bg-muted"
-          aria-label="Close"
+          aria-label="Fermer"
         >
           <X className="h-5 w-5" />
         </button>

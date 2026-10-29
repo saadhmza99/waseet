@@ -85,8 +85,10 @@ const ProjectKerixPreview = ({ project }: { project: ProjectRecord }) => {
   const [zoom, setZoom] = useState(1);
 
   const gallery = useMemo(() => {
-    if (project.media?.length) return project.media;
-    return (project.images || []).map((url) => ({ url, caption: "", category: "Galerie" }));
+    const items = project.media?.length
+      ? project.media
+      : (project.images || []).map((url) => ({ url, caption: "", category: "Galerie" }));
+    return items.filter((item) => item.url && item.url !== project.coverImage);
   }, [project]);
 
   const team = useMemo(() => withPromoter(project).filter((member) => member.name), [project]);

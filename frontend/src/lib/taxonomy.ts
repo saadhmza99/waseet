@@ -27,7 +27,7 @@ export const FEED_CATEGORIES: FeedCategory[] = [
   {
     id: 3,
     slug: "construction-btp",
-    label: "Construction & BTP",
+    label: "Construction, études et BTP",
     description: "Entreprises de construction, gros œuvre, génie civil, ingénierie, topographie, bureaux d'études techniques et entreprises spécialisées.",
     subCategories: [
       { slug: "construction-gros-oeuvre", label: "Construction & gros œuvre" },
@@ -157,6 +157,60 @@ export const PROMOTEUR_INTERNAL_CODE = "1.2.1";
 export const FOURNISSEUR_CATEGORY_ID = "fournisseurs-filter";
 export const isFournisseurInternalCode = (code?: string | null) => /^8\.5\.[1-5]$/.test((code || "").trim());
 export const isPromoteurInternalCode = (code?: string | null) => (code || "").trim() === PROMOTEUR_INTERNAL_CODE;
+
+/** Discover sub under Construction & BTP that opens leaf multi-select. */
+export const INGENIERIE_ETUDES_SUB_SLUG = "ingenierie-etudes";
+
+/** Peer leaf that unlocks BET agrément (D) filters. */
+export const BUREAU_ETUDES_CODE = "3.4.2";
+
+/** Peer leaves under ingenierie-etudes (shown until Bureau d'études is checked). */
+export const INGENIERIE_ETUDES_PEER_OPTIONS: { code: string; label: string }[] = [
+  { code: "3.4.1", label: "Génie civil / structure" },
+  { code: BUREAU_ETUDES_CODE, label: "Bureau d'études" },
+  { code: "3.4.3", label: "Études techniques" },
+  { code: "3.4.4", label: "Contrôle technique" },
+  { code: "3.4.5", label: "Économie de la construction" },
+  { code: "3.4.6", label: "Coordination de chantier" },
+  { code: "3.4.7", label: "Géomètre-topographe" },
+  { code: "3.4.8", label: "Topographie" },
+  { code: "3.4.9", label: "Études de terrain" },
+];
+
+/** Agréments BET (D13–D21) — only after Bureau d'études is checked. */
+export const BET_AGREMENT_OPTIONS: { code: string; label: string }[] = [
+  { code: "3.4.13", label: "D13 · Études générales" },
+  { code: "3.4.14", label: "D14 · Calcul de structures" },
+  { code: "3.4.15", label: "D15 · Courant fort / faible" },
+  { code: "3.4.16", label: "D16 · Réseaux des fluides" },
+  { code: "3.4.17", label: "D17 · Voirie / assainissement / AEP" },
+  { code: "3.4.18", label: "D18 · Électricité / télécoms / éclairage" },
+  { code: "3.4.19", label: "D19 · Impact environnement" },
+  { code: "3.4.20", label: "D20 · Géologie / hydro" },
+  { code: "3.4.21", label: "D21 · Sécurité incendie" },
+];
+
+export const INGENIERIE_ETUDES_LEAF_OPTIONS = [
+  ...INGENIERIE_ETUDES_PEER_OPTIONS,
+  ...BET_AGREMENT_OPTIONS,
+];
+
+export const isBetAgrementCode = (code?: string | null) =>
+  /^3\.4\.(1[3-9]|2[01])$/.test((code || "").trim());
+
+export const isIngenierieEtudesLeafCode = (code?: string | null) =>
+  INGENIERIE_ETUDES_LEAF_OPTIONS.some((o) => o.code === (code || "").trim());
+
+/**
+ * Codes sent to Discover `.in(code)`.
+ * If any D agrément is checked, filter by those Ds only; otherwise by peer leaves.
+ */
+export const normalizeIngenierieFilterCodes = (codes: string[]) => {
+  const cleaned = codes.map((c) => String(c || "").trim()).filter(Boolean);
+  const ds = cleaned.filter(isBetAgrementCode);
+  if (ds.length) return ds;
+  return cleaned.filter((c) => !isBetAgrementCode(c));
+};
 
 /** Profile tabs visibility from internal category code. */
 export type ProfileSectionVisibility = {

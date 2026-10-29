@@ -171,7 +171,7 @@ export const CloudflareVideoPlayer = ({
       <iframe
         id={resolvedId}
         ref={iframeRef}
-        title="Reel vidéo"
+        title="Vidéo"
         src={`${embedUrl}?${params.toString()}`}
         className="h-full w-full"
         allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"

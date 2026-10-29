@@ -1,4 +1,4 @@
-import { ImgHTMLAttributes, useEffect, useState } from "react";
+import { ImgHTMLAttributes, useEffect, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 export function MediaRetryOverlay({
@@ -40,6 +40,7 @@ export function MediaRetryOverlay({
 
 type RetryImageProps = ImgHTMLAttributes<HTMLImageElement> & {
   wrapClassName?: string;
+  wrapStyle?: CSSProperties;
   compact?: boolean;
 };
 
@@ -48,6 +49,7 @@ export function RetryImage({
   alt = "",
   className,
   wrapClassName,
+  wrapStyle,
   compact,
   onError,
   onLoad,
@@ -65,7 +67,7 @@ export function RetryImage({
     src && nonce > 0 ? `${src}${src.includes("?") ? "&" : "?"}retry=${nonce}` : src;
 
   return (
-    <div className={cn("relative overflow-hidden", wrapClassName)}>
+    <div className={cn("relative overflow-hidden", wrapClassName)} style={wrapStyle}>
       {resolved ? (
         <img
           {...rest}

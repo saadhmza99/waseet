@@ -59,15 +59,20 @@ export const CategoryPicker = ({
   size?: "md" | "lg";
 }) => {
   const large = size === "lg";
-  const gridClass = columns === 3 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2";
+  const gridClass = columns === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2";
+  // Mobile: compact title-only cards. sm+: roomier + hover descriptions.
   const cardClass = large
-    ? "flex min-h-32 w-full animate-category-pop items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-5 py-6 text-xl font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
-    : "flex min-h-[4.75rem] w-full animate-category-pop items-center gap-2.5 rounded-2xl border border-neutral-200 bg-white px-3.5 py-[1.35vh] text-base font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]";
-  const iconClass = large ? "h-9 w-9 shrink-0" : "h-6 w-6 shrink-0";
-  const labelClass = large ? "block text-[20px] leading-snug" : "block text-[1.05rem] leading-snug sm:text-lg";
+    ? "flex h-full min-h-0 w-full animate-category-pop gap-2 rounded-xl border border-neutral-200 bg-white px-2.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43] sm:min-h-32 sm:gap-4 sm:rounded-2xl sm:px-5 sm:py-6 sm:text-xl"
+    : "flex h-full min-h-0 w-full animate-category-pop gap-2 rounded-xl border border-neutral-200 bg-white px-2.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43] sm:min-h-[4.75rem] sm:gap-2.5 sm:rounded-2xl sm:px-3.5 sm:py-[1.35vh] sm:text-base";
+  const iconClass = large
+    ? "mt-0.5 h-4 w-4 shrink-0 sm:mt-0 sm:h-9 sm:w-9"
+    : "mt-0.5 h-4 w-4 shrink-0 sm:mt-0 sm:h-6 sm:w-6";
+  const labelClass = large
+    ? "block text-[12px] leading-snug sm:text-[20px]"
+    : "block text-[12px] leading-snug sm:text-lg";
   const triggerClass = large
-    ? "flex h-16 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-5 text-lg font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
-    : "flex h-14 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3.5 text-base font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]";
+    ? "flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43] sm:h-16 sm:px-5 sm:text-lg"
+    : "flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3.5 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43] sm:h-14 sm:text-base";
 
   return (
     <div className={open ? "flex min-h-[calc(100dvh-9.5rem)] items-center justify-center" : ""}>
@@ -76,10 +81,14 @@ export const CategoryPicker = ({
           {selectedLabel ? `Catégorie : ${selectedLabel}` : "Catégories"}
         </button>
         {open ? (
-          <div className={`mt-3 grid items-start gap-3 ${gridClass}`}>
-            <button type="button" onClick={() => onSelect("tout")} className={cardClass}>
-              <LayoutGrid className={iconClass} />
-              <span className={`text-left ${labelClass}`}>Tout</span>
+          <div className={`mt-3 grid items-stretch gap-2 sm:gap-3 ${gridClass}`}>
+            <button
+              type="button"
+              onClick={() => onSelect("tout")}
+              className={`${cardClass} items-center justify-center`}
+            >
+              <LayoutGrid className={large ? "h-4 w-4 shrink-0 sm:h-9 sm:w-9" : "h-4 w-4 shrink-0 sm:h-6 sm:w-6"} />
+              <span className={`text-center ${labelClass}`}>Tout</span>
             </button>
             {categories.map((item, index) => (
               <button
@@ -87,23 +96,28 @@ export const CategoryPicker = ({
                 type="button"
                 onClick={() => onSelect(item.id)}
                 style={{ animationDelay: `${(index + 1) * 45}ms` }}
-                className={`group ${cardClass}`}
+                className={`group ${cardClass} items-start sm:items-center`}
               >
                 <item.Icon className={iconClass} />
                 <span className="min-w-0 text-left">
                   <span className={labelClass}>{item.label}</span>
                   {item.description ? (
-                    <span className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover:grid-rows-[1fr] group-focus-visible:grid-rows-[1fr]">
-                      <span className="overflow-hidden">
-                        <span
-                          className={`block pt-[0.6vh] font-normal leading-snug text-neutral-500 ${
-                            large ? "text-lg" : "text-[1.65vh] sm:text-sm"
-                          }`}
-                        >
-                          {item.description}
+                    <>
+                      <span className="mt-0.5 block text-[10px] font-normal leading-snug text-neutral-500 line-clamp-2 sm:hidden">
+                        {item.description}
+                      </span>
+                      <span className="hidden sm:grid sm:grid-rows-[0fr] sm:transition-[grid-template-rows] sm:duration-200 sm:group-hover:grid-rows-[1fr] sm:group-focus-visible:grid-rows-[1fr]">
+                        <span className="overflow-hidden">
+                          <span
+                            className={`block pt-[0.6vh] font-normal leading-snug text-neutral-500 ${
+                              large ? "text-lg" : "text-sm"
+                            }`}
+                          >
+                            {item.description}
+                          </span>
                         </span>
                       </span>
-                    </span>
+                    </>
                   ) : null}
                 </span>
               </button>

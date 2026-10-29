@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Bell, ClipboardList, GraduationCap, Heart, Home, Plus, Search, Settings, Wrench } from "lucide-react";
+import { Bell, ClipboardList, GraduationCap, Heart, Home, Inbox, Plus, Search, Settings } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logoDetailed from "@/assets/sifarah-logo-detailed.png";
+import marocSeConstruit from "@/assets/maroc-se-construit.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { profileService } from "@/services/profileService";
 import { getDefaultAvatar, resolveAvatarUrl } from "@/lib/avatar";
@@ -73,7 +74,7 @@ const FeedDesktopRail = () => {
   const displayName = fullName || (account ? "Profil" : "Se connecter");
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-neutral-200 bg-white py-6 pl-4 pr-3 lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-neutral-200 bg-white pb-4 pl-4 pr-3 pt-2 lg:flex">
       <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2 text-left">
         <img src={logoDetailed} alt="" className="h-16 w-auto shrink-0 object-contain brightness-0" />
         <span className="flex flex-col items-start text-neutral-900">
@@ -86,7 +87,7 @@ const FeedDesktopRail = () => {
         </span>
       </button>
 
-      <nav className="mt-8 flex flex-col gap-1">
+      <nav className="mt-4 flex flex-col gap-1">
         <button type="button" onClick={() => navigate("/")} className={itemClass(path === "/" && !creating)}>
           <Home className="h-5 w-5" strokeWidth={path === "/" && !creating ? 2.4 : 2} />
           Fil
@@ -103,6 +104,10 @@ const FeedDesktopRail = () => {
           <Heart className="h-5 w-5" strokeWidth={2} />
           Favoris
         </button>
+        <button type="button" onClick={() => navigate("/inbox")} className={itemClass(path.startsWith("/inbox"))}>
+          <Inbox className="h-5 w-5" strokeWidth={2} />
+          Messages
+        </button>
         <button type="button" onClick={() => navigate("/devis")} className={itemClass(path.startsWith("/devis"))}>
           <ClipboardList className="h-5 w-5" strokeWidth={2} />
           Demander devis
@@ -110,15 +115,19 @@ const FeedDesktopRail = () => {
         <div className="my-3" aria-hidden />
         <button type="button" onClick={() => navigate("/courses")} className={itemClass(path.startsWith("/courses"))}>
           <GraduationCap className="h-5 w-5" strokeWidth={2} />
-          Courses
-        </button>
-        <button type="button" onClick={() => navigate("/outils")} className={itemClass(path.startsWith("/outils"))}>
-          <Wrench className="h-5 w-5" strokeWidth={2} />
-          Tools
+          Médiathèque
         </button>
       </nav>
 
-      <div ref={menuRef} className="relative mt-auto flex items-center gap-1">
+      <div className="mt-auto flex min-h-0 flex-1 items-center overflow-hidden py-3">
+        <img
+          src={marocSeConstruit}
+          alt="Le Maroc se construit ensemble"
+          className="max-h-full w-full object-contain"
+        />
+      </div>
+
+      <div ref={menuRef} className="relative flex items-center gap-1">
         {menuOpen ? (
           <div className="absolute bottom-full left-0 z-20 mb-2 w-full overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-lg">
             <button
@@ -190,7 +199,7 @@ export const DesktopRailFrame = ({
 }) => (
   <div className={`lg:flex lg:min-h-screen lg:w-full ${className}`}>
     <FeedDesktopRail />
-    <div className="min-w-0 lg:flex-1 lg:py-5">
+    <div className="min-w-0 lg:flex-1 lg:pb-5 lg:pt-1">
       <div
         className={
           contentClassName ||

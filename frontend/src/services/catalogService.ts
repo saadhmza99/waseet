@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabase";
+import { withActivityLog } from "@/lib/activityLog";
+import { PINNED_PROJECT_IDS, pinnedProjectRank, projectFeedPriorityRank } from "@/lib/projectFeedPriority";
 
 export type CatalogKind = "property" | "project";
 
@@ -112,23 +114,36 @@ const syncProjectDocuments = async (projectId: string, documents: ProjectDocumen
 };
 
 const insertProject = async (userId: string, data: ProjectCatalogData) => {
-  const { documents, ...projectData } = data;
-  const { data: row, error } = await supabase
-    .from("projects")
-    .insert({
-      ...projectData,
-      user_id: userId,
-      title: String(data.title || "").trim() || "Projet",
-    })
-    .select()
-    .single();
+  const title = String(data.title || "").trim() || "Projet";
+  return withActivityLog(
+    {
+      action: "project_create",
+      targetType: "project",
+      targetLabel: title,
+      message: "Création d'un projet",
+      meta: { userId },
+    },
+    async () => {
+      const { documents, ...projectData } = data;
+      const { data: row, error } = await supabase
+        .from("projects")
+        .insert({
+          ...projectData,
+          user_id: userId,
+          title,
+        })
+        .select()
+        .single();
 
-  if (error) throw error;
-  if (Array.isArray(documents)) {
-    const synced = await syncProjectDocuments(row.id, documents as ProjectDocumentInput[]);
-    return { ...row, documents: synced };
-  }
-  return row;
+      if (error) throw error;
+      if (Array.isArray(documents)) {
+        const synced = await syncProjectDocuments(row.id, documents as ProjectDocumentInput[]);
+        return { ...row, documents: synced };
+      }
+      return row;
+    },
+    (row) => ({ targetId: String((row as { id?: string }).id || ""), targetLabel: title }),
+  );
 };
 
 const listByUser = async (kind: CatalogKind, userId: string, limit?: number, offset = 0) => {
@@ -173,23 +188,53 @@ export const catalogService = {
   },
 
   async updateProject(id: string, userId: string, data: ProjectCatalogData) {
-    const { documents, ...projectData } = data;
-    const { data: row, error } = await supabase
-      .from("projects")
-      .update({
-        ...projectData,
-        title: String(data.title || "").trim() || "Projet",
-      })
-      .eq("id", id)
-      .eq("user_id", userId)
-      .select()
-      .single();
+    const title = String(data.title || "").trim() || "Projet";
+    return withActivityLog(
+      {
+        action: "project_update",
+        targetType: "project",
+        targetId: id,
+        targetLabel: title,
+        message: "Modification d'un projet",
+        meta: { userId },
+      },
+      async () => {
+        const { documents, ...projectData } = data;
+        const { data: row, error } = await supabase
+          .from("projects")
+          .update({
+            ...projectData,
+            title,
+          })
+          .eq("id", id)
+          .eq("user_id", userId)
+          .select()
+          .single();
+        if (error) throw error;
+        if (Array.isArray(documents)) {
+          const synced = await syncProjectDocuments(id, documents as ProjectDocumentInput[]);
+          return { ...row, documents: synced };
+        }
+        return row;
+      },
+      (row) => ({ targetId: String((row as { id?: string }).id || id), targetLabel: title }),
+    );
+  },
+
+  async deleteProject(id: string, userId: string) {
+    const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", userId);
     if (error) throw error;
-    if (Array.isArray(documents)) {
-      const synced = await syncProjectDocuments(id, documents as ProjectDocumentInput[]);
-      return { ...row, documents: synced };
-    }
-    return row;
+  },
+
+  /** Temporary curator power: set cover or delete a gallery image (signed-in pro). */
+  async patchProjectMedia(id: string, action: "set_cover" | "delete_image" | "clear_cover", url: string) {
+    const { data, error } = await supabase.rpc("patch_project_media", {
+      p_id: id,
+      p_action: action,
+      p_url: url,
+    });
+    if (error) throw error;
+    return data as { id: string; cover_image: string | null; images: string[]; media: unknown };
   },
 
   getPropertiesByUser(userId: string, limit?: number, offset = 0) {
@@ -222,8 +267,15 @@ export const catalogService = {
     if (projectType) query = query.eq("project_type", projectType);
     const { data, error } = await query.range(offset, offset + Math.max(fetchLimit - 1, 0));
     if (error) throw error;
+    let pinnedRows: typeof data = [];
+    if (!city && !projectType) {
+      const pinned = await supabase.from("projects_directory").select("*").in("id", [...PINNED_PROJECT_IDS]);
+      if (pinned.error) throw pinned.error;
+      pinnedRows = pinned.data;
+    }
+    const merged = [...(pinnedRows || []), ...(data || [])];
 
-    const imageUrls = (row: (typeof data)[number]): string[] => {
+    const imageUrls = (row: (typeof merged)[number]): string[] => {
       const out: string[] = [];
       const cover = String(row?.cover_image || "").trim();
       if (cover) out.push(cover);
@@ -235,13 +287,13 @@ export const catalogService = {
       }
       return out.filter((url) => /^https?:\/\//i.test(url));
     };
-    const hasRealImage = (row: (typeof data)[number]) => imageUrls(row).length > 0;
-    const isChridariCover = (row: (typeof data)[number]) =>
+    const hasRealImage = (row: (typeof merged)[number]) => imageUrls(row).length > 0;
+    const isChridariCover = (row: (typeof merged)[number]) =>
       imageUrls(row).some((url) => /chridari/i.test(url));
 
     const seen = new Set<string>();
-    const unique: NonNullable<typeof data> = [];
-    for (const row of data || []) {
+    const unique: NonNullable<typeof merged> = [];
+    for (const row of merged) {
       if (!hasRealImage(row)) continue;
       const attrs = row?.attributes && typeof row.attributes === "object" ? row.attributes : {};
       const key = String((attrs as { source_project_id?: string }).source_project_id || row.id);
@@ -249,11 +301,14 @@ export const catalogService = {
       seen.add(key);
       unique.push(row);
     }
-    // Prefer open dossiers, then covers without a Chridari watermark URL.
+    // The three former open dossiers stay first. Their details remain locked.
     unique.sort((a, b) => {
-      const openA = a?.open_dossier ? 1 : 0;
-      const openB = b?.open_dossier ? 1 : 0;
-      if (openA !== openB) return openB - openA;
+      const pinA = pinnedProjectRank(a?.id);
+      const pinB = pinnedProjectRank(b?.id);
+      if (pinA !== pinB) return pinA - pinB;
+      const rankA = projectFeedPriorityRank(a?.title);
+      const rankB = projectFeedPriorityRank(b?.title);
+      if (rankA !== rankB) return rankA - rankB;
       const dirtyA = isChridariCover(a) ? 1 : 0;
       const dirtyB = isChridariCover(b) ? 1 : 0;
       if (dirtyA !== dirtyB) return dirtyA - dirtyB;

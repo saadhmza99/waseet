@@ -1,9 +1,37 @@
 import { supabase } from '@/lib/supabase';
 import { UPLOAD_MAX_BYTES } from '@/services/storageService';
 
-// Cloudflare Stream API endpoints
-const CLOUDFLARE_ACCOUNT_ID = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
-const STREAM_API_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream`;
+/** Call the upload-video Edge Function (Cloudflare token stays server-side). */
+async function callStreamProxy(body: Record<string, unknown>) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
+  }
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error('You must be signed in');
+
+  const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/upload-video`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      apikey: supabaseAnonKey,
+    },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => ({}))) as { error?: string; hint?: string };
+  if (!res.ok) {
+    throw new Error(
+      typeof json.error === 'string'
+        ? `${json.error}${json.hint ? ` — ${json.hint}` : ''}`
+        : `upload-video failed (${res.status})`,
+    );
+  }
+  return json;
+}
 
 /** Hard cap before we even ask for a direct-upload ticket (cost + UX). Reels use the global 20 Mo limit. */
 export const REEL_UPLOAD_MAX_BYTES = UPLOAD_MAX_BYTES;
@@ -109,18 +137,7 @@ export const streamService = {
    */
   async getVideo(videoId: string) {
     try {
-      const response = await fetch(`${STREAM_API_URL}/${videoId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_CLOUDFLARE_STREAM_TOKEN}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch video');
-      }
-
-      return await response.json();
+      return await callStreamProxy({ action: 'get-video', videoId: String(videoId || '').trim() });
     } catch (error) {
       console.error('Error fetching video:', error);
       throw error;
@@ -252,17 +269,7 @@ export const streamService = {
    */
   async deleteVideo(videoId: string) {
     try {
-      const response = await fetch(`${STREAM_API_URL}/${videoId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_CLOUDFLARE_STREAM_TOKEN}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete video');
-      }
-
+      await callStreamProxy({ action: 'delete-video', videoId: String(videoId || '').trim() });
       return true;
     } catch (error) {
       console.error('Error deleting video:', error);

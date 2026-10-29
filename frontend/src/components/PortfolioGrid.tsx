@@ -215,10 +215,10 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
               {item.postType === "property" && (
                 <div className="flex items-center justify-between border-t border-border px-3 py-2">
                   <button type="button" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-accent">
-                    <Heart className="h-4 w-4" /> Favourite
+                    <Heart className="h-4 w-4" /> Favori
                   </button>
                   <button type="button" onClick={() => shareItem(item)} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-accent">
-                    <Share2 className="h-4 w-4" /> Share
+                    <Share2 className="h-4 w-4" /> Partager
                   </button>
                   <button
                     type="button"
@@ -297,7 +297,7 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
                       onClick={() => {
                         const phone = phoneOf(selected);
                         if (!phone) {
-                          toast({ title: "Unavailable", description: "Aucun numéro." });
+                          toast({ title: "Indisponible", description: "Aucun numéro." });
                           return;
                         }
                         window.location.href = `tel:${phone.replace(/\D/g, "")}`;
@@ -310,7 +310,7 @@ const PortfolioGrid = ({ items }: PortfolioGridProps) => {
                       onClick={() => {
                         const phone = phoneOf(selected);
                         if (!phone) {
-                          toast({ title: "Unavailable", description: "Aucun numéro." });
+                          toast({ title: "Indisponible", description: "Aucun numéro." });
                           return;
                         }
                         window.open(`https://wa.me/${toWhatsAppNumber(phone)}`, "_blank", "noopener,noreferrer");

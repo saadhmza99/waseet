@@ -9,6 +9,22 @@ export type ArticleRow = {
   excerpt?: string | null;
   published_on?: string | null;
   url?: string | null;
+  profiles?:
+    | {
+        full_name?: string | null;
+        username?: string | null;
+        avatar_url?: string | null;
+        profile_type?: string | null;
+        is_verified?: boolean | null;
+      }
+    | {
+        full_name?: string | null;
+        username?: string | null;
+        avatar_url?: string | null;
+        profile_type?: string | null;
+        is_verified?: boolean | null;
+      }[]
+    | null;
 };
 
 export type FormationRow = {
@@ -41,6 +57,19 @@ export type FormationInput = {
 };
 
 export const institutionService = {
+  async listPublicArticles(): Promise<ArticleRow[]> {
+    const { data, error } = await supabase
+      .from("articles")
+      .select(
+        "id, user_id, cover_url, rubrique, title, excerpt, published_on, url, profiles!user_id(full_name, username, avatar_url, profile_type, is_verified)",
+      )
+      .order("published_on", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(60);
+    if (error) throw error;
+    return (data || []) as ArticleRow[];
+  },
+
   async listArticles(userId: string): Promise<ArticleRow[]> {
     const { data, error } = await supabase
       .from("articles")

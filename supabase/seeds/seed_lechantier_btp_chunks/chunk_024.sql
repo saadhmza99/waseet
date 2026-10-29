@@ -316,7 +316,7 @@ UPDATE public.profiles SET
   email = 'lc-acmatec@lechantier.sifarah.local',
   website_url = 'https://acmatec.ma/',
   ice = '001637054000017',
-  avatar_url = 'https://acmatec.ma/\/\/acmatec.ma\/wp-content\/uploads\/2025\/12\/Logo-acmatec.png',
+  avatar_url = 'https://simc-maroc.com/contents/exhibitors/pictures/2025/large/qfOh0VApxIdaQT7Zi7jY4fbrfqkqzTsrXPVCNx8a.jpg',
   cover_photo_url = 'https://acmatec.ma/wp-content/uploads/2025/12/ChatGPT-Image-20-dec.-2025-15_22_42.jpg',
   profile_type = 'enterprise',
   internal_category_id = (SELECT id FROM public.internal_categories WHERE code = '3.1.5' LIMIT 1),

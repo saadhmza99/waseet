@@ -22,7 +22,7 @@ import InfiniteScrollSentinel, { PAGE_SIZE } from "@/components/InfiniteScrollSe
 import type { ProductRow } from "@/services/productService";
 
 const tabs = [
-  { id: "posts", label: "Posts" },
+  { id: "posts", label: "Publications" },
   { id: "biens", label: "Biens" },
   { id: "projets", label: "Projets" },
   { id: "services", label: "Services" },
@@ -216,6 +216,7 @@ const Saved = () => {
         username={profile.username || ""}
         fullName={profile.full_name || ""}
         isVerified={Boolean(profile.is_verified)}
+        profileType={profile.profile_type}
         location={profile.location || ""}
         city={cityFromPost(post)}
         profession={profile.profession || ""}
@@ -348,7 +349,7 @@ const Saved = () => {
               {activeTab === "posts" && postsView === "grid" && (
                 <div className="space-y-4">
                   {regularPosts.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">Aucun post dans vos favoris</div>
+                    <div className="py-8 text-center text-muted-foreground">Aucune publication dans vos favoris</div>
                   ) : (
                     regularPosts.slice(0, visibleCount).map(renderFeedPost)
                   )}
@@ -358,7 +359,7 @@ const Saved = () => {
               {activeTab === "posts" && postsView === "reels" && (
                 <div>
                   {savedReels.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">Aucun reel dans vos favoris</div>
+                    <div className="py-8 text-center text-muted-foreground">Aucune vidéo dans vos favoris</div>
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
                       {savedReels
@@ -373,14 +374,14 @@ const Saved = () => {
                             <button
                               key={saved.id ?? `${reel.id}-saved`}
                               type="button"
-                              aria-label={reel.title || "Voir le reel"}
+                              aria-label={reel.title || "Voir la vidéo"}
                               onClick={openInReelsViewer}
                               className="relative aspect-[3/4] overflow-hidden bg-black"
                             >
                               {reel.cloudflare_video_id ? (
                                 <RetryImage
                                   src={streamService.getVideoThumbnailUrl(String(reel.cloudflare_video_id).trim())}
-                                  alt={reel.title || "Reel"}
+                                  alt={reel.title || "Vidéo"}
                                   compact
                                   wrapClassName="h-full w-full"
                                   className="h-full w-full object-cover"

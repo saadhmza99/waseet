@@ -99,7 +99,7 @@ const PortfolioModal = ({ image, label, username, avatar, isOpen, onClose }: Por
               className="flex items-center gap-2 text-sm font-medium text-card-foreground"
             >
               <Share2 className="w-5 h-5" />
-              Share
+              Partager
             </button>
           </div>
 

@@ -1,2 +1,9 @@
 supabase/.temp/
 
+# Secrets / local env
+.env
+.env.*
+!.env.example
+**/.env
+!**/.env.example
+

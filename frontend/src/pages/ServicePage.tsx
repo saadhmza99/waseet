@@ -15,10 +15,13 @@ import {
 } from "@/lib/serviceOffer";
 import { devisPath } from "@/services/devisService";
 import { serviceFirmName, serviceService, type ServiceRow } from "@/services/serviceService";
+import { OwnerDeleteButton } from "@/components/OwnerDeleteButton";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ServicePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [row, setRow] = useState<ServiceRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [contactOpen, setContactOpen] = useState(false);
@@ -78,6 +81,7 @@ const ServicePage = () => {
   /** Gallery under Mission: all photos when hero is a logo; otherwise skip the hero photo. */
   const galleryPhotos = logoCover ? photos : photos.slice(1);
   const audiences = [...offer.audiences.filter((item) => item !== "Autres"), offer.audienceOther].filter(Boolean);
+  const isOwn = Boolean(user && row.user_id && user.id === row.user_id);
 
   return (
     <div className="min-h-screen bg-[#f4f6f3] pb-8 text-neutral-900">
@@ -85,7 +89,15 @@ const ServicePage = () => {
         <button type="button" onClick={() => navigate(-1)} className="mb-3 text-sm text-neutral-600">
           ← Retour
         </button>
-        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+        <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+          {isOwn && user ? (
+            <OwnerDeleteButton
+              onDelete={async () => {
+                await serviceService.deleteService(row.id, user.id);
+                navigate("/profile?tab=services");
+              }}
+            />
+          ) : null}
           {mainImage ? (
             <div
               className={`relative aspect-[16/9] overflow-hidden sm:aspect-[21/9] ${
@@ -141,17 +153,20 @@ const ServicePage = () => {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(
-                    devisPath({
-                      sellerId: row.user_id,
-                      sellerName: firm,
-                      serviceId: row.id,
-                    }),
-                  )
+                  isOwn
+                    ? navigate(`/service/${row.id}/modifier`)
+                    : navigate(
+                        devisPath({
+                          sellerId: row.user_id,
+                          sellerName: firm,
+                          serviceId: row.id,
+                          fromLabel: "Page service",
+                        }),
+                      )
                 }
                 className="h-11 rounded-lg bg-[#174f43] text-base font-semibold text-white"
               >
-                Demander un devis
+                {isOwn ? "Modifier" : "Demander un devis"}
               </button>
               <button type="button" onClick={() => setContactOpen(true)} className="h-11 rounded-lg border border-neutral-300 text-base font-semibold">
                 Demander plus d'informations

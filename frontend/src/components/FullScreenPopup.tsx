@@ -38,7 +38,7 @@ const FullScreenPopup = ({ open, onClose, children }: FullScreenPopupProps) => {
           type="button"
           onClick={onClose}
           className="absolute right-3 top-3 z-20 rounded-full bg-background/90 p-1.5 text-foreground shadow hover:bg-muted"
-          aria-label="Close"
+          aria-label="Fermer"
         >
           <X className="h-5 w-5" />
         </button>

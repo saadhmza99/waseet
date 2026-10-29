@@ -1,4 +1,4 @@
-import { ArrowLeft, Ban, Edit, Flag, Info, LogOut, MapPin, MessageSquare, MoreVertical, Phone, Settings, Share2, UserPlus, UserCheck, VolumeX } from "lucide-react";
+import { ArrowLeft, Ban, Edit, Flag, Info, LogOut, MapPin, MessageSquare, MoreVertical, Phone, Settings, Share2, Tags, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { RecruitService } from "./InviteToJobModal";
 import {
@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { clampBio } from "@/lib/bio";
 import { devisPath } from "@/services/devisService";
+import { showFollowButton } from "@/services/followService";
 import { guessProType } from "@/lib/devisCatalog";
 
 /** Kill-switch: hide cover photos. */
@@ -37,10 +38,12 @@ interface ProfileHeaderProps {
   websiteUrl?: string | null;
   isOwnProfile?: boolean;
   isVerified?: boolean;
+  profileType?: string | null;
   authReady?: boolean;
   isFollowing?: boolean;
   onToggleFollow?: () => void;
   onEditProfile?: () => void;
+  onEditCategories?: () => void;
   onReportMember?: () => void;
   onBlockMember?: () => void;
   /** When set, shows the Infos circle action (e.g. preview pages). Profile uses the Infos tab instead. */
@@ -99,10 +102,12 @@ const ProfileHeader = ({
   websiteUrl: _websiteUrl,
   isOwnProfile = false,
   isVerified = false,
+  profileType = null,
   authReady = true,
   isFollowing = false,
   onToggleFollow,
   onEditProfile,
+  onEditCategories,
   onReportMember,
   onBlockMember,
   onAboutMember,
@@ -123,7 +128,7 @@ const ProfileHeader = ({
 
   const openCall = () => {
     if (!phone || !hasPhone) {
-      toast({ title: "Unavailable", description: "This profile has no phone number." });
+      toast({ title: "Indisponible", description: "Ce profil n'a pas de numéro de téléphone." });
       return;
     }
     window.location.href = `tel:${digitsOnly(phone)}`;
@@ -131,7 +136,7 @@ const ProfileHeader = ({
 
   const openWhatsApp = () => {
     if (!phone || !hasPhone) {
-      toast({ title: "Unavailable", description: "This profile has no WhatsApp number." });
+      toast({ title: "Indisponible", description: "Ce profil n'a pas de numéro WhatsApp." });
       return;
     }
     window.open(`https://wa.me/${toWhatsAppNumber(phone)}`, "_blank", "noopener,noreferrer");
@@ -139,7 +144,7 @@ const ProfileHeader = ({
 
   const openSms = () => {
     if (!phone || !hasPhone) {
-      toast({ title: "Unavailable", description: "This profile has no phone number." });
+      toast({ title: "Indisponible", description: "Ce profil n'a pas de numéro de téléphone." });
       return;
     }
     window.location.href = `sms:${digitsOnly(phone)}`;
@@ -177,7 +182,7 @@ const ProfileHeader = ({
       type="button"
       onClick={() => void shareProfile()}
       className={iconActionBtn}
-      aria-label="Share profile"
+      aria-label="Partager le profil"
     >
       <Share2 className="h-5 w-5" />
     </button>
@@ -192,13 +197,19 @@ const ProfileHeader = ({
           <MoreVertical className="h-5 w-5" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className={isOwnProfile ? "w-48" : "w-56"}>
+      <DropdownMenuContent align="end" className={isOwnProfile ? "w-60" : "w-56"}>
         {isOwnProfile ? (
           <>
             <DropdownMenuItem onClick={onEditProfile}>
               <Edit className="mr-2 h-4 w-4" />
               Modifier le profil
             </DropdownMenuItem>
+            {onEditCategories ? (
+              <DropdownMenuItem onClick={onEditCategories}>
+                <Tags className="mr-2 h-4 w-4" />
+                Modifier les catégories
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onClick={() => navigate("/settings")}>
               <Settings className="mr-2 h-4 w-4" />
               Paramètres
@@ -218,19 +229,19 @@ const ProfileHeader = ({
           <>
             <DropdownMenuItem onClick={onReportMember}>
               <Flag className="mr-2 h-4 w-4" />
-              Report
+              Signaler
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onBlockMember}>
               <Ban className="mr-2 h-4 w-4" />
-              Block
+              Bloquer
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onMuteMember}>
               <VolumeX className="mr-2 h-4 w-4" />
-              Mute this profile
+              Masquer ce profil
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onAboutThisMember || onAboutMember}>
               <Info className="mr-2 h-4 w-4" />
-              About this member
+              À propos de ce membre
             </DropdownMenuItem>
           </>
         )}
@@ -295,7 +306,7 @@ const ProfileHeader = ({
       <div className="mx-auto max-w-6xl px-4 pb-5 sm:px-6">
         {(() => {
           const followLabel = isFollowing ? "Page suivie" : "Suivre cette page";
-          const followBtn = !isOwnProfile && authReady ? (
+          const followBtn = showFollowButton(profileType, isVerified) && !isOwnProfile && authReady ? (
             <button
               type="button"
               onClick={onToggleFollow}
@@ -348,6 +359,7 @@ const ProfileHeader = ({
                         sellerId: profileId,
                         sellerName: name,
                         proType: guessProType(profession),
+                        fromLabel: "Profil",
                       }),
                     )
                   }

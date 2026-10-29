@@ -156,7 +156,7 @@ GRANT SELECT ON public.formations TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.formations TO authenticated;
 
 COMMENT ON COLUMN public.profiles.is_verified IS
-  'True when this profile has passed Sifarah verification. Default false until a moderator sets it.';
+  'True when this profile has passed Sifarah verification. Institutions are verified by default. Other profiles stay false until a moderator sets it.';
 COMMENT ON COLUMN public.profiles.verified_at IS
   'UTC time when is_verified became true. Cleared if verification is revoked.';
 COMMENT ON COLUMN public.profiles.contact_updated_at IS
@@ -184,6 +184,10 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  IF NEW.profile_type = 'institution' THEN
+    NEW.is_verified := TRUE;
+  END IF;
+
   IF TG_OP = 'INSERT' THEN
     NEW.is_verified := COALESCE(NEW.is_verified, FALSE);
     NEW.contact_updated_at := COALESCE(NEW.contact_updated_at, NEW.created_at, NOW());
@@ -469,7 +473,7 @@ BEGIN
 
   INSERT INTO public.profiles (
     id, username, full_name, profession, location, bio, phone, email, profile_type, institution_kind,
-    signup_ip, signup_country, signup_country_code
+    is_verified, signup_ip, signup_country, signup_country_code
   )
   VALUES (
     NEW.id,
@@ -493,6 +497,12 @@ BEGIN
         AND NEW.raw_user_meta_data->>'institution_kind' IN ('federation', 'order', 'chamber', 'public', 'media', 'observatory')
       THEN NEW.raw_user_meta_data->>'institution_kind'
       ELSE NULL
+    END,
+    CASE
+      WHEN NEW.raw_user_meta_data->>'profile_type' = 'institution'
+        AND NEW.raw_user_meta_data->>'institution_kind' IN ('federation', 'order', 'chamber', 'public', 'media', 'observatory')
+      THEN TRUE
+      ELSE FALSE
     END,
     NULLIF(btrim(NEW.raw_user_meta_data->>'signup_ip'), ''),
     NULLIF(btrim(NEW.raw_user_meta_data->>'signup_country'), ''),
@@ -2446,7 +2456,7 @@ CREATE POLICY "Users can unsave products"
   ON public.saved_products FOR DELETE
   USING (auth.uid() = user_id AND public.visitor_session_active());
 
--- Promoteur dossier gating: non-partners only see équipe/docs for open_dossier.
+-- Promoteur dossier gating: équipe and documents stay closed unless the viewer owns the project or is a partner.
 CREATE OR REPLACE FUNCTION public.project_viewer_is_partner()
 RETURNS boolean
 LANGUAGE sql
@@ -2466,7 +2476,6 @@ SET search_path = public
 AS $$
   SELECT
     coalesce((SELECT featured_promoter FROM public.profiles WHERE id = p_user_id), false)
-    AND NOT coalesce(p_open_dossier, false)
     AND auth.uid() IS DISTINCT FROM p_user_id
     AND NOT public.project_viewer_is_partner();
 $$;
@@ -2634,6 +2643,159 @@ GRANT EXECUTE ON FUNCTION public.project_viewer_is_partner() TO anon, authentica
 GRANT EXECUTE ON FUNCTION public.project_dossier_locked(uuid, boolean) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.project_document_readable(uuid, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.project_public(uuid) TO anon, authenticated;
+
+-- Media edits: the project owner may delete gallery photos.
+-- Setting the cover stays limited to the curator account (?power=1).
+-- See scripts/project_media_power.sql.
+CREATE OR REPLACE FUNCTION public.patch_project_media(
+  p_id uuid,
+  p_action text,
+  p_url text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_images jsonb;
+  v_media jsonb;
+  v_cover text;
+  v_url text;
+  v_next jsonb := '[]'::jsonb;
+  v_item jsonb;
+  v_kept_images text[] := '{}';
+  v_kept_media jsonb := '[]'::jsonb;
+  v_found boolean := false;
+  v_curator_id constant uuid := 'a1111111-1111-5111-8111-111111111111';
+  v_curator_email constant text := 'curator@sifarah.local';
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'not authenticated';
+  END IF;
+  IF coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) THEN
+    RAISE EXCEPTION 'pro account required';
+  END IF;
+  IF auth.uid() IS DISTINCT FROM v_curator_id
+     AND lower(coalesce(auth.jwt() ->> 'email', '')) IS DISTINCT FROM v_curator_email THEN
+    IF p_action NOT IN ('delete_image', 'set_cover', 'clear_cover')
+       OR NOT EXISTS (
+         SELECT 1 FROM public.projects
+         WHERE id = p_id AND user_id = auth.uid()
+       ) THEN
+      RAISE EXCEPTION 'curator account required';
+    END IF;
+  END IF;
+
+  IF p_action NOT IN ('set_cover', 'delete_image', 'clear_cover') THEN
+    RAISE EXCEPTION 'invalid action';
+  END IF;
+  v_url := nullif(trim(coalesce(p_url, '')), '');
+  IF p_action <> 'clear_cover' AND v_url IS NULL THEN
+    RAISE EXCEPTION 'url required';
+  END IF;
+
+  SELECT coalesce(images, '[]'::jsonb), coalesce(media, '[]'::jsonb), coalesce(cover_image, '')
+  INTO v_images, v_media, v_cover
+  FROM public.projects
+  WHERE id = p_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'project not found';
+  END IF;
+  IF jsonb_typeof(v_images) <> 'array' THEN v_images := '[]'::jsonb; END IF;
+  IF jsonb_typeof(v_media) <> 'array' THEN v_media := '[]'::jsonb; END IF;
+
+  IF p_action = 'set_cover' THEN
+    v_kept_images := ARRAY[v_url];
+    FOR v_item IN SELECT * FROM jsonb_array_elements(v_images)
+    LOOP
+      IF jsonb_typeof(v_item) = 'string' AND trim(v_item #>> '{}') <> '' THEN
+        IF trim(v_item #>> '{}') <> v_url AND trim(v_item #>> '{}') <> v_cover AND NOT (trim(v_item #>> '{}') = ANY (v_kept_images)) THEN
+          v_kept_images := array_append(v_kept_images, trim(v_item #>> '{}'));
+        END IF;
+      END IF;
+    END LOOP;
+    v_next := to_jsonb(v_kept_images);
+    v_kept_media := '[]'::jsonb;
+    FOR v_item IN SELECT * FROM jsonb_array_elements(v_media)
+    LOOP
+      IF jsonb_typeof(v_item) = 'object'
+         AND (
+           trim(coalesce(v_item->>'url', '')) = v_url
+           OR (v_cover <> '' AND v_cover <> v_url AND trim(coalesce(v_item->>'url', '')) = v_cover)
+         ) THEN
+        NULL;
+      ELSE
+        v_kept_media := v_kept_media || jsonb_build_array(v_item);
+      END IF;
+    END LOOP;
+    UPDATE public.projects
+    SET cover_image = v_url, images = v_next, media = v_kept_media, updated_at = now()
+    WHERE id = p_id;
+    RETURN jsonb_build_object('id', p_id, 'cover_image', v_url, 'images', v_next, 'media', v_kept_media);
+  END IF;
+
+  IF p_action = 'clear_cover' THEN
+    IF v_cover <> '' THEN
+      FOR v_item IN SELECT * FROM jsonb_array_elements(v_images)
+      LOOP
+        IF jsonb_typeof(v_item) = 'string' AND trim(v_item #>> '{}') <> '' AND trim(v_item #>> '{}') <> v_cover THEN
+          v_kept_images := array_append(v_kept_images, trim(v_item #>> '{}'));
+        END IF;
+      END LOOP;
+      FOR v_item IN SELECT * FROM jsonb_array_elements(v_media)
+      LOOP
+        IF NOT (jsonb_typeof(v_item) = 'object' AND trim(coalesce(v_item->>'url', '')) = v_cover) THEN
+          v_kept_media := v_kept_media || jsonb_build_array(v_item);
+        END IF;
+      END LOOP;
+    ELSE
+      v_kept_media := v_media;
+      v_next := v_images;
+    END IF;
+    IF v_cover <> '' THEN
+      v_next := to_jsonb(v_kept_images);
+    END IF;
+    UPDATE public.projects
+    SET cover_image = NULL, images = v_next, media = v_kept_media, updated_at = now()
+    WHERE id = p_id;
+    RETURN jsonb_build_object('id', p_id, 'cover_image', NULL, 'images', v_next, 'media', v_kept_media);
+  END IF;
+
+  FOR v_item IN SELECT * FROM jsonb_array_elements(v_images)
+  LOOP
+    IF jsonb_typeof(v_item) = 'string' AND trim(v_item #>> '{}') <> '' AND trim(v_item #>> '{}') <> v_url THEN
+      v_kept_images := array_append(v_kept_images, trim(v_item #>> '{}'));
+    ELSIF jsonb_typeof(v_item) = 'string' AND trim(v_item #>> '{}') = v_url THEN
+      v_found := true;
+    END IF;
+  END LOOP;
+  FOR v_item IN SELECT * FROM jsonb_array_elements(v_media)
+  LOOP
+    IF jsonb_typeof(v_item) = 'object' AND trim(coalesce(v_item->>'url', '')) = v_url THEN
+      v_found := true;
+    ELSIF jsonb_typeof(v_item) = 'object' AND trim(coalesce(v_item->>'url', '')) <> v_url THEN
+      v_kept_media := v_kept_media || jsonb_build_array(v_item);
+    ELSIF jsonb_typeof(v_item) <> 'object' THEN
+      v_kept_media := v_kept_media || jsonb_build_array(v_item);
+    END IF;
+  END LOOP;
+  IF NOT v_found AND v_cover <> v_url THEN
+    RAISE EXCEPTION 'image not in gallery';
+  END IF;
+  v_next := to_jsonb(v_kept_images);
+  IF v_cover = v_url THEN
+    v_cover := coalesce(v_kept_images[1], '');
+  END IF;
+  UPDATE public.projects
+  SET cover_image = nullif(v_cover, ''), images = v_next, media = v_kept_media, updated_at = now()
+  WHERE id = p_id;
+  RETURN jsonb_build_object('id', p_id, 'cover_image', nullif(v_cover, ''), 'images', v_next, 'media', v_kept_media);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.patch_project_media(uuid, text, text) FROM public;
+GRANT EXECUTE ON FUNCTION public.patch_project_media(uuid, text, text) TO authenticated;
 
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
@@ -3122,10 +3284,10 @@ AND NOT EXISTS (
     AND m.muted_id = p.user_id
     AND m.mute_posts
 )
-AND pr.profile_type IS DISTINCT FROM 'institution';
+;
 
 COMMENT ON VIEW public.visible_feed_posts IS
-  'Posts the current viewer can see. Blocked authors, muted accounts, and institution profiles are excluded. Institution posts stay on the profile.';
+  'Posts the current viewer can see. Blocked authors and muted accounts are excluded. Institution posts stay in this organic feed and on the profile.';
 
 GRANT SELECT ON public.visible_feed_posts TO anon, authenticated;
 
@@ -3210,23 +3372,72 @@ AS $feed$
       CASE WHEN c.mix THEN c.lim - c.follow_count ELSE c.lim END AS general_count
     FROM counts c
   ),
-  -- Verified (badge) authors always ride the public Accueil stream — no follow required.
-  -- When mixing with follows, keep verified posts out of the follow slots to avoid duplicates.
+  -- Verified authors stay ahead inside the professional pool. The public stream
+  -- opens with a professional, then alternates one institution post. Institution
+  -- posts rotate across accounts: newest of each, then the next newest of each.
+  general_base AS (
+    SELECT
+      v.*,
+      (pr.profile_type = 'institution') AS is_institution
+    FROM public.visible_feed_posts v
+    JOIN public.profiles pr ON pr.id = v.user_id
+    CROSS JOIN sized s
+    WHERE s.general_count > 0
+      AND (
+        NOT s.mix
+        OR NOT v.from_following
+        OR COALESCE(v.is_verified, false)
+      )
+  ),
+  institution_turns AS (
+    SELECT
+      b.id,
+      b.user_id,
+      row_number() OVER (
+        PARTITION BY b.user_id
+        ORDER BY b.created_at DESC, b.id DESC
+      ) AS author_rn,
+      max(b.created_at) OVER (PARTITION BY b.user_id) AS author_latest
+    FROM general_base b
+    WHERE b.is_institution
+  ),
+  pool_order AS (
+    SELECT
+      b.id,
+      row_number() OVER (
+        ORDER BY COALESCE(b.is_verified, false) DESC, b.created_at DESC, b.id DESC
+      ) AS pool_rn
+    FROM general_base b
+    WHERE NOT b.is_institution
+    UNION ALL
+    SELECT
+      t.id,
+      row_number() OVER (
+        ORDER BY t.author_rn, t.author_latest DESC, t.user_id, t.id DESC
+      ) AS pool_rn
+    FROM institution_turns t
+  ),
+  general_ranked AS (
+    SELECT b.*, o.pool_rn
+    FROM general_base b
+    JOIN pool_order o ON o.id = b.id
+  ),
+  general_ordered AS (
+    SELECT
+      r.*,
+      CASE
+        WHEN NOT r.is_institution AND r.pool_rn = 1 THEN 0
+        WHEN r.is_institution THEN r.pool_rn * 2 - 1
+        ELSE (r.pool_rn - 1) * 2
+      END AS weave
+    FROM general_ranked r
+  ),
   general_slice AS (
-    SELECT q.*, row_number() OVER (
-      ORDER BY COALESCE(q.is_verified, false) DESC, q.created_at DESC, q.id DESC
-    ) - 1 AS local_index
+    SELECT q.*, row_number() OVER (ORDER BY q.weave, q.id) - 1 AS local_index
     FROM (
-      SELECT v.*
-      FROM public.visible_feed_posts v
-      CROSS JOIN sized s
-      WHERE s.general_count > 0
-        AND (
-          NOT s.mix
-          OR NOT v.from_following
-          OR COALESCE(v.is_verified, false)
-        )
-      ORDER BY COALESCE(v.is_verified, false) DESC, v.created_at DESC, v.id DESC
+      SELECT g.*
+      FROM general_ordered g
+      ORDER BY g.weave, g.id
       OFFSET (SELECT general_before FROM sized)
       LIMIT (SELECT general_count FROM sized)
     ) q
@@ -3278,10 +3489,8 @@ AS $feed$
     SELECT
       EXISTS (
         SELECT 1
-        FROM public.visible_feed_posts v
-        CROSS JOIN sized s
-        WHERE NOT s.mix OR NOT v.from_following OR COALESCE(v.is_verified, false)
-        ORDER BY COALESCE(v.is_verified, false) DESC, v.created_at DESC, v.id DESC
+        FROM general_ordered g
+        ORDER BY g.weave, g.id
         OFFSET (
           SELECT s.general_before + (SELECT count(*)::integer FROM picked pk WHERE pk.kind = 'general')
           FROM sized s
@@ -3334,7 +3543,7 @@ AS $feed$
 $feed$;
 
 COMMENT ON FUNCTION public.feed_page(integer, integer) IS
-  'Newest visible posts, paged. Verified-badge authors are boosted on Accueil without requiring a follow. Signed-in viewers who follow people get one non-verified followed post after every three others.';
+  'Newest visible posts, paged. Accueil opens with a professional, then alternates institution posts one account at a time. Verified professionals stay ahead of other professionals. Signed-in viewers who follow people get one non-verified followed post after every three others.';
 
 REVOKE ALL ON FUNCTION public.feed_page(integer, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.feed_page(integer, integer) TO anon, authenticated;
@@ -3666,6 +3875,16 @@ FROM (VALUES
   (3, '3.4.7', 'Ingénierie & études', 'Géomètre-topographe', 'ingenierie-etudes'),
   (3, '3.4.8', 'Ingénierie & études', 'Topographie', 'ingenierie-etudes'),
   (3, '3.4.9', 'Ingénierie & études', 'Études de terrain', 'ingenierie-etudes'),
+  -- Agréments BET (ministère Equipement) — same Discover sub: ingenierie-etudes
+  (3, '3.4.13', 'Ingénierie & études', 'D13 – Études générales', 'ingenierie-etudes'),
+  (3, '3.4.14', 'Ingénierie & études', 'D14 – Calcul de structures', 'ingenierie-etudes'),
+  (3, '3.4.15', 'Ingénierie & études', 'D15 – Courant fort et courant faible', 'ingenierie-etudes'),
+  (3, '3.4.16', 'Ingénierie & études', 'D16 – Réseaux des fluides', 'ingenierie-etudes'),
+  (3, '3.4.17', 'Ingénierie & études', 'D17 – Voirie, assainissement et eau potable', 'ingenierie-etudes'),
+  (3, '3.4.18', 'Ingénierie & études', 'D18 – Électricité, télécoms et éclairage public', 'ingenierie-etudes'),
+  (3, '3.4.19', 'Ingénierie & études', 'D19 – Études d''impact sur l''environnement', 'ingenierie-etudes'),
+  (3, '3.4.20', 'Ingénierie & études', 'D20 – Géologie, géophysique, hydrologie', 'ingenierie-etudes'),
+  (3, '3.4.21', 'Ingénierie & études', 'D21 – Sécurité incendie dans les constructions', 'ingenierie-etudes'),
   (3, '3.5.1', 'Matériaux & équipements', 'Matériaux de construction', 'materiaux-equipements'),
   (3, '3.5.2', 'Matériaux & équipements', 'Équipements de chantier', 'materiaux-equipements'),
   (3, '3.5.3', 'Matériaux & équipements', 'Équipements techniques', 'materiaux-equipements'),
@@ -4257,6 +4476,8 @@ CREATE TABLE IF NOT EXISTS public.devis_requests (
   whatsapp BOOLEAN NOT NULL DEFAULT TRUE,
   extras JSONB NOT NULL DEFAULT '{}'::jsonb,
   source TEXT NOT NULL DEFAULT 'open',
+  reply TEXT,
+  replied_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TIMEZONE('utc'::text, NOW()),
   CONSTRAINT devis_requests_source_check CHECK (source IN ('open', 'profile', 'service', 'product'))
 );
@@ -4297,6 +4518,33 @@ CREATE TRIGGER set_devis_requester_trigger
 
 GRANT SELECT, INSERT ON public.devis_requests TO anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.reply_devis_request(p_id UUID, p_reply TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'not authenticated';
+  END IF;
+  IF char_length(btrim(coalesce(p_reply, ''))) < 1 OR char_length(btrim(p_reply)) > 2000 THEN
+    RAISE EXCEPTION 'reply must be between 1 and 2000 characters';
+  END IF;
+  UPDATE public.devis_requests
+  SET reply = btrim(p_reply),
+      replied_at = now()
+  WHERE id = p_id
+    AND seller_id = auth.uid();
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'devis not found';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.reply_devis_request(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.reply_devis_request(UUID, TEXT) TO authenticated;
+
 -- Partner visibility demand (guests asking to publish on the feed)
 CREATE TABLE IF NOT EXISTS public.partner_requests (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -4319,6 +4567,78 @@ CREATE POLICY "Anyone can create a partner request"
   WITH CHECK (true);
 
 GRANT INSERT ON public.partner_requests TO anon, authenticated;
+
+-- Messages sent from Contactez-nous (partnership, sponsorship, visibility, site problem).
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  topic TEXT NOT NULL CHECK (topic IN ('partnership', 'sponsorship', 'visibility', 'problem')),
+  name TEXT NOT NULL CHECK (char_length(trim(name)) BETWEEN 2 AND 120),
+  email TEXT NOT NULL CHECK (position('@' IN email) > 1 AND char_length(email) <= 180),
+  phone TEXT CHECK (phone IS NULL OR char_length(phone) <= 40),
+  organization TEXT CHECK (organization IS NULL OR char_length(organization) <= 160),
+  message TEXT NOT NULL CHECK (char_length(trim(message)) BETWEEN 8 AND 4000),
+  page_url TEXT CHECK (page_url IS NULL OR char_length(page_url) <= 500),
+  user_id UUID,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+CREATE INDEX IF NOT EXISTS contact_messages_created_idx ON public.contact_messages (created_at DESC);
+
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can send a contact message" ON public.contact_messages;
+CREATE POLICY "Anyone can send a contact message"
+  ON public.contact_messages FOR INSERT
+  WITH CHECK (user_id IS NULL OR user_id = auth.uid());
+
+GRANT INSERT ON public.contact_messages TO anon, authenticated;
+
+-- Discover Entreprises counts (independent of listProfessionals filters).
+DROP VIEW IF EXISTS public.discover_comptes_promoteurs;
+DROP VIEW IF EXISTS public.discover_comptes_all;
+
+CREATE VIEW public.discover_comptes_all
+WITH (security_invoker = true) AS
+SELECT
+  p.id,
+  p.username,
+  p.full_name,
+  p.profession,
+  p.location,
+  p.created_at
+FROM public.profiles p
+WHERE p.username IS NOT NULL
+  AND (
+    COALESCE(p.directory_visible, false) = true
+    OR EXISTS (
+      SELECT 1
+      FROM public.profile_internal_categories pic
+      JOIN public.internal_categories ic ON ic.id = pic.internal_category_id
+      WHERE pic.profile_id = p.id
+        AND ic.code = '1.2.1'
+    )
+  );
+
+CREATE VIEW public.discover_comptes_promoteurs
+WITH (security_invoker = true) AS
+SELECT
+  p.id,
+  p.username,
+  p.full_name,
+  p.profession,
+  p.location,
+  p.created_at
+FROM public.profiles p
+WHERE p.username IS NOT NULL
+  AND COALESCE(p.featured_promoter, false) = true;
+
+COMMENT ON VIEW public.discover_comptes_all IS
+  'Discover Entreprises counts outside the Promoteurs chip: visible directory plus all 1.2.1 promoteurs.';
+COMMENT ON VIEW public.discover_comptes_promoteurs IS
+  'Discover Entreprises counts for the Promoteurs chip: featured_promoter only.';
+
+GRANT SELECT ON public.discover_comptes_all TO anon, authenticated;
+GRANT SELECT ON public.discover_comptes_promoteurs TO anon, authenticated;
 
 NOTIFY pgrst, 'reload schema';
 

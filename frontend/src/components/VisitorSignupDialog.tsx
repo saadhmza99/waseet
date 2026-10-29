@@ -1,29 +1,22 @@
-import { useEffect, useState } from "react";
-import { Heart, Info, Loader2, Mail, MessageCircle, User as UserIcon, UserRound } from "lucide-react";
+import { Heart, Info, LogIn, MessageCircle, UserRound } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import PhoneInput from "@/components/PhoneInput";
-import { isCompletePhone } from "@/lib/phone";
-import { isValidEmail } from "@/lib/visitorContact";
 
 export type VisitorFormValues = { name: string; phone: string; email: string };
-export type VisitorFormReason = "save" | "profile" | "comment";
+export type VisitorFormReason = "save" | "comment" | "profile";
 
-const COPY: Record<VisitorFormReason, { title: string; description?: string; submit: string }> = {
+const COPY: Record<VisitorFormReason, { title: string; description: string }> = {
   save: {
     title: "Ajoutez à vos favoris",
-    submit: "Favoris",
+    description: "Connectez-vous ou créez un compte pour enregistrer des favoris.",
   },
   comment: {
     title: "Écrivez votre commentaire",
-    description: "Une seule fois : votre message sera visible uniquement par vous et l'entreprise.",
-    submit: "Commenter",
+    description: "Connectez-vous ou créez un compte pour écrire un commentaire.",
   },
   profile: {
-    title: "Créez votre profil particulier",
-    description: "Une seule fois, sans mot de passe : ajoutez des annonces à vos favoris, suivez des profils et publiez jusqu'à 3 biens.",
-    submit: "Créer mon profil",
+    title: "Continuez sur Sifarah",
+    description: "Connectez-vous ou créez un compte pour accéder à votre profil.",
   },
 };
 
@@ -46,102 +39,48 @@ export const VisitorDetailsNote = () => (
 interface VisitorSignupDialogProps {
   open: boolean;
   reason: VisitorFormReason;
-  initialValues: VisitorFormValues;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (values: VisitorFormValues) => Promise<void>;
 }
 
-const fieldClass = "h-11 rounded-xl border-neutral-200 bg-neutral-50 pl-10 focus-visible:bg-white";
-
-const VisitorSignupDialog = ({ open, reason, initialValues, onOpenChange, onSubmit }: VisitorSignupDialogProps) => {
+const VisitorSignupDialog = ({ open, reason, onOpenChange }: VisitorSignupDialogProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const copy = COPY[reason];
   const HeaderIcon = headerIcon[reason];
-  const [values, setValues] = useState(initialValues);
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setValues(initialValues);
-      setError("");
-    }
-  }, [open, initialValues]);
-
-  const update = (field: keyof VisitorFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!values.name.trim() || !isCompletePhone(values.phone) || !isValidEmail(values.email)) {
-      setError("Nom, un email valide et un numéro de téléphone sont requis.");
-      return;
-    }
-    setError("");
-    setSubmitting(true);
-    try {
-      await onSubmit(values);
-    } catch {
-      setError("Impossible de continuer pour le moment. Réessayez.");
-    } finally {
-      setSubmitting(false);
-    }
+  const go = (path: "/login" | "/create-profile") => {
+    onOpenChange(false);
+    const back = `${location.pathname}${location.search}`;
+    navigate(`${path}?redirect=${encodeURIComponent(back)}`);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !submitting && onOpenChange(next)}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-2xl p-6 sm:max-w-sm">
         <DialogHeader className="items-center text-center sm:text-center">
           <span className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-[#174f43]/10">
             <HeaderIcon className={`h-7 w-7 text-[#174f43] ${reason === "save" ? "fill-[#174f43]" : ""}`} />
           </span>
           <DialogTitle className="text-xl">{copy.title}</DialogTitle>
-          {copy.description ? (
-            <DialogDescription className="text-[13px] leading-relaxed">{copy.description}</DialogDescription>
-          ) : null}
+          <DialogDescription className="text-[13px] leading-relaxed">{copy.description}</DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={submit} className="mt-1 space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="visitor-name">Nom</Label>
-            <div className="relative">
-              <UserIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input id="visitor-name" autoComplete="name" placeholder="Votre nom" className={fieldClass} value={values.name} onChange={update("name")} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="visitor-phone">Téléphone</Label>
-            <PhoneInput
-              id="visitor-phone"
-              required
-              value={values.phone}
-              onChange={(phone) => setValues((prev) => ({ ...prev, phone }))}
-              inputClassName="h-11 rounded-xl border-neutral-200 bg-neutral-50 focus-visible:bg-white"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="visitor-email">Email</Label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input id="visitor-email" type="email" required autoComplete="email" placeholder="vous@exemple.com" className={fieldClass} value={values.email} onChange={update("email")} />
-            </div>
-          </div>
-
-          <VisitorDetailsNote />
-
-          {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
-
+        <div className="mt-2 space-y-2.5">
           <button
-            type="submit"
-            disabled={submitting}
-            className="mt-1 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#174f43] text-sm font-semibold text-white transition-all hover:bg-[#123d34] active:scale-[0.98] disabled:opacity-60"
+            type="button"
+            onClick={() => go("/login")}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#174f43] text-sm font-semibold text-white transition hover:bg-[#123d34]"
           >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <HeaderIcon className="h-4 w-4" />}
-            {submitting ? "Un instant..." : copy.submit}
+            <LogIn className="h-4 w-4" />
+            Se connecter
           </button>
-          <p className="text-center text-[11px] leading-snug text-muted-foreground">
-            Vos coordonnées restent privées. Vous restez connecté 30 jours après votre dernière visite.
-          </p>
-        </form>
+          <button
+            type="button"
+            onClick={() => go("/create-profile")}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#174f43] text-sm font-semibold text-[#174f43] transition hover:bg-[#174f43]/5"
+          >
+            Créer un compte
+          </button>
+        </div>
       </DialogContent>
     </Dialog>
   );

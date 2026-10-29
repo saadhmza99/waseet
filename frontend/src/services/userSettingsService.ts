@@ -17,7 +17,7 @@ export const defaultUserSettings: UserSettingsData = {
   notifications_enabled: true,
   email_notifications_enabled: true,
   dark_mode_enabled: false,
-  language: "English",
+  language: "Francais",
   region: "UAE",
   show_phone: false,
   allow_direct_messages: true,

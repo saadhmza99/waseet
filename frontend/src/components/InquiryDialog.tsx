@@ -48,7 +48,7 @@ const InquiryDialog = ({
   projectId,
 }: InquiryDialogProps) => {
   const { user, visitorUser, loading: authLoading } = useAuth();
-  const { startVisitor, visitorProfile, refreshVisitorProfile } = useVisitorGate();
+  const { visitorProfile, refreshVisitorProfile } = useVisitorGate();
   const [form, setForm] = useState({ ...readStoredContact(), needs: DEFAULT_MESSAGE });
   const [askName, setAskName] = useState(true);
   const [askPhone, setAskPhone] = useState(true);
@@ -158,8 +158,6 @@ const InquiryDialog = ({
           avatarUrl: visitorProfile?.avatar_url,
         });
         await refreshVisitorProfile();
-      } else if (!signedIn) {
-        await startVisitor({ name: form.name, phone: form.phone, email: form.email });
       }
       await inquiryService.createInquiry({
         type,

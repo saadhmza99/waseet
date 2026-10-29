@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { AlignLeft, ArrowLeft, Building2, Calendar, ChevronDown, CircleDot, Image as ImageIcon, LayoutGrid, Layers, MapPin, Plus, Trash2, Type, type LucideIcon } from "lucide-react";
 import { PROJECT_TYPE_GROUPS } from "@/lib/taxonomy";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,7 @@ import {
   PHASE_STATUSES,
   categoryLabel,
   commercialStatusLabel,
+  dossierFromRow,
   emptyDossier,
   newDocument,
   newPartner,
@@ -55,10 +56,15 @@ const FieldLabel = ({ icon: Icon, children, aside }: { icon?: LucideIcon; childr
 
 const CreateProjectWizard = () => {
   const navigate = useNavigate();
+  const { id: projectId } = useParams();
+  const editing = Boolean(projectId);
   const { user } = useAuth();
+  const userId = user?.id;
   const [step, setStep] = useState(0);
   const [typeOpen, setTypeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingProject, setLoadingProject] = useState(editing);
+  const [forbidden, setForbidden] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [city, setCity] = useState("");
@@ -72,6 +78,74 @@ const CreateProjectWizard = () => {
   const [promoterWebsite, setPromoterWebsite] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [dossier, setDossier] = useState<ProjectDossier>(emptyDossier());
+  const hydratedId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!editing || !projectId || !userId) return;
+    if (hydratedId.current === projectId) return;
+    let cancelled = false;
+    setLoadingProject(true);
+    catalogService
+      .getProject(projectId)
+      .then((row) => {
+        if (cancelled) return;
+        if (!row) {
+          setForbidden(true);
+          return;
+        }
+        const record = dossierFromRow(row);
+        if (!record.userId || record.userId !== userId) {
+          setForbidden(true);
+          return;
+        }
+        const fields = record.fields || {};
+        setTitle(record.title === "Projet" ? "" : record.title);
+        setDescription(record.description);
+        setCity(record.city);
+        setRegion(record.region);
+        setPostalCode(record.postalCode);
+        setLatitude(record.latitude);
+        setLongitude(record.longitude);
+        setCommercialStatus(record.commercialStatus || "");
+        setPriceMode(fields.priceFrom ? "from" : fields.priceMin || fields.priceMax ? "range" : "request");
+        setPromoterName(record.promoter?.name || "");
+        setPromoterWebsite(record.promoter?.website || "");
+        setImages(record.images || []);
+        const {
+          id: _id,
+          userId: _userId,
+          title: _title,
+          subtitle: _subtitle,
+          description: _description,
+          descriptionShort: _descriptionShort,
+          city: _city,
+          region: _region,
+          postalCode: _postalCode,
+          latitude: _latitude,
+          longitude: _longitude,
+          image: _image,
+          coverImage: _coverImage,
+          images: _images,
+          commercialStatus: _commercialStatus,
+          promoter: _promoter,
+          urls: _urls,
+          provenance: _provenance,
+          ...dossierPart
+        } = record;
+        setDossier(dossierPart);
+        hydratedId.current = projectId;
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setForbidden(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProject(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, projectId, userId]);
 
   const setField = (key: string, value: string) =>
     setDossier((current) => ({ ...current, fields: { ...current.fields, [key]: value } }));
@@ -214,8 +288,10 @@ const CreateProjectWizard = () => {
           promoter: promoterName.trim() ? { name: promoterName.trim(), website: promoterWebsite.trim() } : null,
         },
       );
-      const row = await catalogService.createProject(user.id, payload);
-      toast({ title: draft ? "Brouillon enregistré" : "Projet publié" });
+      const row = editing && projectId
+        ? await catalogService.updateProject(projectId, user.id, payload)
+        : await catalogService.createProject(user.id, payload);
+      toast({ title: draft ? "Brouillon enregistré" : editing ? "Projet mis à jour" : "Projet publié" });
       navigate(`/projet/${row.id}`);
     } catch (error) {
       console.error(error);
@@ -226,6 +302,21 @@ const CreateProjectWizard = () => {
   };
 
   const sections = dossier.category ? DETAIL_SECTIONS[dossier.category] : [];
+
+  if (loadingProject) {
+    return <div className="px-4 py-16 text-center text-sm text-neutral-500">Chargement…</div>;
+  }
+
+  if (forbidden) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <p className="text-neutral-600">Vous ne pouvez modifier que vos propres projets.</p>
+        <button type="button" onClick={() => navigate(-1)} className="mt-4 text-sm font-semibold text-[#174f43]">
+          Retour
+        </button>
+      </div>
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[220] flex flex-col bg-[#f6f7f4] text-neutral-900">
@@ -238,7 +329,7 @@ const CreateProjectWizard = () => {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-center text-base font-bold text-neutral-950">Créer un projet</h1>
+        <h1 className="truncate text-center text-base font-bold text-neutral-950">{editing ? "Modifier le projet" : "Créer un projet"}</h1>
         <span />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -862,7 +953,7 @@ const CreateProjectWizard = () => {
               {!title || !dossier.category ? <p className="text-amber-700">Le type et le titre sont encore requis.</p> : <p>Votre projet est prêt à être publié.</p>}
               <div className="flex flex-wrap gap-2 pt-2">
                 <button type="button" disabled={saving} onClick={() => void publish(true)} className="h-11 rounded-lg border border-neutral-300 px-4 text-sm font-semibold">Enregistrer le brouillon</button>
-                <button type="button" disabled={saving} onClick={() => void publish(false)} className="h-11 rounded-lg bg-[#174f43] px-4 text-sm font-semibold text-white">Publier le projet</button>
+                <button type="button" disabled={saving} onClick={() => void publish(false)} className="h-11 rounded-lg bg-[#174f43] px-4 text-sm font-semibold text-white">{editing ? "Enregistrer" : "Publier le projet"}</button>
               </div>
             </div>
           ) : null}

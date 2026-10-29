@@ -183,7 +183,7 @@ const JobDetail = () => {
       <ReportAbuseModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        title="Report this post"
+        title="Signaler cette publication"
         onSubmit={() => {
           setShowReportModal(false);
           toast({ title: "Signalement envoyé", description: "Merci, nous examinerons ce contenu." });

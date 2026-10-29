@@ -53,33 +53,34 @@
   }
 
   .dark {
-    --background: 222 30% 8%;
-    --foreground: 210 40% 95%;
-    --card: 222 30% 12%;
-    --card-foreground: 210 40% 95%;
-    --popover: 222 30% 12%;
-    --popover-foreground: 210 40% 95%;
-    --primary: 210 40% 95%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 95%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 27 100% 55%;
+    color-scheme: dark;
+    --background: 216 12% 18%;
+    --foreground: 210 16% 90%;
+    --card: 216 10% 25%;
+    --card-foreground: 210 16% 90%;
+    --popover: 216 10% 25%;
+    --popover-foreground: 210 16% 90%;
+    --primary: 210 18% 90%;
+    --primary-foreground: 210 14% 18%;
+    --secondary: 210 10% 32%;
+    --secondary-foreground: 210 18% 90%;
+    --muted: 210 10% 30%;
+    --muted-foreground: 210 12% 74%;
+    --accent: 27 85% 58%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 95%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 213 27% 84%;
-    --nav-bg: 222 40% 12%;
-    --nav-foreground: 0 0% 100%;
-    --tab-bg: 222 30% 16%;
-    --tab-foreground: 215 20% 65%;
-    --tab-active: 27 100% 55%;
-    --sponsored-bg: 222 30% 14%;
-    --like-color: 210 40% 60%;
-    --star-color: 40 95% 55%;
+    --destructive: 0 55% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 10% 36%;
+    --input: 210 10% 36%;
+    --ring: 210 14% 72%;
+    --nav-bg: 210 14% 20%;
+    --nav-foreground: 210 18% 92%;
+    --tab-bg: 210 10% 30%;
+    --tab-foreground: 210 12% 74%;
+    --tab-active: 160 28% 46%;
+    --sponsored-bg: 210 12% 24%;
+    --like-color: 210 30% 70%;
+    --star-color: 40 80% 58%;
   }
 }
 
@@ -97,6 +98,75 @@
     @apply bg-background text-foreground;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
+}
+
+/* Soften pages that hard-code white and near-black neutrals. */
+.dark .bg-white,
+.dark .bg-neutral-50 {
+  background-color: hsl(216 10% 25%);
+}
+.dark .bg-neutral-100,
+.dark .bg-neutral-200 {
+  background-color: hsl(210 10% 32%);
+}
+.dark .bg-\[\#f6f5f3\] {
+  background-color: hsl(216 12% 18%);
+}
+.dark .text-neutral-950,
+.dark .text-neutral-900,
+.dark .text-neutral-800,
+.dark .text-black,
+.dark .text-\[\#0f2f3d\],
+.dark .text-\[\#174f43\],
+.dark .text-\[\#123d34\],
+.dark .text-\[\#1a3d36\],
+.dark .text-\[\#0e2c26\] {
+  color: #fff;
+}
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: #fff;
+}
+.dark .text-neutral-700,
+.dark .text-neutral-600 {
+  color: hsl(210 14% 86%);
+}
+.dark .text-neutral-500,
+.dark .text-neutral-400 {
+  color: hsl(210 12% 78%);
+}
+.dark .hover\:text-neutral-900:hover,
+.dark .hover\:text-neutral-800:hover,
+.dark .hover\:text-neutral-700:hover,
+.dark .hover\:text-black:hover,
+.dark .hover\:text-\[\#174f43\]:hover,
+.dark .hover\:text-\[\#123d34\]:hover,
+.dark .hover\:text-\[\#1a3d36\]:hover,
+.dark .group:hover .group-hover\:text-\[\#174f43\],
+.dark .group:hover .group-hover\:text-neutral-900,
+.dark .group:hover .group-hover\:text-neutral-800 {
+  color: #fff;
+}
+.dark .border-neutral-200,
+.dark .border-neutral-100,
+.dark .border-neutral-300 {
+  border-color: hsl(210 10% 36%);
+}
+.dark .hover\:bg-neutral-100:hover,
+.dark .hover\:bg-neutral-50:hover,
+.dark .hover\:bg-white:hover {
+  background-color: hsl(210 10% 34%);
+}
+.dark .brightness-0,
+.dark :hover > .brightness-0,
+.dark button:hover .brightness-0,
+.dark a:hover .brightness-0 {
+  filter: brightness(0) invert(1);
+  opacity: 1;
 }
 
 .about-editor {
@@ -251,6 +321,11 @@
   font-weight: 650;
   line-height: 1.35;
   color: #1a3d36;
+}
+
+.dark .about-content h2,
+.dark .about-content h3 {
+  color: #fff;
 }
 
 .about-content strong,

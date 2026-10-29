@@ -141,6 +141,7 @@ export const savedService = {
               avatar_url,
               location,
               is_verified,
+              profile_type,
               phone
             )
           )
@@ -286,6 +287,7 @@ export const savedService = {
             avatar_url,
             location,
             is_verified,
+            profile_type,
             phone
           )
         )

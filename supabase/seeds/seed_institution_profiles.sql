@@ -148,6 +148,7 @@ BEGIN
       website_url = rec.website,
       profile_type = 'institution',
       institution_kind = rec.kind,
+      is_verified = true,
       directory_visible = true,
       featured_promoter = false,
       updated_at = NOW()

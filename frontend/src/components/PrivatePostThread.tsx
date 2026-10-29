@@ -126,7 +126,7 @@ const PrivatePostThread = ({
       toast({
         title: "Erreur",
         description: message.includes("THREAD_EXISTS")
-          ? "Vous avez déjà écrit sur ce post."
+          ? "Vous avez déjà écrit sur cette publication."
           : "Impossible d'envoyer le commentaire.",
       });
     } finally {

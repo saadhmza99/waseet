@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useMemo, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 type TranslationDict = Record<string, string>;
 
@@ -17,14 +17,14 @@ const translations: Record<string, TranslationDict> = {
   },
   Francais: {
     profile: "Profil",
-    settings: "Parametres",
-    moderation: "Moderation",
-    logout: "Deconnexion",
+    settings: "Paramètres",
+    moderation: "Modération",
+    logout: "Déconnexion",
     login: "Connexion",
-    createProfile: "Creer un profil",
-    feed: "Fil d'actualite",
+    createProfile: "Créer un profil",
+    feed: "Fil d'actualité",
     explore: "Explorer",
-    reels: "Reels",
+    reels: "Vidéos",
     saved: "Favoris",
   },
   Arabic: {
@@ -51,15 +51,23 @@ const AppLanguageContext = createContext<AppLanguageContextType | undefined>(und
 
 export const AppLanguageProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguageState] = useState<string>(
-    localStorage.getItem("app_language") || "English"
+    localStorage.getItem("app_language") || "Francais"
   );
 
-  const setLanguage = (next: string) => {
+  const setLanguage = useCallback((next: string) => {
     setLanguageState(next);
-    localStorage.setItem("app_language", next);
-    document.documentElement.lang = next;
-    document.documentElement.dir = next === "Arabic" ? "rtl" : "ltr";
-  };
+    try {
+      localStorage.setItem("app_language", next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    const htmlLang = language === "English" ? "en" : language === "Arabic" ? "ar" : "fr";
+    document.documentElement.lang = htmlLang;
+    document.documentElement.dir = language === "Arabic" ? "rtl" : "ltr";
+  }, [language]);
 
   const value = useMemo(
     () => ({
@@ -67,7 +75,7 @@ export const AppLanguageProvider = ({ children }: { children: ReactNode }) => {
       setLanguage,
       t: (key: string, fallback: string) => translations[language]?.[key] || fallback,
     }),
-    [language]
+    [language, setLanguage]
   );
 
   return <AppLanguageContext.Provider value={value}>{children}</AppLanguageContext.Provider>;

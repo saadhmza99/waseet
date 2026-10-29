@@ -9,11 +9,12 @@ interface PhoneInputProps {
   onChange: (e164: string) => void;
   className?: string;
   inputClassName?: string;
+  placeholder?: string;
   required?: boolean;
   disabled?: boolean;
 }
 
-const PhoneInput = ({ id, value, onChange, className, inputClassName, required, disabled }: PhoneInputProps) => {
+const PhoneInput = ({ id, value, onChange, className, inputClassName, placeholder, required, disabled }: PhoneInputProps) => {
   const [iso, setIso] = useState(() => parseStoredPhone(value).iso);
   const [national, setNational] = useState(() => parseStoredPhone(value).national);
   const country = countryByIso(iso);
@@ -59,7 +60,7 @@ const PhoneInput = ({ id, value, onChange, className, inputClassName, required, 
         required={required}
         disabled={disabled}
         maxLength={country.max}
-        placeholder={"0".repeat(country.min)}
+        placeholder={placeholder || "0".repeat(country.min)}
         value={national}
         onChange={(e) => {
           const raw = e.target.value;

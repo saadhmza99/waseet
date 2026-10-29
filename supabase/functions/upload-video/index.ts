@@ -13,10 +13,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type DirectUploadRequest = {
+type StreamProxyRequest = {
   action?: string;
   title?: string;
   description?: string;
+  videoId?: string;
 };
 
 /** Cloudflare Stream rejects oversized `meta`; keep payloads small. */
@@ -102,8 +103,79 @@ serve(async (req) => {
       }
     }
 
-    const body = (await req.json().catch(() => ({}))) as DirectUploadRequest;
+    const body = (await req.json().catch(() => ({}))) as StreamProxyRequest;
     const action = body.action;
+
+    if (action === "get-video" || action === "delete-video") {
+      const videoId = String(body.videoId || "").trim();
+      if (!videoId || !/^[a-zA-Z0-9_-]{10,128}$/.test(videoId)) {
+        return new Response(JSON.stringify({ error: "Invalid videoId" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Only the reel owner (or a moderator) may manage Stream assets.
+      const { data: reelRow, error: reelError } = await supabaseClient
+        .from("reels")
+        .select("id, user_id")
+        .eq("cloudflare_video_id", videoId)
+        .maybeSingle();
+      if (reelError) {
+        return new Response(JSON.stringify({ error: reelError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let allowed = Boolean(reelRow && reelRow.user_id === user.id);
+      if (!allowed) {
+        const { data: modRow } = await supabaseClient
+          .from("moderation_admins")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        allowed = Boolean(modRow);
+      }
+      if (!allowed) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const cfRes = await fetch(`${STREAM_API_URL}/${encodeURIComponent(videoId)}`, {
+        method: action === "delete-video" ? "DELETE" : "GET",
+        headers: { Authorization: `Bearer ${CLOUDFLARE_STREAM_TOKEN}` },
+      });
+
+      if (action === "delete-video") {
+        if (!cfRes.ok && cfRes.status !== 404) {
+          const details = await cfRes.text();
+          return new Response(
+            JSON.stringify({ error: "Failed to delete video", details: details.slice(0, 2000) }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!cfRes.ok) {
+        const details = await cfRes.text();
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch video", details: details.slice(0, 2000) }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const json = await cfRes.json();
+      return new Response(JSON.stringify(json), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (action === "create-direct-upload") {
       const title = String(body.title || "").slice(0, MAX_TITLE_LEN);
@@ -168,7 +240,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: "Unsupported request payload",
-        hint: "Use JSON body with action=create-direct-upload",
+        hint: "Use JSON body with action=create-direct-upload|get-video|delete-video",
       }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

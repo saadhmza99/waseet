@@ -44,6 +44,8 @@ const Devis = () => {
   const serviceId = params.get("serviceId") || "";
   const productId = params.get("productId") || "";
   const presetProType = params.get("proType") || "";
+  const sourcePath = params.get("from") || "";
+  const sourceLabel = params.get("fromLabel") || "";
 
   const source = serviceId ? "service" : productId ? "product" : sellerId ? "profile" : "open";
   const lockedTypeId =
@@ -247,6 +249,10 @@ const Devis = () => {
         serviceId: serviceId || null,
         productId: productId || null,
         source,
+        sourcePath: sourcePath || null,
+        sourceLabel:
+          sourceLabel ||
+          (productId ? "Carte / page produit" : serviceId ? "Carte / page service" : sellerId ? "Profil" : "Devis libre"),
       });
       setStep("done");
     } catch (error) {

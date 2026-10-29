@@ -1,12 +1,15 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, ExternalLink, FileText, Heart, Lock, MapPin, Share2, Unlock } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronRight, ExternalLink, FileText, Heart, ImagePlus, Lock, MapPin, Share2, Trash2 } from "lucide-react";
 import { catalogService } from "@/services/catalogService";
+import { isWithinUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
+import { OwnerDeleteButton } from "@/components/OwnerDeleteButton";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { savedService } from "@/services/savedService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import InquiryDialog from "@/components/InquiryDialog";
-import PartnerDemandDialog from "@/components/PartnerDemandDialog";
+import PartnerDemandDialog, { PAID_PLAN_REQUEST } from "@/components/PartnerDemandDialog";
 import { ProjectCommercialTag, ProjectMilestoneTrack } from "@/components/project/ProjectMilestoneTrack";
 import { toast } from "@/components/ui/use-toast";
 import { savedToast } from "@/lib/savedToast";
@@ -22,6 +25,20 @@ import {
 } from "@/lib/projectDossier";
 import { projectTypeLabel } from "@/lib/taxonomy";
 
+const MEDIA_POWER_KEY = "waseet_media_power";
+/** Only this curator pro account can use ?power=1 / media mode. */
+const MEDIA_CURATOR_USER_ID = "a1111111-1111-5111-8111-111111111111";
+const MEDIA_CURATOR_EMAIL = "curator@sifarah.local";
+
+const isMediaCurator = (user: { id?: string; email?: string | null } | null | undefined) =>
+  Boolean(
+    user &&
+      (user.id === MEDIA_CURATOR_USER_ID ||
+        String(user.email || "")
+          .trim()
+          .toLowerCase() === MEDIA_CURATOR_EMAIL),
+  );
+
 const withProjectChrome = (node: ReactNode) => (
   <div className="lg:flex lg:min-h-screen lg:w-full">
     <FeedDesktopRail />
@@ -29,20 +46,14 @@ const withProjectChrome = (node: ReactNode) => (
   </div>
 );
 
-const OpenDossierNote = () => (
-  <p className="rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 px-3 py-2 text-sm text-[#174f43]">
-    Dossier ouvert. L'équipe et les documents de ce projet sont consultables. Les autres dossiers du réseau s'ouvrent en devenant partenaire.
-  </p>
-);
-
-const DossierLock = ({ onJoin, section }: { onJoin: () => void; section: string }) => (
+const DossierLock = ({ onJoin }: { onJoin: () => void }) => (
   <div className="mx-auto max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-8 text-center">
     <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#174f43] shadow-sm">
       <Lock className="h-5 w-5" />
     </span>
-    <p className="mt-4 text-base font-semibold text-neutral-900">Section réservée aux partenaires</p>
+    <p className="mt-4 text-base font-semibold text-neutral-900">Réservé au plan payant</p>
     <p className="mt-2 text-sm leading-relaxed text-neutral-600">
-      {`Voir ${section} de ce projet demande un partenariat. Trois dossiers en tête de la liste restent ouverts pour montrer ce niveau de détail.`}
+      L&apos;équipe et les documents de ce projet sont réservés au plan payant. {PAID_PLAN_REQUEST}
     </p>
     <button
       type="button"
@@ -53,6 +64,9 @@ const DossierLock = ({ onJoin, section }: { onJoin: () => void; section: string 
     </button>
   </div>
 );
+
+/** Extra project photos are hidden until each project has its own images. */
+const SHOW_EXTRA_PROJECT_IMAGES = false;
 
 const TABS = ["Aperçu", "Programme", "Équipe", "Documents", "Mises à jour"] as const;
 type Tab = (typeof TABS)[number];
@@ -67,6 +81,7 @@ const formatDate = (value: string) => {
 const ProjectPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, visitorUser } = useAuth();
   const { requestVisitor } = useVisitorGate();
   const [project, setProject] = useState<ProjectRecord | null>(null);
@@ -75,8 +90,18 @@ const ProjectPage = () => {
   const [contactOpen, setContactOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [dossierLocked, setDossierLocked] = useState(false);
-  const [openDossier, setOpenDossier] = useState(false);
   const [partnerOpen, setPartnerOpen] = useState(false);
+  const [mediaPowerWanted, setMediaPowerWanted] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return searchParams.get("power") === "1" || localStorage.getItem(MEDIA_POWER_KEY) === "1";
+  });
+  const [mediaBusy, setMediaBusy] = useState<string | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<string | null>(null);
+  const [coverEditorOpen, setCoverEditorOpen] = useState(false);
+  const [coverConfirmOpen, setCoverConfirmOpen] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const canMediaPower = isMediaCurator(user);
+  const mediaPower = canMediaPower && mediaPowerWanted;
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -85,12 +110,21 @@ const ProjectPage = () => {
   }, [id]);
 
   useEffect(() => {
+    if (searchParams.get("power") === "1") {
+      localStorage.setItem(MEDIA_POWER_KEY, "1");
+      setMediaPowerWanted(true);
+    } else if (searchParams.get("power") === "0") {
+      localStorage.removeItem(MEDIA_POWER_KEY);
+      setMediaPowerWanted(false);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!id) return;
     let active = true;
     setMissing(false);
     setProject(null);
     setDossierLocked(false);
-    setOpenDossier(false);
     catalogService
       .getProject(id)
       .then((row) => {
@@ -99,7 +133,6 @@ const ProjectPage = () => {
         else {
           setProject(dossierFromRow(row));
           setDossierLocked(Boolean(row.dossier_locked));
-          setOpenDossier(Boolean(row.open_dossier));
         }
       })
       .catch(() => {
@@ -109,6 +142,105 @@ const ProjectPage = () => {
       active = false;
     };
   }, [id]);
+
+  const reloadProject = async () => {
+    if (!id) return;
+    const row = await catalogService.getProject(id);
+    if (!row) return;
+    setProject(dossierFromRow(row));
+  };
+
+  const toggleMediaPower = () => {
+    if (!canMediaPower) {
+      toast({
+        title: "Compte curator requis",
+        description: "Le mode média n'est disponible que pour curator@sifarah.local.",
+      });
+      return;
+    }
+    const next = !mediaPowerWanted;
+    setMediaPowerWanted(next);
+    if (next) {
+      localStorage.setItem(MEDIA_POWER_KEY, "1");
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("power", "1");
+      setSearchParams(nextParams, { replace: true });
+    } else {
+      localStorage.removeItem(MEDIA_POWER_KEY);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("power");
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
+
+  const ownsProject = Boolean(user && project?.userId === user.id);
+
+  const patchMedia = async (action: "set_cover" | "delete_image", url: string) => {
+    if (!id || !url) return;
+    const allowed = action === "delete_image" ? canMediaPower || ownsProject : canMediaPower;
+    if (!allowed) {
+      toast({
+        title: "Compte curator requis",
+        description: "Connectez-vous avec curator@sifarah.local pour modifier les médias.",
+      });
+      return;
+    }
+    setMediaBusy(`${action}:${url}`);
+    try {
+      await catalogService.patchProjectMedia(id, action, url);
+      await reloadProject();
+      toast({
+        title: action === "set_cover" ? "Couverture mise à jour" : "Photo supprimée",
+        description: "Enregistré dans Supabase.",
+      });
+    } catch (error) {
+      console.error("patchProjectMedia", error);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de modifier ce média.",
+      });
+    } finally {
+      setMediaBusy(null);
+    }
+  };
+
+  const replaceCover = async (file: File) => {
+    if (!id || !ownsProject) return;
+    if (!file.type.startsWith("image/") || !isWithinUploadLimit(file)) {
+      toast({ title: "Image", description: `Choisissez une image de ${uploadMaxLabel} maximum.` });
+      return;
+    }
+    setMediaBusy("set_cover");
+    try {
+      const url = await storageService.uploadImage(file, "projects");
+      await catalogService.patchProjectMedia(id, "set_cover", url);
+      await reloadProject();
+      setCoverEditorOpen(false);
+      toast({ title: "Couverture mise à jour" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Erreur", description: "Impossible de modifier la couverture." });
+    } finally {
+      setMediaBusy(null);
+    }
+  };
+
+  const clearCover = async () => {
+    if (!id || !ownsProject) return;
+    setMediaBusy("clear_cover");
+    try {
+      await catalogService.patchProjectMedia(id, "clear_cover", "");
+      await reloadProject();
+      setCoverConfirmOpen(false);
+      setCoverEditorOpen(false);
+      toast({ title: "Couverture supprimée" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Erreur", description: "Impossible de supprimer la couverture." });
+    } finally {
+      setMediaBusy(null);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -160,9 +292,11 @@ const ProjectPage = () => {
   const filledFieldLabels = new Set(sectionFields.map((field) => field.label));
   const filledFields = [...sectionFields, ...extraFields.filter((field) => !filledFieldLabels.has(field.label))];
   const publicDocs = (project?.documents || []).filter((doc) => doc.privacy === "public" || project?.userId === user?.id);
-  const gallery = project?.media?.length
-    ? project.media
-    : (project?.images || []).map((url) => ({ url, caption: "", category: "Réalisation" }));
+  const gallery = (
+    project?.media?.length
+      ? project.media
+      : (project?.images || []).map((url) => ({ url, caption: "", category: "Réalisation" }))
+  ).filter((item) => item.url && item.url !== project?.coverImage);
 
   const share = async () => {
     const url = window.location.href;
@@ -213,16 +347,63 @@ const ProjectPage = () => {
   return withProjectChrome(
     <div className="min-h-screen bg-[#f4f6f3] pb-8 text-neutral-900">
       <div className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-4">
-        <button type="button" onClick={() => navigate(-1)} className="mb-3 text-sm text-neutral-600">
-          ← Retour
-        </button>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <button type="button" onClick={() => navigate(-1)} className="text-sm text-neutral-600">
+            ← Retour
+          </button>
+          {canMediaPower ? (
+            <button
+              type="button"
+              onClick={toggleMediaPower}
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                mediaPower ? "bg-amber-500 text-white" : "border border-neutral-300 text-neutral-500"
+              }`}
+            >
+              {mediaPower ? "Mode média ON" : "Mode média"}
+            </button>
+          ) : null}
+        </div>
+        {mediaPower ? (
+          <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+            Mode média curator : dans la galerie → <strong>Couverture</strong> ou <strong>Supprimer</strong> (écrit
+            dans Supabase).
+          </div>
+        ) : null}
         <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
           <div className="relative aspect-[16/9] bg-neutral-100 sm:aspect-[21/9]">
-            {project.image ? <img src={project.image} alt="" className="h-full w-full object-cover" /> : null}
+            {user && project.userId === user.id ? (
+              <OwnerDeleteButton
+                onDelete={async () => {
+                  await catalogService.deleteProject(project.id, user.id);
+                  navigate("/profile?tab=projets");
+                }}
+              />
+            ) : null}
+            {project.coverImage ? <img src={project.coverImage} alt="" className="h-full w-full object-cover" /> : (
+              <div className="flex h-full items-center justify-center px-6 text-center text-sm text-neutral-400">
+                Aucune photo de couverture
+              </div>
+            )}
             <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2 py-1 text-[11px] font-semibold text-neutral-800">
               {projectTypeLabel(project.subtype) || project.subtype || categoryLabel(project.category)}
             </span>
+            {mediaPower && project.coverImage ? (
+              <span className="absolute bottom-3 left-3 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
+                Couverture actuelle
+              </span>
+            ) : null}
           </div>
+          {ownsProject ? (
+            <div className="border-b border-neutral-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setCoverEditorOpen(true)}
+                className="text-sm font-semibold text-[#174f43] hover:underline"
+              >
+                modifier photo de couverture du projet
+              </button>
+            </div>
+          ) : null}
           <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{project.title}</h1>
@@ -253,9 +434,19 @@ const ProjectPage = () => {
               ) : null}
             </div>
             <div className="flex flex-col gap-2">
-              <button type="button" onClick={() => setContactOpen(true)} className="h-11 rounded-lg bg-[#174f43] text-sm font-semibold text-white">
-                Contacter
-              </button>
+              {user && project.userId === user.id ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/projet/${project.id}/modifier`)}
+                  className="h-11 rounded-lg bg-[#174f43] text-sm font-semibold text-white"
+                >
+                  Modifier
+                </button>
+              ) : (
+                <button type="button" onClick={() => setContactOpen(true)} className="h-11 rounded-lg bg-[#174f43] text-sm font-semibold text-white">
+                  Contacter
+                </button>
+              )}
               <button type="button" onClick={() => setContactOpen(true)} className="h-11 rounded-lg border border-neutral-300 text-sm font-semibold">
                 Demander plus d'informations
               </button>
@@ -284,7 +475,6 @@ const ProjectPage = () => {
                   }`}
                 >
                   {gated && dossierLocked ? <Lock className="h-3.5 w-3.5" /> : null}
-                  {gated && openDossier ? <Unlock className="h-3.5 w-3.5" /> : null}
                   {item}
                 </button>
               );
@@ -347,14 +537,49 @@ const ProjectPage = () => {
                     </ol>
                   </div>
                 ) : null}
-                {gallery.length ? (
+                {SHOW_EXTRA_PROJECT_IMAGES && gallery.length ? (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {gallery.map((item) => (
-                      <figure key={item.url} className="overflow-hidden rounded-lg bg-neutral-100">
-                        <img src={item.url} alt={item.caption || ""} className="aspect-[4/3] w-full object-cover" />
-                        {item.category ? <figcaption className="px-2 py-1.5 text-[11px] text-neutral-500">{item.category}</figcaption> : null}
-                      </figure>
-                    ))}
+                    {gallery.map((item) => {
+                      const isCover = Boolean(project.coverImage && item.url === project.coverImage);
+                      const busyCover = mediaBusy === `set_cover:${item.url}`;
+                      const busyDelete = mediaBusy === `delete_image:${item.url}`;
+                      return (
+                        <figure key={item.url} className="group relative overflow-hidden rounded-lg bg-neutral-100">
+                          <img src={item.url} alt={item.caption || ""} className="aspect-[4/3] w-full object-cover" />
+                          {isCover ? (
+                            <span className="absolute left-2 top-2 rounded bg-[#174f43] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                              Cover
+                            </span>
+                          ) : null}
+                          {mediaPower || ownsProject ? (
+                            <div className={`absolute flex gap-1 ${mediaPower ? "inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 pt-8 opacity-100 sm:opacity-0 sm:group-hover:opacity-100" : "right-2 top-2"}`}>
+                              {mediaPower ? (
+                                <button
+                                  type="button"
+                                  disabled={Boolean(mediaBusy) || isCover}
+                                  onClick={() => void patchMedia("set_cover", item.url)}
+                                  className="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-white px-2 py-1.5 text-[11px] font-semibold text-neutral-900 disabled:opacity-50"
+                                >
+                                  <ImagePlus className="h-3.5 w-3.5" />
+                                  {busyCover ? "…" : isCover ? "Cover" : "Couverture"}
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                disabled={Boolean(mediaBusy)}
+                                onClick={() => setPhotoToDelete(item.url)}
+                                className="inline-flex items-center justify-center rounded-md bg-white/95 p-1.5 text-neutral-900 shadow-sm disabled:opacity-50"
+                                aria-label="Supprimer"
+                              >
+                                <Trash2 className={`h-3.5 w-3.5 ${busyDelete ? "opacity-50" : ""}`} />
+                              </button>
+                            </div>
+                          ) : item.category ? (
+                            <figcaption className="px-2 py-1.5 text-[11px] text-neutral-500">{item.category}</figcaption>
+                          ) : null}
+                        </figure>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
@@ -402,10 +627,9 @@ const ProjectPage = () => {
             ) : null}
 
             {tab === "Équipe" && dossierLocked ? (
-              <DossierLock onJoin={() => setPartnerOpen(true)} section="l'équipe" />
+              <DossierLock onJoin={() => setPartnerOpen(true)} />
             ) : tab === "Équipe" ? (
               <div className="space-y-8">
-                {openDossier ? <OpenDossierNote /> : null}
                 {project.team.filter((member) => member.name).length ? (
                   <div>
                     <h2 className="text-sm font-semibold">L'équipe du projet</h2>
@@ -475,10 +699,9 @@ const ProjectPage = () => {
             ) : null}
 
             {tab === "Documents" && dossierLocked ? (
-              <DossierLock onJoin={() => setPartnerOpen(true)} section="les documents" />
+              <DossierLock onJoin={() => setPartnerOpen(true)} />
             ) : tab === "Documents" ? (
               <div className="space-y-4">
-                {openDossier ? <OpenDossierNote /> : null}
                 {publicDocs.filter((doc) => doc.title).length ? (
                 <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
                   {publicDocs.filter((doc) => doc.title).map((doc) => (
@@ -542,6 +765,102 @@ const ProjectPage = () => {
         type="project"
         sellerId={project.userId}
         projectId={project.id}
+      />
+      <ConfirmDeleteDialog
+        open={Boolean(photoToDelete)}
+        title="Supprimer cette photo ?"
+        message="Elle sera retirée de la galerie du projet."
+        busy={Boolean(photoToDelete && mediaBusy === `delete_image:${photoToDelete}`)}
+        onCancel={() => {
+          if (!mediaBusy) setPhotoToDelete(null);
+        }}
+        onConfirm={() => {
+          if (!photoToDelete) return;
+          void patchMedia("delete_image", photoToDelete).finally(() => setPhotoToDelete(null));
+        }}
+      />
+      {coverEditorOpen ? (
+        <div
+          className="fixed inset-0 z-[230] flex items-end justify-center bg-[#0e2c26]/55 p-3 sm:items-center"
+          onClick={() => {
+            if (!mediaBusy) setCoverEditorOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cover-editor-title"
+          >
+            <div className="h-1.5 bg-[#174f43]" />
+            <div className="px-5 py-5">
+              <h2 id="cover-editor-title" className="text-lg font-semibold text-neutral-900">
+                Photo de couverture
+              </h2>
+              <div className="mt-3 overflow-hidden rounded-xl bg-neutral-100">
+                {project.coverImage ? (
+                  <img src={project.coverImage} alt="" className="aspect-[16/9] w-full object-cover" />
+                ) : (
+                  <div className="flex aspect-[16/9] items-center justify-center px-6 text-center text-sm text-neutral-500">
+                    Aucune photo de couverture
+                  </div>
+                )}
+              </div>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void replaceCover(file);
+                }}
+              />
+              <div className="mt-4 grid gap-2">
+                <button
+                  type="button"
+                  disabled={Boolean(mediaBusy)}
+                  onClick={() => coverInputRef.current?.click()}
+                  className="h-11 rounded-xl bg-[#174f43] text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {mediaBusy === "set_cover" ? "Envoi…" : project.coverImage ? "Remplacer" : "Ajouter"}
+                </button>
+                {project.coverImage ? (
+                  <button
+                    type="button"
+                    disabled={Boolean(mediaBusy)}
+                    onClick={() => setCoverConfirmOpen(true)}
+                    className="h-11 rounded-xl border border-neutral-300 text-sm font-semibold text-neutral-800 disabled:opacity-60"
+                  >
+                    Supprimer
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={Boolean(mediaBusy)}
+                  onClick={() => setCoverEditorOpen(false)}
+                  className="h-11 text-sm font-semibold text-neutral-600"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <ConfirmDeleteDialog
+        open={coverConfirmOpen}
+        title="Supprimer la couverture ?"
+        message="La couverture sera retirée. Les photos de la galerie restent en place."
+        busy={mediaBusy === "clear_cover"}
+        onCancel={() => {
+          if (mediaBusy !== "clear_cover") setCoverConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          void clearCover();
+        }}
       />
     </div>
   );

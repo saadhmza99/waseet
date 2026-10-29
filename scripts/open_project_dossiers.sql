@@ -1,6 +1,5 @@
--- Three public dossiers: the projects with the most équipe members and documents.
--- Their promoteurs stay in the visible directory. Everyone else in that
--- directory keeps équipe and documents closed.
+-- Every promoteur dossier stays closed. Équipe and documents open only
+-- for the project owner or a partner on the paid plan.
 
 alter table public.projects
   add column if not exists open_dossier boolean not null default false;
@@ -8,14 +7,6 @@ alter table public.projects
 update public.projects
 set open_dossier = false
 where open_dossier;
-
-update public.projects
-set open_dossier = true
-where id in (
-  '6fe21c9c-5495-5115-9646-6e0cc4e841c4'::uuid,
-  '87785fde-20e9-5a06-925b-629801ade562'::uuid,
-  'bda11875-f11f-5956-88c3-46069f7964d9'::uuid
-);
 
 update public.profiles p
 set featured_promoter = true,
@@ -58,8 +49,8 @@ begin
   where pr.id = proj.user_id;
 
   locked := featured
-    and not coalesce(proj.open_dossier, false)
-    and viewer is distinct from proj.user_id;
+    and viewer is distinct from proj.user_id
+    and not public.project_viewer_is_partner();
 
   if locked then
     proj.team := '[]'::jsonb;

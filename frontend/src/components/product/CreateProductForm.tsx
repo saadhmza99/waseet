@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Image as ImageIcon, Package, Plus, Trash2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
-import { productService } from "@/services/productService";
+import { productPhotos, productService, productTechnicalSpecs } from "@/services/productService";
 import { partitionByUploadLimit, storageService, uploadMaxLabel } from "@/services/storageService";
 import { allMoroccoCities } from "@/lib/moroccoPlaces";
 import {
@@ -12,6 +12,8 @@ import {
   PRODUCT_TAXONOMY,
   productCategoryById,
   productCategoryFr,
+  productCategorySelection,
+  productFamilyCategoryValue,
 } from "@/lib/productTaxonomy";
 
 const fieldClass =
@@ -29,8 +31,13 @@ const Label = ({ children, optional }: { children: string; optional?: boolean })
 
 const CreateProductForm = () => {
   const navigate = useNavigate();
+  const { id: productId } = useParams();
+  const editing = Boolean(productId);
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [loadingProduct, setLoadingProduct] = useState(editing);
+  const [forbidden, setForbidden] = useState(false);
+  const [keptAttributes, setKeptAttributes] = useState<Record<string, unknown>>({});
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [parentId, setParentId] = useState("");
@@ -45,11 +52,56 @@ const CreateProductForm = () => {
   const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
   const [cityQuery, setCityQuery] = useState("");
   const [specs, setSpecs] = useState("");
+  const hydratedId = useRef<string | null>(null);
+  const userId = user?.id;
 
   const subOptions = useMemo(() => {
     const parent = productCategoryById(parentId);
     return parent?.subs || [];
   }, [parentId]);
+
+  useEffect(() => {
+    if (!editing || !productId || !userId) return;
+    if (hydratedId.current === productId) return;
+    let cancelled = false;
+    setLoadingProduct(true);
+    productService
+      .getProduct(productId)
+      .then((row) => {
+        if (cancelled) return;
+        if (!row || row.user_id !== userId) {
+          setForbidden(true);
+          return;
+        }
+        const selection = productCategorySelection(row.category);
+        const attrs = row.attributes && typeof row.attributes === "object" ? row.attributes : {};
+        setKeptAttributes(attrs);
+        setTitle(row.title || "");
+        setDescription(row.description || "");
+        setParentId(selection.parentId);
+        setCategoryEn(selection.en);
+        setBrand(row.brand || "");
+        setSku(row.sku || "");
+        setPrice(row.price != null && Number(row.price) > 0 ? String(row.price) : "");
+        setCurrency(row.currency || "MAD");
+        setUnit(row.unit || "");
+        setMinQuantity(row.min_quantity || "");
+        setPhotos(productPhotos(row));
+        setDeliveryCities(Array.isArray(row.delivery_cities) ? row.delivery_cities.filter(Boolean) : []);
+        setSpecs(productTechnicalSpecs(row));
+        hydratedId.current = productId;
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setForbidden(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProduct(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, productId, userId]);
 
   const citySuggestions = useMemo(() => {
     const needle = cityQuery.trim().toLowerCase();
@@ -93,7 +145,18 @@ const CreateProductForm = () => {
     setSaving(true);
     try {
       const priceNum = price.trim() ? Number(String(price).replace(/\s/g, "").replace(",", ".")) : null;
-      const row = await productService.createProduct(user.id, {
+      const nextAttributes: Record<string, unknown> = {
+        ...keptAttributes,
+        category_fr: productCategoryFr(categoryEn) || categoryEn,
+      };
+      if (specs.trim()) {
+        nextAttributes.technical_specifications_detailed = specs.trim();
+        nextAttributes.technical_specifications = specs.trim();
+      } else {
+        delete nextAttributes.technical_specifications_detailed;
+        delete nextAttributes.technical_specifications;
+      }
+      const input = {
         title: title.trim(),
         description: description.trim() || null,
         category: categoryEn.trim(),
@@ -106,18 +169,19 @@ const CreateProductForm = () => {
         cover: photos[0] || null,
         gallery: photos,
         delivery_cities: deliveryCities,
-        attributes: {
-          category_fr: productCategoryFr(categoryEn) || categoryEn,
-          ...(specs.trim()
-            ? { technical_specifications_detailed: specs.trim(), technical_specifications: specs.trim() }
-            : {}),
-        },
+        attributes: nextAttributes,
+      };
+      const row = editing && productId
+        ? await productService.updateProduct(productId, user.id, input)
+        : await productService.createProduct(user.id, input);
+      toast({
+        title: editing ? "Produit mis à jour" : "Produit publié",
+        description: editing ? "Les modifications sont en ligne." : "Votre produit est en ligne.",
       });
-      toast({ title: "Produit publié", description: "Votre produit est en ligne." });
       navigate(`/produits/${row.id}`);
     } catch (error) {
       console.error(error);
-      toast({ title: "Erreur", description: "Impossible de publier ce produit." });
+      toast({ title: "Erreur", description: editing ? "Impossible de modifier ce produit." : "Impossible de publier ce produit." });
     } finally {
       setSaving(false);
     }
@@ -138,6 +202,37 @@ const CreateProductForm = () => {
     );
   }
 
+  if (loadingProduct) {
+    return <div className="px-4 py-16 text-center text-sm text-neutral-500">Chargement…</div>;
+  }
+
+  if (forbidden) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <p className="text-muted-foreground">Vous ne pouvez modifier que vos propres produits.</p>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mt-4 rounded-lg bg-[#174f43] px-4 py-2 text-sm font-semibold text-white"
+        >
+          Retour
+        </button>
+      </div>
+    );
+  }
+
+  const family = productCategoryById(parentId);
+  const familyValue = productFamilyCategoryValue(parentId);
+  const categoryOptions = [
+    ...(family && familyValue ? [{ en: familyValue, fr: family.fr }] : []),
+    ...subOptions.filter((sub) => sub.en !== familyValue),
+    ...(categoryEn &&
+    categoryEn !== familyValue &&
+    !subOptions.some((sub) => sub.en === categoryEn)
+      ? [{ en: categoryEn, fr: productCategoryFr(categoryEn) || categoryEn }]
+      : []),
+  ];
+
   return createPortal(
     <div className="fixed inset-0 z-[70] overflow-y-auto bg-white">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-neutral-200 bg-white px-4 py-3">
@@ -147,7 +242,7 @@ const CreateProductForm = () => {
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-base font-semibold text-neutral-900">
             <Package className="h-4 w-4 text-[#174f43]" />
-            Nouveau produit
+            {editing ? "Modifier le produit" : "Nouveau produit"}
           </p>
           <p className="text-xs text-neutral-500">Champs alignés sur le catalogue produits</p>
         </div>
@@ -157,7 +252,7 @@ const CreateProductForm = () => {
           onClick={() => void handleSubmit()}
           className="rounded-lg bg-[#174f43] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {saving ? "Publication…" : "Publier"}
+          {saving ? "Enregistrement…" : editing ? "Enregistrer" : "Publier"}
         </button>
       </div>
 
@@ -221,8 +316,13 @@ const CreateProductForm = () => {
               className={fieldClass}
               value={parentId}
               onChange={(e) => {
-                setParentId(e.target.value);
-                setCategoryEn("");
+                const nextParent = e.target.value;
+                const nextFamily = productFamilyCategoryValue(nextParent);
+                const nextSubs = productCategoryById(nextParent)?.subs || [];
+                setParentId(nextParent);
+                setCategoryEn((current) =>
+                  current === nextFamily || nextSubs.some((sub) => sub.en === current) ? current : "",
+                );
               }}
             >
               <option value="">Choisir</option>
@@ -242,7 +342,7 @@ const CreateProductForm = () => {
               onChange={(e) => setCategoryEn(e.target.value)}
             >
               <option value="">Choisir</option>
-              {subOptions.map((sub) => (
+              {categoryOptions.map((sub) => (
                 <option key={sub.en} value={sub.en}>
                   {sub.fr}
                 </option>
@@ -367,7 +467,7 @@ const CreateProductForm = () => {
             className={`${fieldClass} h-24 py-2`}
             value={specs}
             onChange={(e) => setSpecs(e.target.value)}
-            placeholder="Stocké dans attributes.technical_specifications_detailed"
+            placeholder="Caractéristiques techniques détaillées"
             maxLength={4000}
           />
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Bell, Briefcase, Shield, Moon, Globe, Trash2, User, Users, Eye, Mail } from "lucide-react";
 import { FEED_CATEGORIES } from "@/lib/taxonomy";
 import { taxonomyService, type InternalCategory } from "@/services/taxonomyService";
@@ -34,7 +34,13 @@ const Settings = () => {
   const accountId = user?.id || visitorUser?.id || null;
   const [notifications, setNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem("sifarah.dark") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
@@ -44,7 +50,7 @@ const Settings = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [language, setLanguage] = useState("English");
+  const [language, setLanguage] = useState(() => localStorage.getItem("app_language") || "Francais");
   const [region, setRegion] = useState("UAE");
   const [showPhone, setShowPhone] = useState(false);
   const [allowDirectMessages, setAllowDirectMessages] = useState(true);
@@ -63,6 +69,7 @@ const Settings = () => {
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const allowsMultipleCategories = profile?.profile_type === "enterprise";
   const { setLanguage: setAppLanguage } = useAppLanguage();
+  const languageTouched = useRef(false);
   const languageOptions = [
     "English",
     "Francais",
@@ -78,6 +85,21 @@ const Settings = () => {
     "Turkish",
     "Russian",
   ];
+  const languageLabels: Record<string, string> = {
+    English: "Anglais",
+    Francais: "Français",
+    Arabic: "Arabe",
+    Spanish: "Espagnol",
+    German: "Allemand",
+    Italian: "Italien",
+    Portuguese: "Portugais",
+    Chinese: "Chinois",
+    Japanese: "Japonais",
+    Korean: "Coréen",
+    Hindi: "Hindi",
+    Turkish: "Turc",
+    Russian: "Russe",
+  };
   const regionOptions = [
     "UAE",
     "Saudi Arabia",
@@ -100,6 +122,28 @@ const Settings = () => {
     "Brazil",
     "Australia",
   ];
+  const regionLabels: Record<string, string> = {
+    UAE: "Émirats arabes unis",
+    "Saudi Arabia": "Arabie saoudite",
+    Qatar: "Qatar",
+    Kuwait: "Koweït",
+    Bahrain: "Bahreïn",
+    Oman: "Oman",
+    Morocco: "Maroc",
+    Algeria: "Algérie",
+    Tunisia: "Tunisie",
+    Egypt: "Égypte",
+    France: "France",
+    Spain: "Espagne",
+    "United Kingdom": "Royaume-Uni",
+    "United States": "États-Unis",
+    Canada: "Canada",
+    India: "Inde",
+    China: "Chine",
+    Japan: "Japon",
+    Brazil: "Brésil",
+    Australia: "Australie",
+  };
 
   useEffect(() => {
     if (!profile || isParticulier) return;
@@ -126,14 +170,17 @@ const Settings = () => {
         setNotifications(settings.notifications_enabled);
         setEmailNotifications(settings.email_notifications_enabled);
         setDarkMode(settings.dark_mode_enabled);
-        setLanguage(settings.language);
+        applySavedDark(settings.dark_mode_enabled);
+        if (!languageTouched.current) {
+          setLanguage(settings.language);
+          setAppLanguage(settings.language);
+        }
         setRegion(settings.region);
         setShowPhone(settings.show_phone);
         setAllowDirectMessages(settings.allow_direct_messages);
         setShowActivityStatus(settings.show_activity_status);
         setCommentPermission(settings.comment_permission);
         setTagPermission(settings.tag_permission);
-        setAppLanguage(settings.language);
         const muted = await muteService.getMutedAccounts(accountId);
         setMutedAccounts(muted);
       } catch (error) {
@@ -142,7 +189,7 @@ const Settings = () => {
     };
 
     loadPreferences();
-  }, [accountId, isParticulier, setAppLanguage]);
+  }, [accountId, isParticulier]);
 
   useEffect(() => {
     if (!user || isParticulier) return;
@@ -228,9 +275,14 @@ const Settings = () => {
     }
   };
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
+  const applySavedDark = (on: boolean) => {
+    document.documentElement.classList.toggle("dark", on);
+    try {
+      localStorage.setItem("sifarah.dark", on ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
 
   const avatarPreview = avatarFile
     ? URL.createObjectURL(avatarFile)
@@ -383,7 +435,7 @@ const Settings = () => {
   };
 
   const handleDeleteAccount = () => {
-    const confirmed = window.confirm("Are you sure? This action cannot be undone.");
+    const confirmed = window.confirm("Confirmer ? Cette action est irréversible.");
     if (!confirmed) return;
 
     toast({
@@ -398,11 +450,11 @@ const Settings = () => {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-[57px] sm:top-[60px] z-40 bg-background border-b border-border px-4 sm:px-6 md:px-8 py-3 sm:py-4 flex items-center gap-3">
+      <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background px-4 py-3 sm:px-6 sm:py-4 md:px-8">
         <button onClick={() => navigate(-1)} className="text-card-foreground hover:opacity-70 transition-opacity">
           <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
-        <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-card-foreground">Settings</h1>
+        <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-card-foreground">Paramètres</h1>
       </div>
 
       <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 max-w-2xl mx-auto space-y-6 sm:space-y-8">
@@ -410,7 +462,7 @@ const Settings = () => {
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <User className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Profile</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Profil</h2>
           </div>
           <div className="space-y-4 sm:space-y-5">
             <div className="flex items-center gap-3">
@@ -437,7 +489,7 @@ const Settings = () => {
                     }}
                   />
                   <span className="inline-flex h-9 items-center rounded-md bg-secondary px-3 text-sm font-medium">
-                    Take photo
+                    Prendre une photo
                   </span>
                 </label>
                 <label className="cursor-pointer">
@@ -456,7 +508,7 @@ const Settings = () => {
                     }}
                   />
                   <span className="inline-flex h-9 items-center rounded-md bg-secondary px-3 text-sm font-medium">
-                    Upload photo
+                    Importer une photo
                   </span>
                 </label>
               </div>
@@ -484,7 +536,7 @@ const Settings = () => {
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Votre username"
+                  placeholder="Votre nom d'utilisateur"
                 />
               </div>
             ) : null}
@@ -736,10 +788,10 @@ const Settings = () => {
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <Label htmlFor="notifications" className="text-sm sm:text-base font-medium text-card-foreground">
-                  Push Notifications
+                  Notifications push
                 </Label>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  Receive notifications about new jobs and messages
+                  Alertes pour les nouveaux messages et demandes
                 </p>
               </div>
               <Switch
@@ -751,10 +803,10 @@ const Settings = () => {
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <Label htmlFor="email-notifications" className="text-sm sm:text-base font-medium text-card-foreground">
-                  Email Notifications
+                  Notifications email
                 </Label>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  Get updates via email
+                  Recevoir les mises à jour par email
                 </p>
               </div>
               <Switch
@@ -780,7 +832,7 @@ const Settings = () => {
           <div className="space-y-4 sm:space-y-5">
             <div>
               <Label htmlFor="comment-permission" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
-                Who can comment
+                Qui peut commenter
               </Label>
               <select
                 id="comment-permission"
@@ -788,14 +840,14 @@ const Settings = () => {
                 onChange={(e) => setCommentPermission(e.target.value as typeof commentPermission)}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="followers">Your followers</option>
-                <option value="follow_back">Followers you follow back</option>
-                <option value="off">Off</option>
+                <option value="followers">Vos abonnés</option>
+                <option value="follow_back">Les abonnés que vous suivez en retour</option>
+                <option value="off">Personne</option>
               </select>
             </div>
             <div>
               <Label htmlFor="tag-permission" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
-                Who can tag you
+                Qui peut vous identifier
               </Label>
               <select
                 id="tag-permission"
@@ -803,9 +855,9 @@ const Settings = () => {
                 onChange={(e) => setTagPermission(e.target.value as typeof tagPermission)}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="everyone">Everyone</option>
-                <option value="following">People you follow</option>
-                <option value="off">{`Don't allow tags`}</option>
+                <option value="everyone">Tout le monde</option>
+                <option value="following">Les personnes que vous suivez</option>
+                <option value="off">Ne pas autoriser les identifications</option>
               </select>
             </div>
             <div className="flex justify-end">
@@ -820,10 +872,10 @@ const Settings = () => {
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">What you see</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Ce que vous voyez</h2>
           </div>
           {mutedAccounts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No muted accounts.</p>
+            <p className="text-sm text-muted-foreground">Aucun compte masqué.</p>
           ) : (
             <ul className="divide-y divide-border">
               {mutedAccounts.map((row) => (
@@ -839,9 +891,9 @@ const Settings = () => {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {row.mutePosts && row.muteServices
-                        ? "Posts and services"
+                        ? "Publications et services"
                         : row.mutePosts
-                          ? "Posts"
+                          ? "Publications"
                           : "Services"}
                     </p>
                   </div>
@@ -860,7 +912,7 @@ const Settings = () => {
                       }
                     }}
                   >
-                    Unmute
+                    Réafficher
                   </Button>
                 </li>
               ))}
@@ -872,20 +924,20 @@ const Settings = () => {
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Privacy & Security</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Confidentialité et sécurité</h2>
           </div>
           <div className="space-y-3 sm:space-y-4">
             <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/change-password")}>
-              Change Password
+              Changer le mot de passe
             </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/privacy-settings")}>
-              Privacy Settings
+              Paramètres de confidentialité
             </Button>
             <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/settings/blocked")}>
-              Manage blocked accounts
+              Comptes bloqués
             </Button>
             <Button variant="outline" className="w-full justify-start" disabled>
-              Two-Factor Authentication
+              Authentification à deux facteurs
             </Button>
           </div>
         </div>
@@ -894,21 +946,24 @@ const Settings = () => {
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <Moon className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Appearance</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Apparence</h2>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <Label htmlFor="dark-mode" className="text-sm sm:text-base font-medium text-card-foreground">
-                Dark Mode
+                Mode sombre
               </Label>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                Switch to dark theme
+                Passer au thème sombre
               </p>
             </div>
             <Switch
               id="dark-mode"
               checked={darkMode}
-              onCheckedChange={setDarkMode}
+              onCheckedChange={(checked) => {
+                setDarkMode(checked);
+                applySavedDark(checked);
+              }}
             />
           </div>
         </div>
@@ -917,29 +972,33 @@ const Settings = () => {
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
-            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Language & Region</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Langue et région</h2>
           </div>
           <div className="space-y-3 sm:space-y-4">
             <div>
               <Label htmlFor="language" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
-                Language
+                Langue
               </Label>
               <select
                 id="language"
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                onChange={(e) => {
+                  languageTouched.current = true;
+                  setLanguage(e.target.value);
+                  setAppLanguage(e.target.value);
+                }}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 {languageOptions.map((lang) => (
                   <option key={lang} value={lang}>
-                    {lang}
+                    {languageLabels[lang] || lang}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <Label htmlFor="region" className="text-sm sm:text-base font-medium text-card-foreground mb-2 block">
-                Region
+                Région
               </Label>
               <select
                 id="region"
@@ -949,14 +1008,14 @@ const Settings = () => {
               >
                 {regionOptions.map((r) => (
                   <option key={r} value={r}>
-                    {r}
+                    {regionLabels[r] || r}
                   </option>
                 ))}
               </select>
             </div>
             <div className="flex justify-end">
               <Button onClick={handleSavePreferences} disabled={isSavingPreferences || !accountId}>
-                {isSavingPreferences ? "Enregistrement..." : "Appliquer langue et region"}
+                {isSavingPreferences ? "Enregistrement..." : "Appliquer la langue et la région"}
               </Button>
             </div>
           </div>
@@ -966,11 +1025,11 @@ const Settings = () => {
         <div className="bg-card rounded-lg border border-destructive/50 p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
             <Trash2 className="w-5 h-5 sm:w-6 sm:h-6 text-destructive" />
-            <h2 className="text-lg sm:text-xl font-semibold text-destructive">Danger Zone</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-destructive">Zone sensible</h2>
           </div>
           <div className="space-y-3 sm:space-y-4">
             <Button variant="destructive" className="w-full justify-start" onClick={handleDeleteAccount}>
-              Delete Account
+              Supprimer le compte
             </Button>
           </div>
         </div>

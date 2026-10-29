@@ -94,7 +94,7 @@ const SpotlightProjectCard = ({ row, compact }: { row: any; compact?: boolean })
         navigate(`/projet/${project.id}`);
       }}
       className={`group flex flex-col overflow-hidden rounded-2xl border border-neutral-200/90 bg-white text-left shadow-sm transition hover:border-neutral-300 hover:shadow-md ${
-        compact ? "w-[16.5rem] shrink-0 sm:w-[18rem]" : "w-full"
+        compact ? "w-[19rem] shrink-0 sm:w-[21rem] xl:w-full xl:min-w-0 xl:shrink" : "w-full"
       }`}
     >
       <span className={`relative block w-full overflow-hidden bg-neutral-100 ${compact ? "aspect-[16/10]" : "aspect-[16/9]"}`}>
@@ -113,11 +113,11 @@ const SpotlightProjectCard = ({ row, compact }: { row: any; compact?: boolean })
           </span>
         ) : null}
       </span>
-      <span className="flex flex-col gap-1 px-3 py-2.5">
-        <span className="line-clamp-1 text-base leading-5 text-neutral-800">{project.title}</span>
-        <span className="line-clamp-1 text-xs text-neutral-500">{subtitle}</span>
-        <span className="mt-1 flex items-center justify-between gap-2">
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-neutral-500">
+      <span className="flex flex-col gap-1.5 px-3.5 py-3">
+        <span className="line-clamp-2 text-base leading-5 text-neutral-800">{project.title}</span>
+        <span className="line-clamp-1 text-sm text-neutral-500">{subtitle}</span>
+        <span className="mt-0.5 flex items-center justify-between gap-2">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500">
             {place ? (
               <span className="inline-flex min-w-0 items-center gap-0.5 truncate">
                 <MapPin className="h-3 w-3 shrink-0" />
@@ -237,7 +237,7 @@ export const FeedProjectsStrip = ({ projects }: { projects: any[] }) => {
         caption
         large
       />
-      <div className="flex gap-4 overflow-x-auto pb-1 [scrollbar-width:none] sm:gap-5 lg:grid lg:grid-cols-3 lg:gap-7 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-4 overflow-x-auto pb-1 [scrollbar-width:none] sm:gap-5 xl:grid xl:grid-cols-2 xl:gap-5 xl:overflow-visible 2xl:grid-cols-3 2xl:gap-6 [&::-webkit-scrollbar]:hidden">
         {featured.map((row) => (
           <SpotlightProjectCard key={row.id} row={row} compact />
         ))}
@@ -248,7 +248,7 @@ export const FeedProjectsStrip = ({ projects }: { projects: any[] }) => {
 
 /**
  * Top-right Accueil rail (not under categories):
- * Nos partenaires → Entreprises recommandées (curated showcase firms + blue badge).
+ * Associations logos + Entreprises recommandées (curated showcase firms + blue badge).
  */
 export const FeedPartnersRail = ({ firms = RECOMMENDED_FIRMS }: { firms?: SpotlightFirm[] }) => {
   const navigate = useNavigate();
@@ -256,9 +256,11 @@ export const FeedPartnersRail = ({ firms = RECOMMENDED_FIRMS }: { firms?: Spotli
 
   return (
     <aside className="hidden w-[22rem] shrink-0 xl:block">
-      <div className="sticky top-5 flex max-h-[calc(100vh-2.5rem)] flex-col gap-8 pb-8">
+      <div className="sticky top-1 flex max-h-[calc(100vh-0.25rem)] flex-col gap-8 pb-8">
         <section className="shrink-0">
-          <SectionHeader title="Nos partenaires" />
+          <h2 className="mb-3 border-b-2 border-transparent py-3.5 text-lg font-semibold leading-7 text-neutral-900">
+            Associations
+          </h2>
           <ul className="grid grid-cols-3 gap-2">
             {FEED_PARTNERS.map((partner) => (
               <li key={partner.id}>
@@ -292,62 +294,88 @@ export const FeedPartnersRail = ({ firms = RECOMMENDED_FIRMS }: { firms?: Spotli
   );
 };
 
-/** Instagram-style suggested accounts, horizontal, shown in the Fil where the desktop rail is hidden. */
+const RecommendedFirmTile = ({ firm, className = "" }: { firm: SpotlightFirm; className?: string }) => {
+  const navigate = useNavigate();
+  const name = firm.full_name || firm.username || "Entreprise";
+  const specialty = firm.specialty || firm.profession || "";
+  const slug = firm.username || firm.id;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        window.scrollTo(0, 0);
+        navigate(`/profile/${slug}`);
+      }}
+      className={`flex flex-col items-center rounded-xl border border-neutral-200 bg-white px-3 pb-3 pt-4 text-center ${className}`}
+    >
+      <span className="relative">
+        <img
+          src={resolveAvatarUrl(firm.avatar_url, firm.profile_type === "individual" ? "individual" : "enterprise")}
+          alt=""
+          className="h-[4.5rem] w-[4.5rem] rounded-full bg-neutral-100 object-cover"
+          onError={(e) => {
+            const el = e.currentTarget;
+            const fallback = resolveAvatarUrl(null, "enterprise");
+            if (el.src !== fallback) el.src = fallback;
+          }}
+        />
+        {firm.is_verified !== false ? (
+          <VerifiedBadge verified className="absolute -bottom-0.5 -right-0.5 h-5 w-5" />
+        ) : null}
+      </span>
+      <span className="mt-2 line-clamp-2 min-h-10 text-base leading-5 text-neutral-800">{name}</span>
+      {specialty ? (
+        <span className="mt-0.5 line-clamp-1 w-full text-xs text-neutral-500">{specialty}</span>
+      ) : (
+        <span className="mt-0.5 h-4" />
+      )}
+      <span className="mt-2 w-full rounded-lg bg-[#174f43] py-1.5 text-xs font-semibold text-white">Voir</span>
+    </button>
+  );
+};
+
+/** Two horizontal rows on mobile; four per row from the desktop breakpoint. */
+const firmsStripClass = (desktop: "lg" | "xl") =>
+  `grid auto-cols-[9.5rem] grid-flow-col gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+    desktop === "lg"
+      ? "lg:auto-cols-auto lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible"
+      : "xl:auto-cols-auto xl:grid-flow-row xl:grid-cols-4 xl:overflow-visible"
+  }`;
+
+/** Photo on top, name underneath. Mobile: two rows you can scroll sideways. */
+export const RecommendedFirmsGrid = ({ firms }: { firms: SpotlightFirm[] }) => {
+  if (!firms.length) return null;
+  const rows = firms.length > 2 ? "grid-rows-2" : "grid-rows-1";
+  return (
+    <div className={`${firmsStripClass("lg")} ${rows} lg:grid-rows-none`}>
+      {firms.map((firm) => (
+        <RecommendedFirmTile key={firm.id} firm={firm} className="w-full" />
+      ))}
+    </div>
+  );
+};
+
+/** Suggested accounts in the Fil, including desktop. */
 export const FeedFirmsStrip = ({ firms = RECOMMENDED_FIRMS }: { firms?: SpotlightFirm[] }) => {
   const navigate = useNavigate();
   const featuredFirms = firms.length ? firms : RECOMMENDED_FIRMS;
   if (!featuredFirms.length) return null;
 
   return (
-    <section className="my-4 border-y border-neutral-100 bg-white px-3 py-4 xl:hidden">
+    <section className="my-4 border-y border-neutral-100 bg-white px-3 py-4">
       <SectionHeader
         title="Entreprises recommandées"
         actionLabel="Voir toutes"
         onAction={() => navigate("/explore")}
         caption
       />
-      <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {featuredFirms.map((firm) => {
-          const name = firm.full_name || firm.username || "Entreprise";
-          const specialty = firm.specialty || firm.profession || "";
-          const slug = firm.username || firm.id;
-          return (
-            <button
-              key={firm.id}
-              type="button"
-              onClick={() => {
-                window.scrollTo(0, 0);
-                navigate(`/profile/${slug}`);
-              }}
-              className="flex w-[8.75rem] shrink-0 flex-col items-center rounded-xl border border-neutral-200 bg-white px-3 pb-3 pt-4 text-center"
-            >
-              <span className="relative">
-                <img
-                  src={resolveAvatarUrl(firm.avatar_url, firm.profile_type === "individual" ? "individual" : "enterprise")}
-                  alt=""
-                  className="h-[4.5rem] w-[4.5rem] rounded-full bg-neutral-100 object-cover"
-                  onError={(e) => {
-                    const el = e.currentTarget;
-                    const fallback = resolveAvatarUrl(null, "enterprise");
-                    if (el.src !== fallback) el.src = fallback;
-                  }}
-                />
-                {firm.is_verified !== false ? (
-                  <VerifiedBadge verified className="absolute -bottom-0.5 -right-0.5 h-5 w-5" />
-                ) : null}
-              </span>
-              <span className="mt-2 line-clamp-2 min-h-10 text-base leading-5 text-neutral-800">
-                {name}
-              </span>
-              {specialty ? (
-                <span className="mt-0.5 line-clamp-1 w-full text-xs text-neutral-500">{specialty}</span>
-              ) : (
-                <span className="mt-0.5 h-4" />
-              )}
-              <span className="mt-2 w-full rounded-lg bg-[#174f43] py-1.5 text-xs font-semibold text-white">Voir</span>
-            </button>
-          );
-        })}
+      <div
+        className={`${firmsStripClass("xl")} ${featuredFirms.length > 2 ? "grid-rows-2" : "grid-rows-1"} xl:grid-rows-none`}
+      >
+        {featuredFirms.map((firm) => (
+          <RecommendedFirmTile key={firm.id} firm={firm} className="w-full" />
+        ))}
       </div>
     </section>
   );

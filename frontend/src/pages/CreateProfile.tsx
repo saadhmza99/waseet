@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, Mail, Eye, EyeOff, Plus, X } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Check, Mail, Eye, EyeOff, Plus, X, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -19,7 +19,7 @@ import heroArch from "@/assets/sifarah-arch-wide.jpg";
 import { cn } from "@/lib/utils";
 
 const DRAFT_KEY = "sifarah:onboarding-draft";
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 const MAX_SECTEURS = 5;
 const RESEND_SECONDS = 60;
 
@@ -189,7 +189,9 @@ const OnboardingShell = ({
   children: ReactNode;
   wide?: boolean;
   account?: boolean;
-}) => (
+}) => {
+  const navigate = useNavigate();
+  return (
   <div className={cn("fixed inset-0 z-50 overflow-y-auto", account ? "bg-[#EEF0EF]" : "bg-white")}>
     <div
       className={cn(
@@ -198,7 +200,17 @@ const OnboardingShell = ({
       )}
     >
       <header className="flex items-center justify-between gap-4">
-        <BrandMark size="lg" />
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-800 hover:bg-neutral-100"
+            aria-label="Retour"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <BrandMark size="lg" />
+        </div>
         <div className="flex min-w-[7.5rem] flex-col items-end gap-1.5">
           <span className="text-xs font-medium tabular-nums text-neutral-500">
             {step}/{TOTAL_STEPS}
@@ -221,7 +233,8 @@ const OnboardingShell = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const NavRow = ({
   onBack,
@@ -412,8 +425,8 @@ const CreateProfile = () => {
         setError("Entrez un numéro de téléphone valide.");
         return false;
       }
-      if (draft.password.length < 6) {
-        setError("Le mot de passe doit contenir au moins 6 caractères.");
+      if (draft.password.length < 8) {
+        setError("Le mot de passe doit contenir au moins 8 caractères.");
         return false;
       }
       if (draft.password !== draft.passwordConfirm) {
@@ -615,7 +628,7 @@ const CreateProfile = () => {
 
   if (step === 0) {
     return (
-      <OnboardingShell step={6}>
+      <OnboardingShell step={5}>
         <div className="flex flex-col items-center text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#174f43] text-white shadow-lg">
             <Check className="h-8 w-8" strokeWidth={3} />
@@ -654,8 +667,8 @@ const CreateProfile = () => {
     );
   }
 
-  // Progress: 1 usage → 2 interests → 3 rôle → 4 infos → 5 compte → verify as 5/6 → success 6/6
-  const progressStep = step === 6 ? 5 : step;
+  // 1 usage → 2 interests → 3 rôle → 4 infos → 5 compte. Verify and success stay on 5/5.
+  const progressStep = step >= 5 ? 5 : step;
 
   return (
     <OnboardingShell step={progressStep} wide={step === 2 || step === 4} account={step === 5}>
@@ -1064,13 +1077,21 @@ const CreateProfile = () => {
                 />
                 <span className="text-sm leading-snug text-neutral-700">
                   J'ai lu et j'accepte les{" "}
-                  <button type="button" className="font-medium text-[#174f43] underline-offset-2 hover:underline">
+                  <Link
+                    to="/conditions"
+                    className="font-medium text-[#174f43] underline-offset-2 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     Conditions Générales d'Utilisation
-                  </button>{" "}
+                  </Link>{" "}
                   et la{" "}
-                  <button type="button" className="font-medium text-[#174f43] underline-offset-2 hover:underline">
+                  <Link
+                    to="/confidentialite"
+                    className="font-medium text-[#174f43] underline-offset-2 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     Politique de Confidentialité
-                  </button>
+                  </Link>
                 </span>
               </label>
 
@@ -1105,28 +1126,30 @@ const CreateProfile = () => {
                     className="h-44 w-full object-cover object-center sm:h-52 lg:h-56"
                   />
                 </div>
-                <div className="mt-6 space-y-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-12 w-full justify-center gap-3 border-neutral-300 bg-white text-neutral-900 hover:bg-white"
-                    disabled={isLoading}
-                    onClick={() => handleOAuth("google")}
-                  >
-                    <GoogleIcon />
-                    Continuer avec Google
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-12 w-full justify-center gap-3 border-neutral-300 bg-white text-neutral-900 hover:bg-white"
-                    disabled={isLoading}
-                    onClick={() => handleOAuth("apple")}
-                  >
-                    <AppleIcon />
-                    Continuer avec Apple
-                  </Button>
-                </div>
+                {false ? (
+                  <div className="mt-6 space-y-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 w-full justify-center gap-3 border-neutral-300 bg-white text-neutral-900 hover:bg-white"
+                      disabled={isLoading}
+                      onClick={() => handleOAuth("google")}
+                    >
+                      <GoogleIcon />
+                      Continuer avec Google
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 w-full justify-center gap-3 border-neutral-300 bg-white text-neutral-900 hover:bg-white"
+                      disabled={isLoading}
+                      onClick={() => handleOAuth("apple")}
+                    >
+                      <AppleIcon />
+                      Continuer avec Apple
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

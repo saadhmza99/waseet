@@ -45,9 +45,9 @@ const PublicationCard = ({
         <span className="aspect-video w-full bg-neutral-100 sm:w-64 sm:shrink-0" />
       )}
       <span className="flex min-w-0 flex-1 flex-col gap-1.5 p-4">
-        {kicker ? <span className="text-xs font-semibold uppercase tracking-wide text-[#174f43]">{kicker}</span> : null}
-        <span className="text-lg font-semibold leading-snug text-neutral-950">{title}</span>
-        {excerpt ? <span className="line-clamp-3 text-sm leading-relaxed text-neutral-600">{excerpt}</span> : null}
+        {kicker ? <span className="text-sm font-semibold uppercase tracking-wide text-[#174f43]">{kicker}</span> : null}
+        <span className="text-xl font-semibold leading-snug text-neutral-950">{title}</span>
+        {excerpt ? <span className="line-clamp-3 text-base leading-relaxed text-neutral-600">{excerpt}</span> : null}
         {meta ? <span className="mt-auto pt-2 text-xs text-neutral-500">{meta}</span> : null}
       </span>
     </>

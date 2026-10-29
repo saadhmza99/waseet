@@ -14,6 +14,16 @@ export type PrivateThread = {
 };
 
 export const privateThreadService = {
+  async listForBusiness(businessId: string): Promise<PrivateThread[]> {
+    const { data, error } = await supabase
+      .from("post_private_threads")
+      .select("id, post_id, business_id, sender_id, sender_name, sender_phone, message, reply, created_at, replied_at")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data || []) as PrivateThread[];
+  },
+
   async listForPost(postId: string): Promise<PrivateThread[]> {
     const { data, error } = await supabase
       .from("post_private_threads")

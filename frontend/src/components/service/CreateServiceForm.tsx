@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { AlignLeft, ArrowLeft, Image as ImageIcon, MapPin, Plus, Trash2, Type, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
@@ -19,6 +19,7 @@ import {
   emptyOffer,
   loadServiceDraft,
   offerIsReady,
+  offerFromRow,
   priceLabel,
   saveServiceDraft,
   sanitizeOffer,
@@ -59,22 +60,56 @@ const YesNo = ({ value, onChange }: { value: boolean; onChange: (next: boolean) 
 
 const CreateServiceForm = () => {
   const navigate = useNavigate();
+  const { id: serviceId } = useParams();
+  const editing = Boolean(serviceId);
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [loadingService, setLoadingService] = useState(editing);
+  const [forbidden, setForbidden] = useState(false);
   const [cityQuery, setCityQuery] = useState("");
   const [offer, setOffer] = useState<ServiceOffer>(emptyOffer);
   const [specialtyOptions, setSpecialtyOptions] = useState<InternalCategory[] | null>(null);
   const draftLoaded = useRef(false);
+  const hydratedId = useRef<string | null>(null);
+  const userId = user?.id;
 
   useEffect(() => {
-    if (!user || draftLoaded.current) return;
+    if (editing || !userId || draftLoaded.current) return;
     draftLoaded.current = true;
-    const draft = loadServiceDraft(user.id);
+    const draft = loadServiceDraft(userId);
     if (draft && (draft.title || draft.description || draft.category || draft.internalCategoryId)) {
       setOffer({ ...emptyOffer(), ...draft, internalCategoryId: draft.internalCategoryId ?? null });
     }
-  }, [user]);
+  }, [userId, editing]);
+
+  useEffect(() => {
+    if (!editing || !serviceId || !userId) return;
+    if (hydratedId.current === serviceId) return;
+    let cancelled = false;
+    setLoadingService(true);
+    serviceService
+      .getService(serviceId)
+      .then((row) => {
+        if (cancelled) return;
+        if (!row || row.user_id !== userId) {
+          setForbidden(true);
+          return;
+        }
+        setOffer(offerFromRow(row));
+        hydratedId.current = serviceId;
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setForbidden(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingService(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, serviceId, userId]);
 
   // Default cover = firm logo (profile avatar).
   useEffect(() => {
@@ -185,13 +220,19 @@ const CreateServiceForm = () => {
     }
     setSaving(true);
     try {
-      await serviceService.createService(user.id, clean);
-      clearServiceDraft(user.id);
-      toast({ title: "Service publié" });
-      navigate("/profile?tab=services");
+      if (editing && serviceId) {
+        await serviceService.updateService(serviceId, user.id, clean);
+        toast({ title: "Service mis à jour" });
+        navigate(`/service/${serviceId}`);
+      } else {
+        await serviceService.createService(user.id, clean);
+        clearServiceDraft(user.id);
+        toast({ title: "Service publié" });
+        navigate("/profile?tab=services");
+      }
     } catch (error) {
       console.error(error);
-      toast({ title: "Erreur", description: "Impossible de publier ce service." });
+      toast({ title: "Erreur", description: editing ? "Impossible de modifier ce service." : "Impossible de publier ce service." });
     } finally {
       setSaving(false);
     }
@@ -209,13 +250,28 @@ const CreateServiceForm = () => {
     setStep((current) => Math.min(STEPS.length - 1, current + 1));
   };
 
+  if (loadingService) {
+    return <div className="px-4 py-16 text-center text-sm text-neutral-500">Chargement…</div>;
+  }
+
+  if (forbidden) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <p className="text-neutral-600">Vous ne pouvez modifier que vos propres services.</p>
+        <button type="button" onClick={() => navigate(-1)} className="mt-4 text-sm font-semibold text-[#174f43]">
+          Retour
+        </button>
+      </div>
+    );
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[220] flex flex-col bg-[#f6f7f4] text-neutral-900">
       <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center border-b border-neutral-200 bg-white px-3 py-3">
         <button type="button" onClick={() => navigate(-1)} className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-neutral-100" aria-label="Retour">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-center text-base font-bold">Créer un service</h1>
+        <h1 className="truncate text-center text-base font-bold">{editing ? "Modifier le service" : "Créer un service"}</h1>
         <span />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -498,7 +554,7 @@ const CreateServiceForm = () => {
         {step < 4 ? (
           <button type="button" onClick={next} className="h-11 rounded-lg bg-[#174f43] px-5 text-sm font-semibold text-white">Suivant</button>
         ) : (
-          <button type="button" disabled={saving} onClick={() => void publish()} className="h-11 rounded-lg bg-[#174f43] px-5 text-sm font-semibold text-white">Publier le service</button>
+          <button type="button" disabled={saving} onClick={() => void publish()} className="h-11 rounded-lg bg-[#174f43] px-5 text-sm font-semibold text-white">{editing ? "Enregistrer" : "Publier le service"}</button>
         )}
       </div>
     </div>,

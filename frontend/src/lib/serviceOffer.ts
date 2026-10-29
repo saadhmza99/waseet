@@ -1,3 +1,4 @@
+import { sanitizeRemoteImageUrl } from "@/lib/avatar";
 import { plainText } from "@/lib/safeText";
 
 export const SERVICE_KINDS = [
@@ -139,7 +140,9 @@ export const sanitizeOffer = (offer: ServiceOffer): ServiceOffer => {
 
 /** Gallery URLs are real photos. Cover alone (empty gallery) is treated as a logo. */
 export const servicePhotos = (offer: Pick<ServiceOffer, "gallery">): string[] =>
-  (offer.gallery || []).map((url) => String(url || "").trim()).filter(Boolean);
+  (offer.gallery || [])
+    .map((url) => sanitizeRemoteImageUrl(String(url || "").trim()))
+    .filter(Boolean);
 
 export const SERVICE_COVER_FALLBACK =
   "data:image/svg+xml;utf8," +
@@ -155,7 +158,7 @@ export const serviceCoverIsLogo = (offer: Pick<ServiceOffer, "cover" | "gallery"
 export const serviceMainImage = (offer: Pick<ServiceOffer, "cover" | "gallery">, fallback = "") => {
   const photos = servicePhotos(offer);
   if (photos.length) return photos[0];
-  return String(offer.cover || "").trim() || fallback;
+  return sanitizeRemoteImageUrl(String(offer.cover || "").trim()) || fallback;
 };
 
 export const zoneLabel = (offer: ServiceOffer) => {

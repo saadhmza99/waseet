@@ -12,6 +12,7 @@ import { moderationService } from "@/services/moderationService";
 import { muteService } from "@/services/muteService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyCreateCapabilities } from "@/hooks/useMyCreateCapabilities";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { getDefaultAvatar } from "@/lib/avatar";
@@ -21,19 +22,29 @@ import { takeFeedFirstPage, takeFeedNextPage } from "@/lib/feedPrefetch";
 import { cityFromPost } from "@/lib/feedLocation";
 import { contactPhone, propertyViewFromRow } from "@/lib/propertyListing";
 import { catalogService } from "@/services/catalogService";
-import { FEED_BANNER_ROTATION_MS, feedBannerService, type FeedBannerImage } from "@/services/feedBannerService";
+import { FEED_BANNER_ROTATION_MS, feedBannerService } from "@/services/feedBannerService";
+import { profileService } from "@/services/profileService";
+import discoverCoast from "@/assets/discover-coast.jpg";
+import discoverKasbah from "@/assets/discover-kasbah.jpg";
 import { FilterChips } from "@/components/FilterChips";
 import FeedDesktopRail from "@/components/FeedDesktopRail";
-import { FeedFirmsStrip, FeedPartnersRail, FeedProjectsStrip, RECOMMENDED_FIRMS } from "@/components/FeedSpotlight";
-import { CreateAndBell } from "@/components/AppHeader";
+import { FeedFirmsStrip, FeedPartnersRail, RECOMMENDED_FIRMS } from "@/components/FeedSpotlight";
+import PartnerDemandDialog, { PROJECT_PLAN_NOTICE } from "@/components/PartnerDemandDialog";
+import { FeedArticles } from "@/components/FeedArticles";
 import { ProjectCard } from "@/components/project/ProjectCard";
+import { PROJECT_MILESTONES, milestoneReachedIndex } from "@/components/project/ProjectMilestoneTrack";
+import { ProjectFiltersPanel } from "@/components/project/ProjectListFilters";
+import { dossierFromRow } from "@/lib/projectDossier";
 import { ServiceCard } from "@/components/service/ServiceCard.tsx";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { offerFromRow } from "@/lib/serviceOffer";
 import { serviceFirmName, serviceIsVerified, serviceService, type ServiceRow } from "@/services/serviceService";
 import { realisationService } from "@/services/realisationService";
-import { PROJECT_TYPES, PROPERTY_TYPES, normalizePropertyKind } from "@/lib/taxonomy";
+import { PROPERTY_TYPES, normalizePropertyKind } from "@/lib/taxonomy";
 import archIcon from "@/assets/sifarah-arch-icon-clean.png";
+
+/** Full catalogue size announced on free vue=projets / Discover (listing stays capped). */
+const PROJECTS_PAID_CATALOGUE_COUNT = 477;
 
 const ArchIcon = ({ className }: { className?: string }) => (
   <span
@@ -53,12 +64,16 @@ const ArchIcon = ({ className }: { className?: string }) => (
   />
 );
 
-const DEFAULT_BANNER_IMAGES: FeedBannerImage[] = [
-  { id: "agadir-plage", image_url: "/feed-banners/agadir-plage.png", alt: "Plage d’Agadir au coucher du soleil" },
-  { id: "palais-piscine", image_url: "/feed-banners/palais-piscine.webp", alt: "Palais marocain avec piscine" },
-  { id: "villa-jardin", image_url: "/feed-banners/villa-jardin.webp", alt: "Villa marocaine dans un jardin" },
-  { id: "riad-patio", image_url: "/feed-banners/riad-patio.jpg", alt: "Patio de riad avec piscine" },
+const DISCOVER_BANNERS = [
+  { id: "coast", image_url: discoverCoast, alt: "Côte marocaine au coucher du soleil" },
+  { id: "kasbah", image_url: discoverKasbah, alt: "Ville fortifiée au coucher du soleil" },
 ];
+
+const givenName = (value: string) => {
+  const first = value.trim().split(/\s+/)[0] || "";
+  if (!first || first.toLowerCase() === "profil") return "";
+  return first;
+};
 
 type FeedView = "all" | "projets" | "biens" | "services" | "marche";
 
@@ -85,17 +100,64 @@ const matchesFeedView = (view: FeedView, typeFilter: string | null, post: Taxono
   return true;
 };
 
+/** Presse / media institution accounts — Accueil keeps one of these right after the lead post. */
+const PRESSE_USERNAMES = new Set([
+  "industrie-du-maroc",
+  "btp-news",
+  "leconomiste",
+  "medias24",
+  "challenge",
+  "la-vie-eco",
+  "les-inspirations-eco",
+]);
+
+const isPressePost = (post: any) => {
+  const kind = post?.profiles?.institution_kind || post?.institution_kind;
+  if (kind === "media") return true;
+  const username = String(post?.profiles?.username || post?.username || "")
+    .trim()
+    .toLowerCase();
+  return Boolean(username) && PRESSE_USERNAMES.has(username);
+};
+
+/** [lead non-presse][presse][rest…] when a presse post is available. */
+const withPresseSecond = <T,>(posts: T[]): T[] => {
+  if (posts.length < 2) return posts;
+  const presseIdx = posts.findIndex((post) => isPressePost(post));
+  if (presseIdx < 0) return posts;
+  const leadIdx = posts.findIndex((post, index) => index !== presseIdx && !isPressePost(post));
+  if (leadIdx < 0) {
+    if (presseIdx === 1) return posts;
+    const next = posts.slice();
+    const [presse] = next.splice(presseIdx, 1);
+    next.splice(1, 0, presse);
+    return next;
+  }
+  if (leadIdx === 0 && presseIdx === 1) return posts;
+  return [
+    posts[leadIdx],
+    posts[presseIdx],
+    ...posts.filter((_, index) => index !== leadIdx && index !== presseIdx),
+  ];
+};
+
 const Index = () => {
   const { user, visitorUser, loading: authLoading } = useAuth();
   const { sections: mySections } = useMyCreateCapabilities();
+  const isAdmin = useIsAdmin();
   const location = useLocation();
   const navigate = useNavigate();
   const openCreate = Boolean((location.state as { openCreate?: boolean } | null)?.openCreate);
   const [searchParams, setSearchParams] = useSearchParams();
   const vue = searchParams.get("vue");
+  const feedFil = searchParams.get("fil") === "articles" ? "articles" : "publications";
   const feedView: FeedView =
     vue === "projets" || vue === "biens" || vue === "services" || vue === "marche" ? vue : "all";
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [projectsUnlockOpen, setProjectsUnlockOpen] = useState(false);
+  const [projectStageIdx, setProjectStageIdx] = useState(0);
+  const [projectCommercial, setProjectCommercial] = useState<string | null>(null);
+  const projectStage = projectStageIdx === 0 ? null : PROJECT_MILESTONES[projectStageIdx - 1].id;
   const matchesPost = (post: TaxonomyPost) => matchesFeedView(feedView, typeFilter, post);
 
   // Produits BTP (ex-Marché) → Sifarah Matériaux only (no properties chooser).
@@ -114,10 +176,16 @@ const Index = () => {
   const [catalogProperties, setCatalogProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const filteredServices = liveServices;
-  const filteredProjects = catalogProjects.filter((row) => !typeFilter || row.project_type === typeFilter);
+  const filteredProjects = catalogProjects.filter((row) => {
+    if (!projectStage && !projectCommercial) return true;
+    const project = dossierFromRow(row);
+    if (projectStage && PROJECT_MILESTONES[milestoneReachedIndex(project)]?.id !== projectStage) return false;
+    if (projectCommercial && (project.commercialStatus || "") !== projectCommercial) return false;
+    return true;
+  });
   const filteredProperties = catalogProperties.filter((row) => !typeFilter || row.details?.propertyKind === typeFilter || row.property_kind === typeFilter);
-  const [bannerImages, setBannerImages] = useState<FeedBannerImage[]>(DEFAULT_BANNER_IMAGES);
   const [bannerNow, setBannerNow] = useState(() => Date.now());
+  const [greetingName, setGreetingName] = useState("");
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const postsFetchedRef = useRef(0);
@@ -156,14 +224,28 @@ const Index = () => {
     }
   };
 
+  const account = user || visitorUser;
+
   useEffect(() => {
-    feedBannerService
-      .getActiveImages()
-      .then((images) => {
-        if (images.length) setBannerImages(images);
+    if (!account) {
+      setGreetingName("");
+      return;
+    }
+    let cancelled = false;
+    const metaName = String(account.user_metadata?.full_name || account.user_metadata?.name || "").trim();
+    profileService
+      .getProfile(account.id)
+      .then((profile) => {
+        if (cancelled) return;
+        setGreetingName(givenName((profile?.full_name || "").trim() || metaName));
       })
-      .catch((error) => console.error("Error loading feed banner images:", error));
-  }, []);
+      .catch(() => {
+        if (!cancelled) setGreetingName(givenName(metaName));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [account]);
 
   useEffect(() => {
     const untilNextSlot = FEED_BANNER_ROTATION_MS - (Date.now() % FEED_BANNER_ROTATION_MS);
@@ -171,7 +253,7 @@ const Index = () => {
     return () => window.clearTimeout(timer);
   }, [bannerNow]);
 
-  const bannerImage = feedBannerService.pickForNow(bannerImages, bannerNow);
+  const bannerImage = feedBannerService.pickForNow(DISCOVER_BANNERS, bannerNow);
 
   // Load posts and sponsored listings
   useEffect(() => {
@@ -198,7 +280,7 @@ const Index = () => {
         Promise.all([
           listingService.getListings(40, 0),
           serviceService.listServices(120, 0),
-          catalogService.listProjects(80, 0),
+          catalogService.listProjects(40, 0, { featuredPromoters: true }),
           catalogService.listProperties(80, 0),
           user ? moderationService.getBlockedUserIds(user.id) : Promise.resolve([]),
           user ? muteService.getMutedIds(user.id) : Promise.resolve({ posts: new Set<string>(), services: new Set<string>() }),
@@ -398,8 +480,8 @@ const Index = () => {
         city,
       });
       toast({
-        title: "Post publié",
-        description: "Votre post a été publié avec succès.",
+        title: "Publication envoyée",
+        description: "Votre publication a été envoyée avec succès.",
       });
       }
         feedGeneration.current += 1;
@@ -421,7 +503,8 @@ const Index = () => {
   const buildFeed = (): ReactElement[] => {
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
-    const posts = allPosts.filter(matchesPost);
+    const matched = allPosts.filter(matchesPost);
+    const posts = feedView === "all" ? withPresseSecond(matched) : matched;
     if (feedView === "services") {
       const annonces = feedListings;
       if (!annonces.length) return [];
@@ -461,14 +544,14 @@ const Index = () => {
       }
       return [
         <div key="kind-empty" className="py-8 text-center text-muted-foreground">
-          Aucun post pour ce filtre
+          Aucune publication pour ce filtre
         </div>,
       ];
     }
     let bannerIndex = 0;
-    /** Implant projets strip once after a few posts on Accueil. */
-    const projectsStripAfter = Math.min(2, Math.max(posts.length, 1));
-    let projectsStripInserted = false;
+    /** Implant recommended firms once after a few posts on Accueil. */
+    const firmsStripAfter = Math.min(2, Math.max(posts.length, 1));
+    let firmsStripInserted = false;
 
     posts.forEach((post, index) => {
       const profile = post.profiles || {};
@@ -483,6 +566,7 @@ const Index = () => {
             username={profile.username || ""}
             fullName={profile.full_name || ""}
             isVerified={Boolean(profile.is_verified)}
+            profileType={profile.profile_type}
             location={profile.location || ""}
             city={cityFromPost(post)}
             profession={profile.profession || ""}
@@ -505,13 +589,8 @@ const Index = () => {
           />
         );
 
-        if (feedView === "all" && !projectsStripInserted && feedItemCount === projectsStripAfter) {
-          projectsStripInserted = true;
-          if (catalogProjects.length) {
-            feed.push(
-              <FeedProjectsStrip key="feed-projects-spotlight" projects={catalogProjects} />,
-            );
-          }
+        if (feedView === "all" && !firmsStripInserted && feedItemCount === firmsStripAfter) {
+          firmsStripInserted = true;
           feed.push(<FeedFirmsStrip key="feed-firms-spotlight" firms={RECOMMENDED_FIRMS} />);
         }
 
@@ -563,26 +642,28 @@ const Index = () => {
     >
       <div className="lg:flex lg:min-h-screen lg:w-full">
       <FeedDesktopRail />
-      <div className="min-w-0 lg:flex-1 lg:py-5">
+      <div className="min-w-0 lg:flex-1 lg:pb-5 lg:pt-1">
       <div
         className={`mx-auto flex w-full max-w-2xl lg:px-8 ${
           feedView === "all"
-            ? "flex-col xl:max-w-[calc(100vw-20rem)] xl:flex-row xl:items-start xl:gap-8"
+            ? "flex-col xl:max-w-[min(calc(100vw-20rem),calc(76rem+0.28*(100vw-96rem)))] xl:flex-row xl:items-start xl:gap-8"
             : "flex-col lg:w-[56rem] lg:max-w-[calc(100vw-22rem)]"
         }`}
       >
       <div className="flex min-w-0 w-full flex-col xl:flex-1">
-        <div className="order-1 mb-[1.5vh] flex items-end justify-between gap-4 border-b border-neutral-200 px-[1vh] lg:mb-4 lg:px-0">
-          <div className="flex min-w-0 flex-1 items-end overflow-x-auto [scrollbar-width:none] lg:gap-1 [&::-webkit-scrollbar]:hidden">
+        <div className="order-1 mb-[1.5vh] border-b border-neutral-200 px-[1vh] lg:mb-4 lg:px-0">
+          <div className="flex min-w-0 items-end overflow-x-auto [scrollbar-width:none] lg:gap-1 [&::-webkit-scrollbar]:hidden">
             {[
               { id: "all" as const, label: "Accueil", order: "order-1" },
               { id: "projets" as const, label: "Projets", order: "order-2" },
-              { id: "services" as const, label: "Services", order: "order-3" },
-              { id: "marche" as const, label: "Matériaux", mobileLabel: "Produits", order: "order-4" },
-              { id: "opportunites" as const, label: "Opportunités", order: "order-5" },
-              { id: "federations" as const, label: "Fédérations", order: "order-6", desktopOnly: true },
+              { id: "marche" as const, label: "Matériaux", mobileLabel: "Produits", order: "order-3" },
+              { id: "opportunites" as const, label: "Opportunités", order: "order-4" },
+              ...(isAdmin
+                ? [{ id: "federations" as const, label: "Fédérations", order: "order-5", desktopOnly: true }]
+                : []),
+              { id: "contact" as const, label: "Contactez-nous", order: "order-6", desktopOnly: true },
             ].map((item) => {
-              const active = item.id !== "opportunites" && item.id !== "federations" && feedView === item.id;
+              const active = item.id !== "opportunites" && item.id !== "federations" && item.id !== "contact" && feedView === item.id;
               return (
                 <button
                   key={item.id}
@@ -590,6 +671,10 @@ const Index = () => {
                   onClick={() => {
                     if (item.id === "federations") {
                       navigate("/federations");
+                      return;
+                    }
+                    if (item.id === "contact") {
+                      navigate("/contact");
                       return;
                     }
                     if (item.id === "opportunites") {
@@ -626,28 +711,86 @@ const Index = () => {
               );
             })}
           </div>
-          <CreateAndBell calm showBell={false} className="hidden self-center lg:flex" pillClassName="h-[3.25rem] px-4 text-base" />
         </div>
-        <section className="relative order-2 mx-2 mb-3 min-h-[175px] overflow-hidden rounded-2xl bg-neutral-800 text-white lg:mx-0 lg:min-h-[280px]">
+        {feedView !== "projets" ? (
+        <section className="relative order-2 mx-2 mb-3 hidden min-h-[200px] overflow-hidden bg-neutral-800 text-white lg:mx-0 lg:block lg:min-h-[280px] xl:-ml-[54px] xl:w-[calc(100%_+_4rem_-_2px)] 2xl:ml-[calc(31.06rem_-_36vw_+_2px)] 2xl:w-[calc(100%_+_36vw_-_30.56rem_-_2px)]">
           <img
             key={bannerImage?.image_url || "fallback"}
-            src={bannerImage?.image_url || "/agadir-welcome.png"}
-            alt={bannerImage?.alt || "Vue panoramique d’Agadir"}
-            className="absolute inset-0 h-full w-full animate-in fade-in object-cover duration-700"
+            src={bannerImage?.image_url}
+            alt={bannerImage?.alt || "Paysage du Maroc au coucher du soleil"}
+            className="absolute inset-0 h-full w-full animate-in fade-in object-cover object-center duration-700"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/10" />
-          <div className="relative flex min-h-[175px] max-w-full flex-col justify-start px-4 pb-4 pt-4 lg:min-h-[280px] lg:px-8 lg:pb-8 lg:pt-14">
-            <div className="lg:max-w-[45vw]">
-            <p className="text-2xl font-medium leading-snug lg:text-4xl lg:leading-tight" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.9), 0 0 1px #000" }}>Découvrez les professionnels, biens, projects et opportunités dans  Sifarah</p>
-           <br /> <p className="mt-2 font-normal leading-snug text-white/95 lg:mt-4">
-              <span className="mt-1 block text-[clamp(0.7rem,3.7vw,1.0625rem)] font-medium leading-snug lg:text-xl lg:leading-relaxed"> Découvrez. Suivez. Echangez.</span>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent" />
+          <div className="relative flex min-h-[200px] max-w-xl flex-col justify-center px-6 py-6 lg:min-h-[280px] lg:px-10 lg:py-8">
+            {greetingName ? (
+              <p className="mb-3 text-[0.68rem] font-medium uppercase tracking-[0.28em] text-white lg:mb-4 lg:text-xs">
+                <span>Bonjour, </span>
+                {greetingName}
+              </p>
+            ) : null}
+            <p
+              className="text-[1.85rem] font-medium leading-[1.12] text-white lg:text-[3.15rem]"
+              style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+            >
+              Découvrez, suivez,
+              <br />
+              échangez.
             </p>
-            </div>
+            <p className="mt-4 max-w-md text-sm font-light leading-relaxed text-white/95 lg:mt-5 lg:text-base">
+              L&apos;écosystème immobilier, construction et BTP
+              <br />
+              au Maroc.
+            </p>
           </div>
         </section>
+        ) : null}
 
-        {sponsoredListings.length >= 2 && feedView !== "services" && (
-          <div className="order-4 my-4 space-y-3 sm:my-6 sm:space-y-4">
+        <div className={`order-3${feedView === "all" ? " xl:-ml-[46px] 2xl:ml-[calc(31.56rem_-_36vw_+_2px)]" : ""}`}>
+        {/* Create Post */}
+        {feedView === "all" || feedView === "services" ? (
+          <CreatePost
+            startOpen={openCreate}
+            onClose={() => {
+              if (openCreate) navigate("/", { replace: true, state: {} });
+            }}
+            onPostCreated={async (postData) => {
+              await handlePostCreated(postData);
+              if (openCreate) navigate("/", { replace: true, state: {} });
+            }}
+          />
+        ) : null}
+
+        {feedView === "all" ? (
+          <div className="border-b border-neutral-200 px-3 lg:px-0">
+            <div className="flex min-w-0 items-end">
+              {[
+                { id: "publications" as const, label: "Publications" },
+                { id: "articles" as const, label: "Articles" },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    const next = new URLSearchParams(searchParams);
+                    if (item.id === "publications") next.delete("fil");
+                    else next.set("fil", "articles");
+                    setSearchParams(next, { replace: true });
+                  }}
+                  className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-3 py-3.5 text-base font-semibold transition-colors ${
+                    feedFil === item.id
+                      ? "border-[#174f43] text-[#174f43]"
+                      : "border-transparent text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {sponsoredListings.length >= 2 && feedView !== "services" && !(feedView === "all" && feedFil === "articles") && (
+          <div className="my-4 space-y-3 sm:my-6 sm:space-y-4">
             {sponsoredListings.slice(0, 2).map((listing) => {
               const profile = listing.profiles || {};
               return (
@@ -669,28 +812,17 @@ const Index = () => {
           </div>
         )}
 
-        <div className="order-4">
-        {/* Create Post */}
-        {feedView === "all" || feedView === "services" ? (
-          <CreatePost
-            startOpen={openCreate}
-            onClose={() => {
-              if (openCreate) navigate("/", { replace: true, state: {} });
-            }}
-            onPostCreated={async (postData) => {
-              await handlePostCreated(postData);
-              if (openCreate) navigate("/", { replace: true, state: {} });
-            }}
-          />
-        ) : null}
-
+        {feedView === "all" && feedFil === "articles" ? (
+          <FeedArticles />
+        ) : (
+        <>
         {/* Feed with posts and sponsored banners */}
-        {feedView === "projets" || feedView === "biens" ? (
+        {feedView === "biens" ? (
           <div className="px-3 pb-[1.2vh] lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:px-0">
             <FilterChips
               options={[
                 { id: null, label: "Tout" },
-                ...(feedView === "biens" ? PROPERTY_TYPES : PROJECT_TYPES).map((item) => ({ id: item.id, label: item.label })),
+                ...PROPERTY_TYPES.map((item) => ({ id: item.id, label: item.label })),
               ]}
               value={typeFilter}
               onChange={setTypeFilter}
@@ -699,6 +831,34 @@ const Index = () => {
         ) : null}
         {feedView === "projets" ? (
           <div className="space-y-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:px-0">
+            <div>
+              <div className="flex flex-col items-start gap-3 lg:flex-row">
+                <div className="min-w-0 w-full flex-1 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
+                  <p className="text-sm leading-relaxed text-amber-950">
+                    Sélection limitée : seuls quelques projets sont affichés ici. Les{" "}
+                    <span className="font-semibold">{PROJECTS_PAID_CATALOGUE_COUNT} projets</span> complets
+                    sont réservés au plan payant.
+                  </p>
+                  <p className="mt-3 text-sm leading-relaxed text-amber-950">
+                    {PROJECT_PLAN_NOTICE}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setProjectsUnlockOpen(true)}
+                    className="mt-3 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123d34]"
+                  >
+                    Demander les détails du plan payant
+                  </button>
+                </div>
+              </div>
+              <ProjectFiltersPanel
+                open
+                stageIdx={projectStageIdx}
+                onStage={setProjectStageIdx}
+                commercial={projectCommercial}
+                onCommercial={setProjectCommercial}
+              />
+            </div>
             {mySections.showProjets ? (
               <button
                 type="button"
@@ -711,7 +871,11 @@ const Index = () => {
             ) : null}
             <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
               {filteredProjects.map((row) => (
-                <ProjectCard key={row.id} row={row} />
+                <ProjectCard
+                  key={row.id}
+                  row={row}
+                  dossier={row.dossier_locked === false ? undefined : "locked"}
+                />
               ))}
               {!filteredProjects.length ? (
                 <p className="py-[2vh] text-center text-[1.6vh] text-muted-foreground lg:col-span-2">
@@ -719,6 +883,15 @@ const Index = () => {
                 </p>
               ) : null}
             </div>
+            <PartnerDemandDialog
+              open={projectsUnlockOpen}
+              onOpenChange={setProjectsUnlockOpen}
+              title="Débloquer les bonnes affaires"
+              description={PROJECT_PLAN_NOTICE}
+              successTitle="Demande reçue"
+              successMessage="Merci. Nous vous enverrons les détails du plan payant."
+              submitLabel="Envoyer ma demande"
+            />
           </div>
         ) : null}
         {feedView === "services" ? (
@@ -773,13 +946,15 @@ const Index = () => {
           feedView !== "marche" &&
           feedView !== "all" &&
           allPosts.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">Aucun post pour le moment</div>
+          <div className="text-center py-8 text-muted-foreground">Aucune publication pour le moment</div>
         ) : feedView === "marche" || feedView === "biens" || feedView === "projets" || feedView === "services" ? null : (
           buildFeed()
         )}
         {!loading && feedView !== "services" && feedView !== "marche" && feedView !== "biens" && feedView !== "projets" ? (
           <InfiniteScrollSentinel hasMore={hasMorePosts} loading={loadingMore} onLoadMore={loadMorePosts} />
         ) : null}
+        </>
+        )}
         </div>
       </div>
       {feedView === "all" ? <FeedPartnersRail firms={RECOMMENDED_FIRMS} /> : null}

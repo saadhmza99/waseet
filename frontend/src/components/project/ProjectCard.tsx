@@ -1,5 +1,8 @@
-﻿import { Lock, MapPin, Unlock } from "lucide-react";
+﻿import { useState } from "react";
+import { Lock, MapPin, Unlock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { OwnerDeleteButton } from "@/components/OwnerDeleteButton";
 import { ProjectCommercialTag, ProjectMilestoneTrack } from "@/components/project/ProjectMilestoneTrack";
 import {
   categoryLabel,
@@ -8,6 +11,7 @@ import {
   projectMetrics,
   type ProjectRecord,
 } from "@/lib/projectDossier";
+import { catalogService } from "@/services/catalogService";
 import { projectTypeLabel } from "@/lib/taxonomy";
 
 const coverFallback =
@@ -16,24 +20,47 @@ const coverFallback =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400"><rect width="640" height="400" fill="#e7ebe8"/><text x="50%" y="50%" text-anchor="middle" fill="#8b948e" font-family="sans-serif" font-size="18">Projet</text></svg>`
   );
 
-export const ProjectCard = ({ row, dossier }: { row: any; dossier?: "open" | "locked" }) => {
+export type ProjectCardProps = {
+  row: any;
+  dossier?: "open" | "locked";
+  onDeleted?: () => void;
+};
+
+export const ProjectCard = ({ row, dossier, onDeleted }: ProjectCardProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [removed, setRemoved] = useState(false);
   const project: ProjectRecord = dossierFromRow(row);
+  const isOwn = Boolean(user && project.userId && user.id === project.userId);
   const metrics = projectMetrics(project).filter(
     (item) => item.label !== "avancement" && item.label !== "réalisé",
   );
   const place = projectLocation(project);
 
+  if (removed) return null;
+
   return (
+    <div
+      className={`relative flex h-full flex-col overflow-hidden rounded-xl border bg-white text-left shadow-sm ${
+        dossier === "open" ? "border-[#174f43]/50 ring-1 ring-[#174f43]/25" : "border-neutral-200"
+      }`}
+    >
+      {isOwn && user ? (
+        <OwnerDeleteButton
+          onDelete={async () => {
+            await catalogService.deleteProject(project.id, user.id);
+            setRemoved(true);
+            onDeleted?.();
+          }}
+        />
+      ) : null}
     <button
       type="button"
       onClick={() => {
         window.scrollTo(0, 0);
         navigate(`/projet/${project.id}`);
       }}
-      className={`flex w-full flex-col overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:border-neutral-300 ${
-        dossier === "open" ? "border-[#174f43]/50 ring-1 ring-[#174f43]/25" : "border-neutral-200"
-      }`}
+      className="flex w-full flex-1 flex-col text-left"
     >
       <span className="relative block aspect-[16/10] w-full overflow-hidden bg-neutral-100">
         <img
@@ -50,12 +77,6 @@ export const ProjectCard = ({ row, dossier }: { row: any; dossier?: "open" | "lo
           commercialStatus={project.commercialStatus}
           className="absolute right-3 top-3 max-w-[48%] bg-white/95 shadow-sm"
         />
-        {dossier === "open" ? (
-          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-[#174f43] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
-            <Unlock className="h-3.5 w-3.5" />
-            Dossier ouvert
-          </span>
-        ) : null}
       </span>
       <span className="flex flex-col gap-2 px-3.5 py-3">
         <span className="text-[17px] font-semibold leading-tight text-neutral-950">{project.title}</span>
@@ -91,16 +112,22 @@ export const ProjectCard = ({ row, dossier }: { row: any; dossier?: "open" | "lo
             {place}
           </span>
         ) : null}
-        {dossier === "open" ? (
-          <span className="text-xs font-medium text-[#174f43]">Équipe et documents consultables</span>
-        ) : dossier === "locked" ? (
+        {dossier === "locked" ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500">
             <Lock className="h-3.5 w-3.5" />
-            Équipe et documents réservés aux partenaires
+            Équipe et documents réservés au plan payant
           </span>
+        ) : dossier === "open" ? (
+          <span className="text-xs font-medium text-[#174f43]">Équipe et documents consultables</span>
         ) : null}
 
-        <span className="mt-1 block px-0.5">
+        <span className="mt-1 flex flex-col gap-1.5 px-0.5">
+          {dossier === "open" ? (
+            <span className="inline-flex self-end items-center gap-1 rounded-full bg-[#174f43] px-2.5 py-1 text-[11px] font-semibold text-white">
+              <Unlock className="h-3.5 w-3.5" />
+              Dossier ouvert
+            </span>
+          ) : null}
           <ProjectMilestoneTrack project={project} />
         </span>
 
@@ -115,6 +142,18 @@ export const ProjectCard = ({ row, dossier }: { row: any; dossier?: "open" | "lo
           </span>
         ) : null}
       </span>
-    </button>
+      </button>
+      {isOwn ? (
+        <div className="px-3 pb-3">
+          <button
+            type="button"
+            onClick={() => navigate(`/projet/${project.id}/modifier`)}
+            className="h-10 w-full rounded-lg bg-[#174f43] text-sm font-semibold text-white"
+          >
+            Modifier
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 };

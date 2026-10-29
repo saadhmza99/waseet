@@ -44,10 +44,10 @@ const PrivacySettings = () => {
         allow_direct_messages: allowDm,
         show_activity_status: showActivity,
       });
-      toast({ title: "Saved", description: "Privacy settings updated." });
+      toast({ title: "Enregistré", description: "Les paramètres de confidentialité ont été mis à jour." });
     } catch (error) {
       console.error("Error saving privacy settings:", error);
-      toast({ title: "Error", description: "Unable to save privacy settings." });
+      toast({ title: "Erreur", description: "Impossible d'enregistrer les paramètres de confidentialité." });
     } finally {
       setSaving(false);
     }
@@ -55,30 +55,30 @@ const PrivacySettings = () => {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-[57px] sm:top-[60px] z-40 bg-background border-b border-border px-4 sm:px-6 md:px-8 py-3 sm:py-4 flex items-center gap-3">
+      <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background px-4 py-3 sm:px-6 sm:py-4 md:px-8">
         <button onClick={() => navigate(-1)} className="text-card-foreground hover:opacity-70 transition-opacity">
           <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
-        <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-card-foreground">Privacy Settings</h1>
+        <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-card-foreground">Confidentialité</h1>
       </div>
 
       <div className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 max-w-xl mx-auto">
         <div className="bg-card rounded-lg border border-border p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="show-phone">Show phone on profile</Label>
+            <Label htmlFor="show-phone">Afficher le téléphone sur le profil</Label>
             <Switch id="show-phone" checked={showPhone} onCheckedChange={setShowPhone} />
           </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="allow-dm">Allow direct messages</Label>
+            <Label htmlFor="allow-dm">Autoriser les messages directs</Label>
             <Switch id="allow-dm" checked={allowDm} onCheckedChange={setAllowDm} />
           </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="show-activity">Show my activity status</Label>
+            <Label htmlFor="show-activity">Afficher mon activité</Label>
             <Switch id="show-activity" checked={showActivity} onCheckedChange={setShowActivity} />
           </div>
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={saving || !account}>
-              {saving ? "Saving..." : "Save privacy settings"}
+              {saving ? "Enregistrement…" : "Enregistrer"}
             </Button>
           </div>
         </div>

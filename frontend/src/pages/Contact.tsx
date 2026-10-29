@@ -1,260 +1,270 @@
-import { useState, useEffect } from "react";
-import { Mail, Phone, MapPin, Send, User, MessageSquare } from "lucide-react";
-import { useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Bug, Eye, Handshake, Megaphone, type LucideIcon } from "lucide-react";
+import { DesktopRailFrame } from "@/components/FeedDesktopRail";
 import PhoneInput from "@/components/PhoneInput";
+import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { isCompletePhone } from "@/lib/phone";
+import { contactService, type ContactTopic } from "@/services/contactService";
+
+const TABS = [
+  { id: "all", label: "Accueil" },
+  { id: "projets", label: "Projets" },
+  { id: "marche", label: "Matériaux" },
+  { id: "opportunites", label: "Opportunités" },
+  { id: "federations", label: "Fédérations" },
+  { id: "contact", label: "Contactez-nous" },
+] as const;
+
+const TOPICS: Array<{ id: ContactTopic; title: string; text: string; Icon: LucideIcon }> = [
+  { id: "partnership", title: "Partenariat", text: "Devenir partenaire de Sifarah.", Icon: Handshake },
+  { id: "sponsorship", title: "Sponsoring", text: "Sponsoriser un espace ou une campagne.", Icon: Megaphone },
+  { id: "visibility", title: "Acheter visibilité sur le site", text: "Pour plus de visibilité.", Icon: Eye },
+  { id: "problem", title: "Problème sur le site", text: "Signaler un bug ou une erreur.", Icon: Bug },
+];
 
 const Contact = () => {
-  const location = useLocation();
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    subject: "",
-    message: "",
-  });
+  const navigate = useNavigate();
+  const { user, visitorUser } = useAuth();
+  const isAdmin = useIsAdmin();
+  const [topic, setTopic] = useState<ContactTopic | null>(null);
+  const [topicsOpen, setTopicsOpen] = useState(true);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [pageUrl, setPageUrl] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-
-  // Scroll to top when component mounts or path changes
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    const account = user || visitorUser;
+    if (!account) return;
+    const metaName = String(account.user_metadata?.full_name || account.user_metadata?.name || "").trim();
+    if (metaName) setName((current) => current || metaName);
+    if (account.email && !account.email.endsWith("@sifarah.local")) {
+      setEmail((current) => current || account.email || "");
+    }
+  }, [user, visitorUser]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.phone && !isCompletePhone(formData.phone)) {
+  const openTab = (id: (typeof TABS)[number]["id"]) => {
+    if (id === "contact") return;
+    if (id === "federations") {
+      navigate("/federations");
       return;
     }
-    setIsSubmitting(true);
+    if (id === "opportunites") {
+      navigate("/opportunites");
+      return;
+    }
+    if (id === "marche") {
+      navigate("/produits");
+      return;
+    }
+    if (id === "all") {
+      navigate("/");
+      return;
+    }
+    navigate(`/?vue=${id}`);
+  };
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    console.log("Form submitted:", formData);
-    setIsSubmitted(true);
-    setIsSubmitting(false);
-    
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        subject: "",
-        message: "",
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+    const cleanMessage = message.trim();
+    if (cleanName.length < 2) {
+      toast({ title: "Nom requis", description: "Indiquez votre nom." });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      toast({ title: "Email", description: "Indiquez une adresse email valide." });
+      return;
+    }
+    if (phone && !isCompletePhone(phone)) {
+      toast({ title: "Téléphone", description: "Complétez le numéro ou laissez-le vide." });
+      return;
+    }
+    if (!topic) {
+      setTopicsOpen(true);
+      toast({ title: "Sujet requis", description: "Choisissez un motif de contact." });
+      return;
+    }
+    if (cleanMessage.length < 8) {
+      toast({ title: "Message", description: "Décrivez votre demande en quelques mots." });
+      return;
+    }
+    setSending(true);
+    try {
+      await contactService.create({
+        topic,
+        name: cleanName,
+        email: cleanEmail,
+        phone,
+        organization: topic === "problem" ? undefined : organization,
+        message: cleanMessage,
+        pageUrl: topic === "problem" ? pageUrl : undefined,
+        userId: (user || visitorUser)?.id || null,
       });
-      setIsSubmitted(false);
-    }, 3000);
+      setSent(true);
+      setMessage("");
+      setPageUrl("");
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Erreur", description: "Impossible d'envoyer le message." });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <div className="pb-20">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8 sm:py-12">
-        {/* Header */}
-        <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-card-foreground mb-4">
-            Contactez-nous
-          </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Une question ? Une suggestion ? Nous sommes là pour vous aider. Remplissez le formulaire ci-dessous et nous vous répondrons dans les plus brefs délais.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-12">
-          {/* Contact Info */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-card rounded-lg border border-border p-6">
-              <h2 className="text-xl font-semibold text-card-foreground mb-6">
-                Informations de contact
-              </h2>
-              
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-accent/10 rounded-full p-3 flex-shrink-0">
-                    <MapPin className="w-5 h-5 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-card-foreground mb-1">Adresse</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Marrakech, Maroc
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="bg-accent/10 rounded-full p-3 flex-shrink-0">
-                    <Phone className="w-5 h-5 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-card-foreground mb-1">Téléphone</h3>
-                    <a
-                      href="tel:+212612345678"
-                      className="text-sm text-muted-foreground hover:text-accent transition-colors"
-                    >
-                      +212 612 345 678
-                    </a>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="bg-accent/10 rounded-full p-3 flex-shrink-0">
-                    <Mail className="w-5 h-5 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-card-foreground mb-1">Email</h3>
-                    <a
-                      href="mailto:contact@Sifarah.ma"
-                      className="text-sm text-muted-foreground hover:text-accent transition-colors"
-                    >
-                      contact@Sifarah.ma
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-card rounded-lg border border-border p-6 sm:p-8">
-              {isSubmitted ? (
-                <div className="text-center py-12">
-                  <div className="bg-accent/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                    <Send className="w-8 h-8 text-accent" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-card-foreground mb-2">
-                    Message envoyé !
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Merci pour votre message. Nous vous répondrons dans les plus brefs délais.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="name" className="mb-2">
-                        Nom complet *
-                      </Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="name"
-                          name="name"
-                          type="text"
-                          value={formData.name}
-                          onChange={handleChange}
-                          placeholder="Votre nom"
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="email" className="mb-2">
-                        Email *
-                      </Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          placeholder="votre@email.com"
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="phone" className="mb-2">
-                        Téléphone
-                      </Label>
-                      <PhoneInput
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(phone) => setFormData((prev) => ({ ...prev, phone }))}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="subject" className="mb-2">
-                        Sujet *
-                      </Label>
-                      <div className="relative">
-                        <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="subject"
-                          name="subject"
-                          type="text"
-                          value={formData.subject}
-                          onChange={handleChange}
-                          placeholder="Sujet de votre message"
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="message" className="mb-2">
-                      Message *
-                    </Label>
-                    <Textarea
-                      id="message"
-                      name="message"
-                      value={formData.message}
-                      onChange={handleChange}
-                      placeholder="Décrivez votre question ou votre demande..."
-                      rows={6}
-                      className="resize-none"
-                      required
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full sm:w-auto"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <span className="mr-2">Envoi en cours...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Envoyer le message
-                      </>
-                    )}
-                  </Button>
-                </form>
-              )}
-            </div>
-          </div>
+    <DesktopRailFrame className="min-h-screen bg-white pb-20 lg:pb-0">
+      <div className="mb-12 hidden border-b border-neutral-200 lg:block">
+        <div className="flex min-w-0 items-end gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {TABS.filter((item) => item.id !== "federations" || isAdmin).map((item) => {
+            const active = item.id === "contact";
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openTab(item.id)}
+                className={`flex shrink-0 items-center justify-center whitespace-nowrap border-b-2 px-3.5 py-3.5 text-lg font-semibold ${
+                  active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
-    </div>
+
+      <div className="mx-auto w-full max-w-2xl px-4 py-2 lg:px-0">
+        <h1 className="text-3xl font-semibold tracking-tight text-neutral-950">Contactez-nous</h1>
+        <p className="mt-3 text-xl font-medium leading-snug text-neutral-800 sm:text-2xl">
+          Partenariat, sponsoring, plan de visibilité, ou un problème sur le site.
+        </p>
+
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => setTopicsOpen((open) => !open)}
+            className="flex h-16 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-5 text-lg font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
+          >
+            {topic ? `Sujet : ${TOPICS.find((item) => item.id === topic)?.title}` : "Sujet"}
+          </button>
+          {topicsOpen ? (
+            <div className="mt-3 grid grid-cols-2 items-start gap-3">
+              {TOPICS.map((item, index) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setTopic(item.id);
+                    setTopicsOpen(false);
+                    setSent(false);
+                    setMessage((current) => {
+                      const stock = TOPICS.some((entry) => entry.text === current);
+                      return !current.trim() || stock ? item.text : current;
+                    });
+                  }}
+                  style={{ animationDelay: `${index * 45}ms` }}
+                  className="group flex min-h-32 w-full animate-category-pop items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-5 py-6 text-left text-xl font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
+                >
+                  <item.Icon className="h-9 w-9 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block text-[20px] leading-snug">{item.title}</span>
+                    <span className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover:grid-rows-[1fr] group-focus-visible:grid-rows-[1fr]">
+                      <span className="overflow-hidden">
+                        <span className="block pt-[0.6vh] text-lg font-normal leading-snug text-neutral-500">{item.text}</span>
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {topicsOpen ? null : sent ? (
+          <div className="mt-6 rounded-2xl bg-[#174f43] px-5 py-6 text-white">
+            <p className="text-lg font-semibold">Message envoyé</p>
+            <p className="mt-1 text-sm text-white/80">Nous vous répondrons à l'adresse indiquée.</p>
+            <button
+              type="button"
+              onClick={() => setSent(false)}
+              className="mt-4 h-10 rounded-xl bg-white px-4 text-sm font-semibold text-[#174f43]"
+            >
+              Envoyer un autre message
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={(event) => void submit(event)} className="mt-6 space-y-3">
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+              maxLength={120}
+              placeholder="Nom"
+              aria-label="Nom"
+              className="h-12 w-full rounded-xl border border-neutral-200 px-3 text-base outline-none placeholder:text-neutral-400 focus:border-[#174f43]"
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              maxLength={180}
+              placeholder="Email"
+              aria-label="Email"
+              className="h-12 w-full rounded-xl border border-neutral-200 px-3 text-base outline-none placeholder:text-neutral-400 focus:border-[#174f43]"
+            />
+            <PhoneInput value={phone} onChange={setPhone} placeholder="Téléphone" inputClassName="rounded-xl text-base" />
+            {topic === "problem" ? (
+              <input
+                value={pageUrl}
+                onChange={(event) => setPageUrl(event.target.value)}
+                placeholder="Page concernée"
+                aria-label="Page concernée"
+                maxLength={500}
+                className="h-12 w-full rounded-xl border border-neutral-200 px-3 text-base outline-none placeholder:text-neutral-400 focus:border-[#174f43]"
+              />
+            ) : (
+              <input
+                value={organization}
+                onChange={(event) => setOrganization(event.target.value)}
+                placeholder="Organisation"
+                aria-label="Organisation"
+                maxLength={160}
+                className="h-12 w-full rounded-xl border border-neutral-200 px-3 text-base outline-none placeholder:text-neutral-400 focus:border-[#174f43]"
+              />
+            )}
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              required
+              minLength={8}
+              maxLength={4000}
+              rows={6}
+              placeholder="Message"
+              aria-label="Message"
+              className="w-full resize-none rounded-xl border border-neutral-200 px-3 py-3 text-base outline-none placeholder:text-neutral-400 focus:border-[#174f43]"
+            />
+            <button
+              type="submit"
+              disabled={sending}
+              className="h-11 rounded-xl bg-[#174f43] px-5 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {sending ? "Envoi…" : "Envoyer"}
+            </button>
+          </form>
+        )}
+      </div>
+    </DesktopRailFrame>
   );
 };
 
 export default Contact;
-

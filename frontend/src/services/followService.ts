@@ -1,5 +1,9 @@
 import { supabase } from '@/lib/supabase';
 
+/** Suivre is only offered on a verified enterprise account. */
+export const showFollowButton = (profileType?: string | null, isVerified?: boolean | null) =>
+  profileType === "enterprise" && Boolean(isVerified);
+
 export const followService = {
   // Get users that the current user follows
   async getFollowing(userId: string) {

@@ -322,6 +322,8 @@ const PARENT_EN_KEYS = new Map<string, Set<string>>();
 
 for (const cat of PRODUCT_TAXONOMY) {
   const keys = new Set<string>();
+  SUB_TO_PARENT.set(normalizeKey(cat.fr), cat.id);
+  SUB_TO_PARENT.set(normalizeKey(cat.id), cat.id);
   for (const alias of cat.enAliases || []) {
     SUB_TO_PARENT.set(normalizeKey(alias), cat.id);
     keys.add(normalizeKey(alias));
@@ -362,6 +364,32 @@ export const productParentId = (en?: string | null) => {
   const key = normalizeKey(en || "");
   if (!key) return "";
   return SUB_TO_PARENT.get(key) || "";
+};
+
+/** Value stored when the product is filed under the family itself, not a subcategory. */
+export const productFamilyCategoryValue = (parentId: string) => {
+  const cat = productCategoryById(parentId);
+  if (!cat) return "";
+  return cat.enAliases?.[0] || cat.fr;
+};
+
+/** Stored category (EN, alias, or FR) → parent id and the EN value used by the form. */
+export const productCategorySelection = (value?: string | null): { parentId: string; en: string } => {
+  const raw = (value || "").trim();
+  const key = normalizeKey(raw);
+  if (!key) return { parentId: "", en: "" };
+  for (const cat of PRODUCT_TAXONOMY) {
+    const sub = cat.subs.find((item) => normalizeKey(item.en) === key || normalizeKey(item.fr) === key);
+    if (sub) return { parentId: cat.id, en: sub.en };
+  }
+  for (const cat of PRODUCT_TAXONOMY) {
+    const family =
+      normalizeKey(cat.fr) === key ||
+      normalizeKey(cat.id) === key ||
+      (cat.enAliases || []).some((alias) => normalizeKey(alias) === key);
+    if (family) return { parentId: cat.id, en: cat.enAliases?.[0] || cat.fr };
+  }
+  return { parentId: "", en: raw };
 };
 
 export const productParentLabel = (en?: string | null) => {

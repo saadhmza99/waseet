@@ -7,11 +7,12 @@ import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { savedService } from "@/services/savedService";
 import { savedToast } from "@/lib/savedToast";
 import { toast } from "@/components/ui/use-toast";
-import { devisPath } from "@/services/devisService";
+import { OwnerDeleteButton } from "@/components/OwnerDeleteButton";
 import {
   productCategoryLabel,
   productFirmName,
   productPhotos,
+  productDeliveryCities,
   productPriceLabel,
   productProfile,
   productService,
@@ -140,18 +141,29 @@ const ProductPage = () => {
   const { detailed: specsDetailed, original: specsOriginal } = productTechnicalSpecsPair(row);
   const mainImage = photos[Math.min(activePhoto, Math.max(0, photos.length - 1))] || "";
   const thumbs = photos.filter((_, index) => index !== activePhoto);
-  const deliveryOk = Array.isArray(row.delivery_cities) && row.delivery_cities.some(Boolean);
+  const deliveryCities = productDeliveryCities(row);
+  const deliversEverywhere = deliveryCities.includes("Tous");
+  const namedCities = deliveryCities.filter((city) => city !== "Tous");
   const amount = Number(row.price);
   const hasPrice = Number.isFinite(amount) && amount > 0;
   const priceHighlight = productPriceLabel(row);
   const bannerTitle = `${row.title} — prix au Maroc`.toUpperCase();
+  const isOwn = Boolean(user && row.user_id === user.id);
 
   return (
     <div className="min-h-screen bg-[#f6f5f3] pb-10 text-neutral-900">
       <div className="mx-auto w-full max-w-6xl px-3 pt-4 sm:px-4">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start">
           <div>
-            <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-[#eceef0]">
+            <div className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-[#eceef0]">
+              {isOwn && user ? (
+                <OwnerDeleteButton
+                  onDelete={async () => {
+                    await productService.deleteProduct(row.id, user.id);
+                    navigate("/profile?tab=produits");
+                  }}
+                />
+              ) : null}
               {mainImage ? (
                 <img src={mainImage} alt="" className="aspect-square w-full object-cover" />
               ) : (
@@ -267,10 +279,10 @@ const ProductPage = () => {
                   Min quantity: {row.min_quantity}
                 </span>
               ) : null}
-              {deliveryOk ? (
+              {deliveryCities.length ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e7f3ee] px-3 py-1.5 text-sm font-medium text-[#174f43]">
                   <Truck className="h-3.5 w-3.5" />
-                  Delivery available
+                  {deliversEverywhere ? "Livraison : toutes les villes" : `Livraison : ${namedCities.length} ville${namedCities.length > 1 ? "s" : ""}`}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-sm text-neutral-600">
@@ -279,6 +291,27 @@ const ProductPage = () => {
                 </span>
               )}
             </div>
+
+            {deliveryCities.length ? (
+              <div className="mt-6">
+                <h2 className="text-base font-semibold text-neutral-900">Villes de livraison</h2>
+                {deliversEverywhere ? (
+                  <p className="mt-2 text-[15px] text-neutral-700">Toutes les villes</p>
+                ) : (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {namedCities.map((city) => (
+                      <li
+                        key={city}
+                        className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-800"
+                      >
+                        <MapPin className="h-3.5 w-3.5 text-[#174f43]" />
+                        {city}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
 
             {specsDetailed ? (
               <div className="mt-6">
@@ -300,18 +333,23 @@ const ProductPage = () => {
             <button
               type="button"
               onClick={() =>
-                navigate(
-                  devisPath({
-                    sellerId: row.user_id,
-                    sellerName: productFirmName(row),
-                    productId: row.id,
-                    projectType: "achat-materiaux",
-                  }),
-                )
+                isOwn
+                  ? navigate(`/produit/${row.id}/modifier`)
+                  : navigate(
+                      devisPath({
+                        sellerId: row.user_id,
+                        sellerName: productFirmName(row),
+                        productId: row.id,
+                        projectType: "achat-materiaux",
+                        fromLabel: "Page produit",
+                      }),
+                    )
               }
-              className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#e07a32] text-base font-semibold text-white transition hover:bg-[#d06c28]"
+              className={`mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition ${
+                isOwn ? "bg-[#174f43] hover:bg-[#123d34]" : "bg-[#e07a32] hover:bg-[#d06c28]"
+              }`}
             >
-              Demander un devis →
+              {isOwn ? "Modifier" : "Demander un devis →"}
             </button>
           </div>
         </div>
@@ -326,8 +364,10 @@ const ProductPage = () => {
               const supplier = productProfile(offer);
               const username = supplier?.username || "";
               const name = productFirmName(offer);
-              const place =
-                (Array.isArray(offer.delivery_cities) && offer.delivery_cities[0]) || supplier?.location || "";
+              const offerCities = productDeliveryCities(offer);
+              const place = offerCities.includes("Tous")
+                ? "Toutes les villes"
+                : offerCities.join(", ") || supplier?.location || "";
               return (
                 <li
                   key={offer.user_id}

@@ -33,37 +33,36 @@ export const listingService = {
 
   // Get all listings
   async getListings(limit = 20, offset = 0, isSponsored?: boolean) {
-    const run = (withCategory: boolean) => {
-      let query = supabase
-        .from('listings')
-        .select(`
+    // profile_category_history hangs off profiles, not listings — nest under profiles.
+    let query = supabase
+      .from('listings')
+      .select(`
           *,
           profiles:user_id (
             id,
             username,
             full_name,
             avatar_url,
-            is_verified
-          )${withCategory ? `, ${CATEGORY_HISTORY_SELECT}` : ''}
+            is_verified,
+            ${CATEGORY_HISTORY_SELECT}
+          )
         `)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-      if (isSponsored !== undefined) {
-        query = query.eq('is_sponsored', isSponsored);
-      }
-      return query;
-    };
-
-    const rich = await run(true);
-    if (!rich.error) {
-      return (rich.data || []).map(({ category_history, ...listing }: any) => ({
-        ...listing,
-        ...categoryTagsFromHistory(category_history),
-      }));
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (isSponsored !== undefined) {
+      query = query.eq('is_sponsored', isSponsored);
     }
-    const { data, error } = await run(false);
+    const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return (data || []).map((listing: any) => {
+      const profile = Array.isArray(listing.profiles) ? listing.profiles[0] : listing.profiles;
+      const history = profile?.category_history;
+      const historyRow = Array.isArray(history) ? history[0] : history;
+      return {
+        ...listing,
+        ...categoryTagsFromHistory(historyRow),
+      };
+    });
   },
 
   // Get listing by ID
