@@ -303,7 +303,8 @@ export const serviceService = {
     query = applyServicesFilters(query, filters);
     const { data, error } = await query.range(offset, offset + Math.max(limit - 1, 0));
     if (error) throw error;
-    return (data || []) as ServiceRow[];
+    // Dynamic embed string → Supabase types as GenericStringError[]; cast via unknown.
+    return (data || []) as unknown as ServiceRow[];
   },
 
   /** Services owned by the curated recommended firms, in caller order. */
