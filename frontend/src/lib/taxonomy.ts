@@ -179,15 +179,15 @@ export const INGENIERIE_ETUDES_PEER_OPTIONS: { code: string; label: string }[] =
 
 /** Agréments BET (D13–D21) — only after Bureau d'études is checked. */
 export const BET_AGREMENT_OPTIONS: { code: string; label: string }[] = [
-  { code: "3.4.13", label: "D13 · Études générales" },
-  { code: "3.4.14", label: "D14 · Calcul de structures" },
-  { code: "3.4.15", label: "D15 · Courant fort / faible" },
-  { code: "3.4.16", label: "D16 · Réseaux des fluides" },
-  { code: "3.4.17", label: "D17 · Voirie / assainissement / AEP" },
-  { code: "3.4.18", label: "D18 · Électricité / télécoms / éclairage" },
-  { code: "3.4.19", label: "D19 · Impact environnement" },
-  { code: "3.4.20", label: "D20 · Géologie / hydro" },
-  { code: "3.4.21", label: "D21 · Sécurité incendie" },
+  { code: "3.4.13", label: "D13" },
+  { code: "3.4.14", label: "D14" },
+  { code: "3.4.15", label: "D15" },
+  { code: "3.4.16", label: "D16" },
+  { code: "3.4.17", label: "D17" },
+  { code: "3.4.18", label: "D18" },
+  { code: "3.4.19", label: "D19" },
+  { code: "3.4.20", label: "D20" },
+  { code: "3.4.21", label: "D21" },
 ];
 
 export const INGENIERIE_ETUDES_LEAF_OPTIONS = [

@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Briefcase, Building, Building2, Ellipsis, Factory, HardHat, Home, Hotel, Landmark, Map as MapIcon, MapPin, Search, Store, X, type LucideIcon } from "lucide-react";
+import { Map as MapIcon, MapPin, Search, X } from "lucide-react";
 import { DesktopRailFrame } from "@/components/FeedDesktopRail";
-import PartnerDemandDialog, { PAID_PLAN_REQUEST, PROJECT_PLAN_NOTICE } from "@/components/PartnerDemandDialog";
+import PartnerDemandDialog, { PAID_PLAN_REQUEST } from "@/components/PartnerDemandDialog";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import MapView from "@/components/MapView";
-import { CategoryPicker, FEED_PICKER_CATEGORIES, type CategoryOption } from "@/components/CategoryPicker";
+import { CategoryPicker, FEED_PICKER_CATEGORIES } from "@/components/CategoryPicker";
 import { RegionCitySheet } from "@/components/RegionCitySheet";
 import { SubCategoryChips } from "@/components/FilterChips";
 import { ProjectCard } from "@/components/project/ProjectCard";
-import { PROJECT_MILESTONES, milestoneReachedIndex } from "@/components/project/ProjectMilestoneTrack";
-import { ProjectFiltersPanel } from "@/components/project/ProjectListFilters";
-import { dossierFromRow } from "@/lib/projectDossier";
 import { ServiceCard } from "@/components/service/ServiceCard";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { resolveAvatarUrl } from "@/lib/avatar";
@@ -19,13 +16,11 @@ import { DISCOVER_ITEMS, type DiscoverItem } from "@/lib/showcaseDiscover";
 import { featuredFirmsForDiscover } from "@/lib/recommendedFirms";
 import { RecommendedFirmsGrid } from "@/components/FeedSpotlight";
 import { offerFromRow, priceLabel, serviceMainImage, zoneLabel } from "@/lib/serviceOffer";
-import { catalogService } from "@/services/catalogService";
 import { profileService } from "@/services/profileService";
 import { serviceFirmName, serviceFeedTags, serviceIsVerified, serviceService, type ServiceRow } from "@/services/serviceService";
 import {
   FOURNISSEUR_CATEGORY_ID,
   INGENIERIE_ETUDES_SUB_SLUG,
-  PROJECT_TYPES,
   PROMOTEUR_CATEGORY_ID,
   feedCategoryLabel,
   feedSubCategoryBySlug,
@@ -33,33 +28,7 @@ import {
   isPromoteurInternalCode,
   matchesFeedCategory,
   normalizeIngenierieFilterCodes,
-  projectTypeLabel,
 } from "@/lib/taxonomy";
-
-const PROJECT_TYPE_ICONS: Record<string, LucideIcon> = {
-  projet_residentiel: Home,
-  lotissement: MapIcon,
-  residence: Building2,
-  complexe_immobilier: Building,
-  projet_commercial: Store,
-  projet_hotelier: Hotel,
-  projet_industriel: Factory,
-  projet_mixte: Building2,
-  usine: Factory,
-  centre_commercial: Store,
-  bureau: Briefcase,
-  hotel: Hotel,
-  equipement_prive: Landmark,
-  equipement_collectif: Landmark,
-  infrastructure_projet: HardHat,
-};
-
-/** Categories shown by the Catégories button while the Projets tab is active. */
-const PROJECT_TYPE_OPTIONS: CategoryOption[] = PROJECT_TYPES.map((item) => ({
-  id: item.id,
-  label: item.label,
-  Icon: PROJECT_TYPE_ICONS[item.id] || Ellipsis,
-}));
 
 type MockItem = DiscoverItem;
 
@@ -114,11 +83,10 @@ const discoverTaxonomyFilters = (
 
 const subCategoryLabel = (item: MockItem) => feedSubCategoryBySlug(item.feed_sub_category)?.subCategory.label || "";
 
-type SearchType = "services" | "projets" | "comptes";
+type SearchType = "services" | "comptes";
 
 const SEARCH_TYPES: { id: SearchType; label: string }[] = [
   { id: "comptes", label: "Entreprises" },
-  { id: "projets", label: "Projets" },
   { id: "services", label: "Services" },
 ];
 
@@ -191,10 +159,6 @@ const ResultCard = ({ item, onOpen }: { item: MockItem; onOpen: (item: MockItem)
   );
 };
 
-const DISCOVER_PROJECTS_CAP = 40;
-/** Announced catalogue size on Discover Projets (list remains capped at DISCOVER_PROJECTS_CAP). */
-const PROJECTS_PAID_CATALOGUE_COUNT = 477;
-
 const PromoteurNetworkGate = ({ onJoin }: { onJoin: () => void }) => (
   <div className="mx-1 mt-6 rounded-2xl border border-[#174f43]/20 bg-[#174f43]/5 px-4 py-5 text-center sm:px-6">
     <p className="text-base leading-relaxed text-neutral-800">
@@ -206,27 +170,6 @@ const PromoteurNetworkGate = ({ onJoin }: { onJoin: () => void }) => (
       className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#123d34]"
     >
       Deviens notre partenaire!
-    </button>
-  </div>
-);
-
-/** Top banner for Projets: limited free list + paid catalogue CTA. */
-const ProjetDossierPartnerBanner = ({ onJoin }: { onJoin: () => void }) => (
-  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
-    <p className="text-sm leading-relaxed text-amber-950">
-      Sélection limitée : seuls {DISCOVER_PROJECTS_CAP} projets sont listés ici. Les{" "}
-      <span className="font-semibold">{PROJECTS_PAID_CATALOGUE_COUNT} projets</span> complets sont
-      réservés au plan payant.
-    </p>
-    <p className="mt-3 text-sm leading-relaxed text-amber-950">
-      {PROJECT_PLAN_NOTICE}
-    </p>
-    <button
-      type="button"
-      onClick={onJoin}
-      className="mt-3 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123d34]"
-    >
-      Demander les détails du plan payant
     </button>
   </div>
 );
@@ -368,17 +311,11 @@ const Explore = () => {
   const [citySheetOpen, setCitySheetOpen] = useState(false);
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [projectStageIdx, setProjectStageIdx] = useState(0);
-  const [projectCommercial, setProjectCommercial] = useState<string | null>(null);
-  const [projectType, setProjectType] = useState<string | null>(null);
-  const projectStage = projectStageIdx === 0 ? null : PROJECT_MILESTONES[projectStageIdx - 1].id;
   const [liveServices, setLiveServices] = useState<ServiceRow[]>([]);
   const [featuredServices, setFeaturedServices] = useState<ServiceRow[]>([]);
-  const [liveProjects, setLiveProjects] = useState<any[]>([]);
   const [liveProfiles, setLiveProfiles] = useState<any[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [loadingServices, setLoadingServices] = useState(false);
-  const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [partnerOpen, setPartnerOpen] = useState(false);
   const [partnerNote, setPartnerNote] = useState(PAID_PLAN_REQUEST);
@@ -389,12 +326,10 @@ const Explore = () => {
   const [hasMoreServices, setHasMoreServices] = useState(true);
   const [hasMoreProfiles, setHasMoreProfiles] = useState(true);
   const [servicesBooted, setServicesBooted] = useState(false);
-  const [catalogBooted, setCatalogBooted] = useState(false);
   const [serverCounts, setServerCounts] = useState<{
     comptes: number | null;
     services: number | null;
-    projets: number | null;
-  }>({ comptes: null, services: null, projets: null });
+  }>({ comptes: null, services: null });
 
   const servicesOffsetRef = useRef(0);
   const profilesOffsetRef = useRef(0);
@@ -403,11 +338,9 @@ const Explore = () => {
   const loadingMoreProfilesRef = useRef(false);
   const loadingMoreServicesRef = useRef(false);
   const servicesBootedRef = useRef(false);
-  const catalogBootedRef = useRef(false);
   /** Per-stream tickets so Services boot never strands Entreprises loading. */
   const profilesTicket = useRef(0);
   const servicesTicket = useRef(0);
-  const catalogTicket = useRef(0);
 
   const typedQuery = committedQuery.toLowerCase();
 
@@ -439,7 +372,7 @@ const Explore = () => {
   // Projets always load the promoteur dossier network (open_dossier first).
   // Category filters on Comptes must not change this. Server redacts équipe/docs
   // for unsigned / non-partner viewers.
-  const showDossierGate = searchType === "projets";
+  const showDossierGate = false;
   const profilePageSize = promoterBatch ? 50 : DISCOVER_PAGE_SIZE;
 
   const loadMoreServices = useCallback(async () => {
@@ -577,49 +510,13 @@ const Explore = () => {
     };
   }, [cityFilter, taxonomyFilters, committedQuery]);
 
-  // Prefetch projects with filters so tab counts stay useful.
-  useEffect(() => {
-    let cancelled = false;
-    const bootCatalog = async () => {
-      const ticket = ++catalogTicket.current;
-      setLoadingCatalog(true);
-      catalogBootedRef.current = false;
-      setCatalogBooted(false);
-      try {
-        // Cap Discover projets at 40. listProjects prioritizes open dossiers then
-        // non-Chridari covers. Dossier lock/redaction stays server-side.
-        const projects = await catalogService.listProjects(DISCOVER_PROJECTS_CAP, 0, {
-          city: cityFilter,
-          projectType,
-          featuredPromoters: promoterBatch,
-        });
-        if (cancelled || catalogTicket.current !== ticket) return;
-        const withImages = projects.slice(0, DISCOVER_PROJECTS_CAP);
-        setLiveProjects(withImages);
-        setServerCounts((prev) => ({ ...prev, projets: withImages.length }));
-        catalogBootedRef.current = true;
-        setCatalogBooted(true);
-      } catch (error) {
-        if (!cancelled && catalogTicket.current === ticket) {
-          console.error("Error loading catalog:", error);
-        }
-      } finally {
-        if (cancelled || catalogTicket.current === ticket) setLoadingCatalog(false);
-      }
-    };
-    void bootCatalog();
-    return () => {
-      cancelled = true;
-    };
-  }, [cityFilter, projectType, promoterBatch]);
-
   // Exact totals from Supabase (not the currently loaded page).
   useEffect(() => {
     let cancelled = false;
     const loadCounts = async () => {
-      setServerCounts({ comptes: null, services: null, projets: null });
+      setServerCounts({ comptes: null, services: null });
       try {
-        const [comptes, services, projets] = await Promise.all([
+        const [comptes, services] = await Promise.all([
           profileService.countProfessionals({
             city: cityFilter,
             query: committedQuery || null,
@@ -630,17 +527,9 @@ const Explore = () => {
             query: committedQuery || null,
             ...taxonomyFilters,
           }),
-          // Same imaged + priority rules as the Projets list (no empty covers).
-          catalogService
-            .listProjects(DISCOVER_PROJECTS_CAP, 0, {
-              city: cityFilter,
-              projectType,
-              featuredPromoters: promoterBatch,
-            })
-            .then((rows) => rows.length),
         ]);
         if (cancelled) return;
-        setServerCounts({ comptes, services, projets });
+        setServerCounts({ comptes, services });
       } catch (error) {
         if (!cancelled) console.error("Error loading Discover counts:", error);
       }
@@ -649,7 +538,7 @@ const Explore = () => {
     return () => {
       cancelled = true;
     };
-  }, [cityFilter, taxonomyFilters, committedQuery, projectType, promoterBatch]);
+  }, [cityFilter, taxonomyFilters, committedQuery]);
 
   const catalogItems = useMemo(() => {
     const services: MockItem[] = liveServices.map((row) => {
@@ -673,27 +562,6 @@ const Explore = () => {
         is_verified: serviceIsVerified(row),
       };
     });
-    const projects: MockItem[] = liveProjects
-      .map((row) => {
-        const gallery = Array.isArray(row.images)
-          ? row.images.map(String).filter((url) => /^https?:\/\//i.test(url.trim()))
-          : [];
-        const cover = String(row.cover_image || "").trim();
-        const image = (/^https?:\/\//i.test(cover) ? cover : "") || gallery[0] || "";
-        return {
-          id: row.id,
-          feed_category: "",
-          feed_sub_category: "",
-          kind: "projet" as const,
-          profileName: row.promoter_name || row.title || "Projet",
-          image,
-          title: row.title || "Projet",
-          city: row.city || "",
-          progress: Number(row.progress) || 0,
-          description: row.description || "",
-        };
-      })
-      .filter((item) => Boolean(item.image));
     const accounts: MockItem[] = liveProfiles.map((row) => {
       const extras = Array.isArray(row.profile_internal_categories) ? row.profile_internal_categories : [];
       const codes = [
@@ -721,16 +589,15 @@ const Explore = () => {
         profile_type: row.profile_type || null,
       };
     });
-    return [...DISCOVER_ITEMS, ...accounts, ...projects, ...services];
-  }, [liveServices, liveProjects, liveProfiles]);
+    return [...DISCOVER_ITEMS, ...accounts, ...services];
+  }, [liveServices, liveProfiles]);
 
   const searched = useMemo(
     () =>
       catalogItems.filter((item) => {
         // Professionnels / Services: category + text query are applied server-side.
-        // Projets: filtered by project type, not feed category.
         const categoryOk =
-          searchType === "comptes" || searchType === "services" || (item.kind === "projet" && searchType === "projets")
+          searchType === "comptes" || searchType === "services"
             ? true
             : matchesFeedCategory(selectedCategory, subCategory, item);
         const queryOk =
@@ -745,36 +612,9 @@ const Explore = () => {
       }),
     [catalogItems, typedQuery, selectedCategory, subCategory, selectedCity, searchType],
   );
-  // Stage (sur plan -> livre), commercial status and type per live project,
-  // for the Projets tab filters.
-  const projectFilterData = useMemo(() => {
-    const map = new Map<string, { stage: number; commercial: string; type: string }>();
-    liveProjects.forEach((row) => {
-      const project = dossierFromRow(row);
-      map.set(row.id, {
-        stage: milestoneReachedIndex(project),
-        commercial: project.commercialStatus || "",
-        type: String(row.project_type || "").trim(),
-      });
-    });
-    return map;
-  }, [liveProjects]);
-
-  const matchesProjectFilters = useCallback(
-    (item: MockItem) => {
-      if (item.kind !== "projet") return false;
-      const data = projectFilterData.get(item.id);
-      if (projectType && (!data || data.type !== projectType)) return false;
-      if (projectStage && (!data || PROJECT_MILESTONES[data.stage]?.id !== projectStage)) return false;
-      if (projectCommercial && (!data || data.commercial !== projectCommercial)) return false;
-      return true;
-    },
-    [projectFilterData, projectType, projectStage, projectCommercial],
-  );
 
   const searchResults = searched.filter((item) => {
     if (searchType === "services") return item.kind === "annonce";
-    if (searchType === "projets") return matchesProjectFilters(item);
     return false;
   });
   const accounts = useMemo(() => searched.filter((item) => item.kind === "agence"), [searched]);
@@ -827,17 +667,13 @@ const Explore = () => {
   );
 
   const tabCountText = (id: SearchType): string | null => {
-    if (id === "projets") return String(PROJECTS_PAID_CATALOGUE_COUNT);
     const value = serverCounts[id];
     if (value == null) return null;
     return String(value);
   };
 
   const selectedLabel = feedCategoryLabel(selectedCategory);
-
-  // The Catégories button lists project types while the Projets tab is active.
-  const pickerLabel =
-    searchType === "projets" ? (projectType ? projectTypeLabel(projectType) : null) : selectedLabel;
+  const pickerLabel = selectedLabel;
 
   const hasMoreForTab =
     searchType === "comptes" ? hasMoreProfiles : searchType === "services" ? hasMoreServices : false;
@@ -849,8 +685,7 @@ const Explore = () => {
 
   const tabLoading =
     (searchType === "comptes" && loadingProfiles) ||
-    (searchType === "services" && (loadingServices || !servicesBooted)) ||
-    (searchType === "projets" && (loadingCatalog || !catalogBooted));
+    (searchType === "services" && (loadingServices || !servicesBooted));
 
   const openItem = (item: MockItem) => {
     window.scrollTo(0, 0);
@@ -904,10 +739,13 @@ const Explore = () => {
             <button
               type="button"
               onClick={() => setCitySheetOpen(true)}
-              className="flex h-16 w-full items-center gap-1.5 rounded-2xl border border-neutral-200 bg-white px-2.5 text-left shadow-sm transition hover:border-[#174f43]"
+              aria-label={selectedCity ? `Ville : ${selectedCity}` : "Ville"}
+              className={`flex h-16 w-full items-center rounded-2xl border border-neutral-200 bg-white text-left shadow-sm transition hover:border-[#174f43] ${
+                selectedCity ? "justify-start px-2.5 pr-9 sm:gap-1.5" : "justify-center px-2 sm:justify-start sm:gap-1.5 sm:px-2.5"
+              }`}
             >
-              <MapPin className="h-5 w-5 shrink-0 text-neutral-500" />
-              <span className={`min-w-0 flex-1 truncate text-sm font-semibold sm:text-base ${selectedCity ? "text-neutral-900" : "text-neutral-400"} ${selectedCity ? "pr-6" : ""}`}>
+              <MapPin className={`h-5 w-5 shrink-0 ${selectedCity ? "text-[#174f43]" : "text-neutral-500"}`} />
+              <span className={`hidden min-w-0 flex-1 truncate text-sm font-semibold sm:inline sm:text-base ${selectedCity ? "text-neutral-900" : "text-neutral-400"}`}>
                 {selectedCity || "Ville"}
               </span>
             </button>
@@ -923,19 +761,17 @@ const Explore = () => {
             ) : null}
           </div>
         </div>
-        {searchType !== "projets" ? (
-          <SubCategoryChips
-            category={selectedCategory}
-            value={subCategory}
-            onChange={(id) => {
-              setSubCategory(id);
-              setBetCodes([]);
-            }}
-            betCodes={betCodes}
-            onBetCodesChange={setBetCodes}
-            size="lg"
-          />
-        ) : null}
+        <SubCategoryChips
+          category={selectedCategory}
+          value={subCategory}
+          onChange={(id) => {
+            setSubCategory(id);
+            setBetCodes([]);
+          }}
+          betCodes={betCodes}
+          onBetCodesChange={setBetCodes}
+          size="lg"
+        />
         <RegionCitySheet
           open={citySheetOpen}
           onClose={() => setCitySheetOpen(false)}
@@ -980,16 +816,12 @@ const Explore = () => {
             open
             onToggle={() => setCategoriesOpen(false)}
             selectedLabel={pickerLabel}
-            categories={searchType === "projets" ? PROJECT_TYPE_OPTIONS : FEED_PICKER_CATEGORIES}
+            categories={FEED_PICKER_CATEGORIES}
             size="lg"
             onSelect={(id) => {
-              if (searchType === "projets") {
-                setProjectType(id === "tout" ? null : id);
-              } else {
-                setSelectedCategory(id);
-                setSubCategory(null);
-                setBetCodes([]);
-              }
+              setSelectedCategory(id);
+              setSubCategory(null);
+              setBetCodes([]);
               setCategoriesOpen(false);
             }}
           />
@@ -1002,19 +834,6 @@ const Explore = () => {
     <DesktopRailFrame className="min-h-screen bg-white pb-20 lg:pb-0">
       <div className="mx-auto w-full max-w-2xl px-3 pt-4 lg:mx-0 lg:max-w-none lg:px-0 lg:pt-0">
         {searchFields}
-
-        {searchType === "projets" && viewMode === "list" ? (
-          <div className="mt-4">
-            <ProjetDossierPartnerBanner onJoin={() => openPartner(PROJECT_PLAN_NOTICE)} />
-            <ProjectFiltersPanel
-              open
-              stageIdx={projectStageIdx}
-              onStage={setProjectStageIdx}
-              commercial={projectCommercial}
-              onCommercial={setProjectCommercial}
-            />
-          </div>
-        ) : null}
 
         {viewMode === "map" ? (
           <div className="px-3 py-4">
@@ -1100,7 +919,7 @@ const Explore = () => {
                 items={directoryServices}
                 onOpen={openItem}
                 serviceRows={liveServices}
-                projectRows={liveProjects}
+                projectRows={[]}
                 lockDossiers={showDossierGate}
               />
               <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore || loadingServices} onLoadMore={loadMoreForTab} />
@@ -1113,12 +932,10 @@ const Explore = () => {
         ) : (
           <>
             <CardList
-              items={
-                searchType === "projets" ? searchResults.slice(0, DISCOVER_PROJECTS_CAP) : searchResults
-              }
+              items={searchResults}
               onOpen={openItem}
               serviceRows={liveServices}
-              projectRows={liveProjects}
+              projectRows={[]}
               lockDossiers={showDossierGate}
             />
           </>

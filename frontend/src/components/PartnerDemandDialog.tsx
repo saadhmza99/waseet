@@ -8,7 +8,7 @@ import { isValidEmail } from "@/lib/visitorContact";
 import { partnerRequestService } from "@/services/partnerRequestService";
 
 export const PAID_PLAN_REQUEST =
-  "Accédez en priorité aux devis de plus de 2 700 professionnels et fournisseurs BTP et 364 promoteurs, et développez votre visibilité auprès des acteurs du secteur.";
+  "Accédez en priorité aux devis de plus de 3000 professionnels et fournisseurs BTP et 364 promoteurs, et développez votre visibilité auprès des acteurs du secteur.";
 
 /** Projects catalogue notice. Separate from the feed paid-plan sentence. */
 export const PROJECT_PLAN_NOTICE =

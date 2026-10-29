@@ -152,12 +152,12 @@ const Contact = () => {
           <button
             type="button"
             onClick={() => setTopicsOpen((open) => !open)}
-            className="flex h-16 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-5 text-lg font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43]"
+            className="flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43] sm:h-16 sm:px-5 sm:text-lg"
           >
             {topic ? `Sujet : ${TOPICS.find((item) => item.id === topic)?.title}` : "Sujet"}
           </button>
           {topicsOpen ? (
-            <div className="mt-3 grid grid-cols-2 items-start gap-3">
+            <div className="mt-3 grid grid-cols-2 items-stretch gap-2 sm:gap-3">
               {TOPICS.map((item, index) => (
                 <button
                   key={item.id}
@@ -172,14 +172,19 @@ const Contact = () => {
                     });
                   }}
                   style={{ animationDelay: `${index * 45}ms` }}
-                  className="group flex min-h-32 w-full animate-category-pop items-center gap-4 rounded-2xl border border-neutral-200 bg-white px-5 py-6 text-left text-xl font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43]"
+                  className="group flex h-full min-h-0 w-full animate-category-pop items-start gap-2 rounded-xl border border-neutral-200 bg-white px-2.5 py-2.5 text-left text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43] sm:min-h-32 sm:items-center sm:gap-4 sm:rounded-2xl sm:px-5 sm:py-6 sm:text-xl"
                 >
-                  <item.Icon className="h-9 w-9 shrink-0" />
-                  <span className="min-w-0">
-                    <span className="block text-[20px] leading-snug">{item.title}</span>
-                    <span className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover:grid-rows-[1fr] group-focus-visible:grid-rows-[1fr]">
+                  <item.Icon className="mt-0.5 h-4 w-4 shrink-0 sm:mt-0 sm:h-9 sm:w-9" />
+                  <span className="min-w-0 text-left">
+                    <span className="block text-[12px] leading-snug sm:text-[20px]">{item.title}</span>
+                    <span className="mt-0.5 block text-[10px] font-normal leading-snug text-neutral-500 line-clamp-2 sm:hidden">
+                      {item.text}
+                    </span>
+                    <span className="hidden sm:grid sm:grid-rows-[0fr] sm:transition-[grid-template-rows] sm:duration-200 sm:group-hover:grid-rows-[1fr] sm:group-focus-visible:grid-rows-[1fr]">
                       <span className="overflow-hidden">
-                        <span className="block pt-[0.6vh] text-lg font-normal leading-snug text-neutral-500">{item.text}</span>
+                        <span className="block pt-[0.6vh] text-lg font-normal leading-snug text-neutral-500">
+                          {item.text}
+                        </span>
                       </span>
                     </span>
                   </span>

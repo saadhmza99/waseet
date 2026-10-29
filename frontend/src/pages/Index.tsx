@@ -736,7 +736,7 @@ const Index = () => {
               <br />
               échangez.
             </p>
-            <p className="mt-4 max-w-md text-sm font-light leading-relaxed text-white/95 lg:mt-5 lg:text-base">
+            <p className="mt-4 max-w-md text-[0.95rem] font-light leading-relaxed text-white/95 lg:mt-5 lg:text-lg">
               L&apos;écosystème immobilier, construction et BTP
               <br />
               au Maroc.

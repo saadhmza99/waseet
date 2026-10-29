@@ -26,6 +26,10 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ice TEXT;
 COMMENT ON COLUMN public.profiles.ice IS
   'Identifiant Commun de l''Entreprise (Morocco). Shown on profile Infos when set.';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS agrement_code TEXT;
+COMMENT ON COLUMN public.profiles.agrement_code IS
+  'Code d''agrément ministère (ex. CA/316, AG/97) for bureaux d''études agréés.';
+CREATE INDEX IF NOT EXISTS profiles_agrement_code_idx ON public.profiles (agrement_code);
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE NOT NULL;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS contact_updated_at TIMESTAMP WITH TIME ZONE;
