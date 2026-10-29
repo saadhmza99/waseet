@@ -26,7 +26,7 @@ export interface PostData {
 
 export type PostCommentPermission = 'anyone' | 'followers' | 'follow_back' | 'off';
 
-export const FEED_PAGE_SIZE = 2;
+export const FEED_PAGE_SIZE = 3;
 
 export type FeedPage = { posts: any[]; hasMore: boolean };
 

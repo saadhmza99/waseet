@@ -1,5 +1,11 @@
-import { ImgHTMLAttributes, useEffect, useState, type CSSProperties } from "react";
+import { ImgHTMLAttributes, useEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
+
+/** A cancelled first download (common on mobile when the feed reshuffles) should retry before the overlay. */
+const AUTO_RETRIES = 2;
+
+const withRetryNonce = (src: string, nonce: number) =>
+  nonce > 0 ? `${src}${src.includes("?") ? "&" : "?"}retry=${nonce}` : src;
 
 export function MediaRetryOverlay({
   compact,
@@ -57,14 +63,27 @@ export function RetryImage({
 }: RetryImageProps) {
   const [nonce, setNonce] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const nonceRef = useRef(0);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setFailed(false);
+    setRetrying(false);
     setNonce(0);
+    nonceRef.current = 0;
+    return () => {
+      if (timerRef.current != null) window.clearTimeout(timerRef.current);
+    };
   }, [src]);
 
-  const resolved =
-    src && nonce > 0 ? `${src}${src.includes("?") ? "&" : "?"}retry=${nonce}` : src;
+  const bumpNonce = () => {
+    const next = nonceRef.current + 1;
+    nonceRef.current = next;
+    setNonce(next);
+  };
+
+  const resolved = src ? withRetryNonce(src, nonce) : src;
 
   return (
     <div className={cn("relative overflow-hidden", wrapClassName)} style={wrapStyle}>
@@ -73,12 +92,23 @@ export function RetryImage({
           {...rest}
           src={resolved}
           alt={alt}
-          className={className}
+          className={cn(className, retrying && "invisible")}
           onError={(e) => {
+            if (nonceRef.current < AUTO_RETRIES) {
+              setRetrying(true);
+              if (timerRef.current != null) window.clearTimeout(timerRef.current);
+              timerRef.current = window.setTimeout(() => {
+                timerRef.current = null;
+                bumpNonce();
+              }, 350);
+              return;
+            }
+            setRetrying(false);
             setFailed(true);
             onError?.(e);
           }}
           onLoad={(e) => {
+            setRetrying(false);
             setFailed(false);
             onLoad?.(e);
           }}
@@ -91,7 +121,8 @@ export function RetryImage({
           compact={compact}
           onRetry={() => {
             setFailed(false);
-            setNonce((n) => n + 1);
+            setRetrying(true);
+            bumpNonce();
           }}
         />
       ) : null}

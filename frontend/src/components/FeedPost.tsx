@@ -38,6 +38,36 @@ import { markFollowedNow, useFollowFeedback } from "@/lib/followFeedback";
 import PrivatePostThread from "@/components/PrivatePostThread";
 import { toWhatsAppNumber } from "@/lib/propertyListing";
 
+/** Profile photo: retry a cancelled first download, then fall back to the default avatar. */
+function PostAvatar({ src, alt, className }: { src?: string; alt: string; className?: string }) {
+  const fallback = getDefaultAvatar("individual");
+  const original = (src || "").trim() || fallback;
+  const [current, setCurrent] = useState(original);
+  const tries = useRef(0);
+
+  useEffect(() => {
+    tries.current = 0;
+    setCurrent(original);
+  }, [original]);
+
+  return (
+    <img
+      src={current}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (current !== fallback && tries.current < 2) {
+          tries.current += 1;
+          const join = original.includes("?") ? "&" : "?";
+          setCurrent(`${original}${join}retry=${tries.current}`);
+          return;
+        }
+        if (current !== fallback) setCurrent(fallback);
+      }}
+    />
+  );
+}
+
 // Likes and comments are hidden for now; flip to bring the buttons back.
 const SHOW_LIKES_AND_COMMENTS = false;
 
@@ -290,18 +320,7 @@ const FeedPost = ({
 
   useEffect(() => {
     setLeadRatio(null);
-    if (!leadImage || allImages.length !== 1) return;
-    let cancelled = false;
-    const probe = new Image();
-    probe.onload = () => {
-      if (cancelled || probe.naturalWidth <= 0) return;
-      setLeadRatio(probe.naturalHeight / probe.naturalWidth);
-    };
-    probe.src = leadImage;
-    return () => {
-      cancelled = true;
-    };
-  }, [leadImage, allImages.length]);
+  }, [leadImage]);
   const postCity = (city || "").trim() || cityFromProfileLocation(location);
   const businessLine = [profession?.trim(), postCity].filter(Boolean).join(" · ");
 
@@ -642,7 +661,7 @@ const FeedPost = ({
       {/* User Info */}
       <div className="flex items-center gap-3 pl-2.5 pr-3 pb-3.5 pt-4">
         <button onClick={handleProfileClick} className="shrink-0 hover:opacity-80 transition-opacity">
-          <img src={avatar || getDefaultAvatar("individual")} alt={displayName} className="h-12 w-12 rounded-2xl object-cover" />
+          <PostAvatar src={avatar} alt={displayName} className="h-12 w-12 rounded-2xl object-cover" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
@@ -887,6 +906,16 @@ const FeedPost = ({
                     ? "h-full w-full cursor-pointer object-cover object-top"
                     : "h-full w-full cursor-pointer object-cover"
                 }
+                onLoad={
+                  index === 0
+                    ? (event) => {
+                        const img = event.currentTarget;
+                        if (allImages.length === 1 && img.naturalWidth > 0) {
+                          setLeadRatio(img.naturalHeight / img.naturalWidth);
+                        }
+                      }
+                    : undefined
+                }
                 onClick={() => setSelectedImageIndex(index)}
               />
             ))
@@ -972,8 +1001,8 @@ const FeedPost = ({
             <div className={`absolute bottom-0 left-0 z-20 max-w-[calc(100%-5rem)] bg-gradient-to-t from-black/60 to-transparent p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-opacity ${overlayFade}`}>
               <div className="mb-2 flex items-center gap-3">
                 <button type="button" onClick={handleProfileClick} className="shrink-0">
-                  <img
-                    src={avatar || getDefaultAvatar("individual")}
+                  <PostAvatar
+                    src={avatar}
                     alt={displayName}
                     className="h-11 w-11 rounded-2xl border-2 border-white object-cover"
                   />
@@ -1174,8 +1203,8 @@ const FeedPost = ({
               {/* Post Preview */}
               <div ref={postPreviewRef} className="px-4 sm:px-6 py-4 border-b border-border">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src={avatar || getDefaultAvatar("individual")}
+                  <PostAvatar
+                    src={avatar}
                     alt={displayName}
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl object-cover"
                   />

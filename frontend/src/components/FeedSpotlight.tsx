@@ -257,10 +257,8 @@ export const FeedPartnersRail = ({ firms = RECOMMENDED_FIRMS }: { firms?: Spotli
   return (
     <aside className="hidden w-[22rem] shrink-0 xl:block">
       <div className="sticky top-1 flex max-h-[calc(100vh-0.25rem)] flex-col gap-8 pb-8">
-        <section className="shrink-0">
-          <h2 className="mb-3 border-b-2 border-transparent py-3.5 text-lg font-semibold leading-7 text-neutral-900">
-            Associations
-          </h2>
+        <section className="shrink-0 pt-20">
+          <SectionHeader title="Associations" caption />
           <ul className="grid grid-cols-3 gap-2">
             {FEED_PARTNERS.map((partner) => (
               <li key={partner.id}>
