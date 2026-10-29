@@ -2,6 +2,7 @@
  * IP + geo rate-limited lead submissions (devis / contact / partner).
  * Cloudflare (or any proxy) should forward CF-Connecting-IP / CF-IPCountry when available.
  */
+/// <reference path="../deno.d.ts" />
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -126,7 +127,7 @@ async function enforceRate(
   return { ok: true as const };
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: corsHeaders });
   }
