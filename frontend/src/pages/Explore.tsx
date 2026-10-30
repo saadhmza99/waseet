@@ -209,10 +209,10 @@ const AccountRow = ({
       />
       <span className="min-w-0">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-lg font-semibold text-neutral-950 sm:text-xl">{name}</span>
-          <VerifiedBadge verified={isVerified} className="h-5 w-5 sm:h-6 sm:w-6" />
+          <span className="truncate text-xs font-semibold text-neutral-950 lg:text-lg">{name}</span>
+          <VerifiedBadge verified={isVerified} className="h-4 w-4 sm:h-6 sm:w-6" />
         </span>
-        <span className="mt-1 block truncate text-base text-neutral-400 sm:text-lg">{typeLabel} · {city}</span>
+        <span className="mt-0.5 block truncate text-xs text-neutral-400 sm:text-lg">{typeLabel} · {city}</span>
       </span>
     </button>
     {showFollow ? (

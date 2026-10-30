@@ -1,5 +1,6 @@
 import { hasRealLogoUrl, isMonogramAvatarUrl, NON_REAL_LOGO_FRAGMENTS } from "@/lib/avatar";
 import { clampBio } from "@/lib/bio";
+import { hasReachableEmail, isLandlinePhone, isPromotionImmobiliere } from "@/lib/profileContact";
 import { feedCategoryCodeExcludePrefix, feedCategoryCodePrefix } from "@/lib/taxonomy";
 import { supabase } from '@/lib/supabase';
 
@@ -329,7 +330,8 @@ const listDiscoverRest = async (
   return { rows: ranked.slice(0, restNeed), rawUsed };
 };
 
-/** Hide email always for non-owners; phone only when show_phone (or own profile). */
+/** Hide email always for non-owners. Phone stays hidden unless the member shows it, they are a property developer, or the number is a landline so Appel can be used. */
+
 const maskProfilePii = async <T extends { id?: string; email?: string | null; phone?: string | null }>(
   profile: T | null,
 ): Promise<T | null> => {
@@ -350,10 +352,15 @@ const maskProfilePii = async <T extends { id?: string; email?: string | null; ph
     showPhone = false;
   }
 
+  const profession = (profile as { profession?: string | null }).profession;
+  const rawPhone = profile.phone;
+  const revealPhone = showPhone || isPromotionImmobiliere(profession) || isLandlinePhone(rawPhone);
   return {
     ...profile,
     email: null,
-    phone: showPhone ? profile.phone : null,
+    has_contact_email: hasReachableEmail(profile.email),
+    channel_phone: rawPhone || null,
+    phone: revealPhone ? rawPhone : null,
   };
 };
 

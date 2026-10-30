@@ -104,10 +104,11 @@ const AppLayout = () => {
     const languageAtStart = localStorage.getItem("app_language");
     userSettingsService.loadForAccount(accountId, isVisitor).then((settings) => {
       if (cancelled) return;
-      if (settings.language && localStorage.getItem("app_language") === languageAtStart) {
+      applyDark(Boolean(settings.dark_mode_enabled));
+      if (languageAtStart) return;
+      if (settings.language && settings.language !== "Francais") {
         setLanguage(settings.language);
       }
-      applyDark(Boolean(settings.dark_mode_enabled));
     }).catch(() => {});
     return () => {
       cancelled = true;

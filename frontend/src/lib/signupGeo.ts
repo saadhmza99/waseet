@@ -4,6 +4,12 @@ export type SignupGeo = {
   countryCode: string | null;
 };
 
+/** ISO codes: United States, Canada, United Kingdom, Spain. */
+const ENGLISH_IP_COUNTRIES = new Set(["US", "CA", "GB", "ES"]);
+
+export const prefersEnglishFromCountry = (countryCode?: string | null) =>
+  ENGLISH_IP_COUNTRIES.has((countryCode || "").trim().toUpperCase());
+
 export async function lookupSignupGeo(): Promise<SignupGeo> {
   try {
     const response = await fetch("https://ipwho.is/");

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export type VisitorFormValues = { name: string; phone: string; email: string };
-export type VisitorFormReason = "save" | "comment" | "profile";
+export type VisitorFormReason = "save" | "comment" | "profile" | "contact";
 
 const COPY: Record<VisitorFormReason, { title: string; description: string }> = {
   save: {
@@ -18,13 +18,18 @@ const COPY: Record<VisitorFormReason, { title: string; description: string }> = 
     title: "Continuez sur Sifarah",
     description: "Connectez-vous ou créez un compte pour accéder à votre profil.",
   },
+  contact: {
+    title: "Demander un contact",
+    description: "Connectez-vous ou créez un compte pour envoyer cette demande.",
+  },
 };
 
-const headerIcon = {
+const headerIcon: Record<VisitorFormReason, typeof Heart> = {
   save: Heart,
   comment: MessageCircle,
   profile: UserRound,
-} as const;
+  contact: MessageCircle,
+};
 
 export const VisitorDetailsNote = () => (
   <p className="flex gap-2 rounded-xl bg-[#174f43]/5 px-3 py-2.5 text-left text-xs leading-snug text-[#174f43]">

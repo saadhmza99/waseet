@@ -81,9 +81,9 @@ export const devisService = {
     const { data, error } = await supabase
       .from("devis_requests")
       .select(
-        `id, name, phone, email, city, budget, project_type_label, description, source, source_path, source_label,
-         seller_id, seller_name, service_id, product_id, requester_id, created_at, reply, replied_at,
-         seller:profiles!devis_requests_seller_id_fkey(id, username, full_name)`,
+        `id, name, phone, email, whatsapp, city, budget, project_type_id, project_type_label, description, extras,
+         source, source_path, source_label, seller_id, seller_name, service_id, product_id, requester_id, created_at, reply, replied_at,
+         seller:profiles!devis_requests_seller_id_fkey(id, username, full_name, profession, phone, email, location)`,
       )
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -109,6 +109,8 @@ export const devisPath = (opts?: {
   proType?: string;
   from?: string;
   fromLabel?: string;
+  /** Promotion immobilière: contact request for the admin, not a quote. */
+  contact?: boolean;
 }) => {
   const params = new URLSearchParams();
   if (opts?.sellerId) params.set("sellerId", opts.sellerId);
@@ -117,6 +119,7 @@ export const devisPath = (opts?: {
   if (opts?.productId) params.set("productId", opts.productId);
   if (opts?.projectType) params.set("type", opts.projectType);
   if (opts?.proType) params.set("proType", opts.proType);
+  if (opts?.contact) params.set("contact", "1");
   const from =
     opts?.from ||
     (typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : "");

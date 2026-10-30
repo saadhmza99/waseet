@@ -172,8 +172,10 @@ const Settings = () => {
         setDarkMode(settings.dark_mode_enabled);
         applySavedDark(settings.dark_mode_enabled);
         if (!languageTouched.current) {
-          setLanguage(settings.language);
-          setAppLanguage(settings.language);
+          const chosen = localStorage.getItem("app_language");
+          const next = chosen || settings.language;
+          setLanguage(next);
+          setAppLanguage(next);
         }
         setRegion(settings.region);
         setShowPhone(settings.show_phone);

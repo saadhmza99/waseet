@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { lookupSignupGeo, prefersEnglishFromCountry } from "@/lib/signupGeo";
 
 type TranslationDict = Record<string, string>;
 
@@ -62,6 +63,29 @@ export const AppLanguageProvider = ({ children }: { children: ReactNode }) => {
       /* ignore */
     }
   }, []);
+
+  useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem("app_language");
+    } catch {
+      return;
+    }
+    if (stored) return;
+    let cancelled = false;
+    lookupSignupGeo().then((geo) => {
+      if (cancelled) return;
+      try {
+        if (localStorage.getItem("app_language")) return;
+      } catch {
+        return;
+      }
+      if (prefersEnglishFromCountry(geo.countryCode)) setLanguage("English");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setLanguage]);
 
   useEffect(() => {
     const htmlLang = language === "English" ? "en" : language === "Arabic" ? "ar" : "fr";

@@ -52,6 +52,23 @@ const CONTACT_FILTERS: Array<{ id: ContactFilter; label: string }> = [
 const formatWhen = (value?: string | null) =>
   value ? new Date(value).toLocaleString("fr-MA") : "—";
 
+const EXTRA_LABELS: Record<string, string> = {
+  proType: "Quel pro recherchez-vous ?",
+  proUrgency: "Urgence",
+  proVisit: "Visite terrain nécessaire ?",
+  materialKind: "Type de matériaux",
+  delivery: "Livraison",
+  surface: "Surface approximative",
+  timeline: "Délai souhaité",
+  landStatus: "Terrain",
+};
+
+const filled = (value: unknown) => {
+  if (value == null) return "";
+  const text = String(value).trim();
+  return text;
+};
+
 const profileLabel = (row?: { username?: string | null; full_name?: string | null } | null, fallback = "—") => {
   if (!row) return fallback;
   return (row.full_name || row.username || fallback).trim() || fallback;
@@ -397,6 +414,28 @@ const AdminModeration = () => {
               const seller = Array.isArray(row.seller) ? row.seller[0] : row.seller;
               const fromAccount = row.name || "Demandeur";
               const toAccount = profileLabel(seller, row.seller_name || "Sans destinataire (devis ouvert)");
+              const extras = row.extras && typeof row.extras === "object" ? (row.extras as Record<string, unknown>) : {};
+              const extraRows = Object.entries(extras)
+                .map(([key, value]) => [EXTRA_LABELS[key] || key, filled(value)] as const)
+                .filter(([, value]) => value);
+              const accountFields = [
+                ["Compte", toAccount],
+                ["Profession", filled(seller?.profession)],
+                ["Téléphone du compte", filled(seller?.phone)],
+                ["Email du compte", filled(seller?.email)],
+                ["Ville du compte", filled(seller?.location)],
+              ].filter(([, value]) => value);
+              const requestFields = [
+                ["Type de projet", filled(row.project_type_label)],
+                ["Ville du projet", filled(row.city)],
+                ["Budget", filled(row.budget)],
+                ...extraRows,
+                ["Description", filled(row.description)],
+                ["Nom", filled(row.name)],
+                ["Téléphone", filled(row.phone)],
+                ["Email", filled(row.email)],
+                ["WhatsApp", row.whatsapp === false ? "Non" : "Oui"],
+              ].filter(([, value]) => value);
               return (
                 <article key={row.id} className="rounded-lg border border-border bg-card p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -407,33 +446,56 @@ const AdminModeration = () => {
                       <h2 className="mt-1 text-lg font-semibold text-card-foreground">
                         De {fromAccount} → {toAccount}
                       </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {row.name} · {row.phone}
-                        {row.email ? ` · ${row.email}` : ""} · {row.city}
-                      </p>
                     </div>
                     <span className="text-xs text-muted-foreground">{formatWhen(row.created_at)}</span>
                   </div>
 
-                  <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-sm">
-                    <p>
-                      <span className="font-medium">Clic devis :</span>{" "}
-                      {row.source_label || "—"}
+                  {row.source_label === "Demande de contact" ? (
+                    <p className="mt-3 font-medium text-[#174f43]">
+                      À traiter manuellement : contactez ce promoteur vous-même.
+                    </p>
+                  ) : null}
+
+                  <dl className="mt-3 divide-y divide-border rounded-md border border-border text-sm">
+                    <div className="bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Compte destinataire
+                    </div>
+                    {accountFields.map(([label, value]) => (
+                      <div key={label} className="grid gap-1 px-3 py-2 sm:grid-cols-[11rem_1fr] sm:gap-3">
+                        <dt className="text-muted-foreground">{label}</dt>
+                        <dd className="min-w-0 break-words text-card-foreground">
+                          {label === "Compte" && (seller?.username || seller?.id) ? (
+                            <Link to={`/profile/${seller.username || seller.id}`} className="font-medium text-[#174f43] underline-offset-2 hover:underline">
+                              {value}
+                            </Link>
+                          ) : (
+                            value
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                    <div className="bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Champs remplis
+                    </div>
+                    {requestFields.map(([label, value]) => (
+                      <div key={label} className="grid gap-1 px-3 py-2 sm:grid-cols-[11rem_1fr] sm:gap-3">
+                        <dt className="text-muted-foreground">{label}</dt>
+                        <dd className="min-w-0 whitespace-pre-wrap break-words text-card-foreground">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {row.source_label || row.source_path ? (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      <span className="font-medium">Origine :</span> {row.source_label || "—"}
                       {row.source_path ? (
                         <>
                           {" "}
-                          · page <code className="text-xs">{row.source_path}</code>
+                          · <code className="text-xs">{row.source_path}</code>
                         </>
                       ) : null}
                     </p>
-                    {row.service_id ? <p className="mt-1 text-xs text-muted-foreground">Service id : {row.service_id}</p> : null}
-                    {row.product_id ? <p className="mt-1 text-xs text-muted-foreground">Produit id : {row.product_id}</p> : null}
-                  </div>
-
-                  {row.description ? (
-                    <p className="mt-3 whitespace-pre-wrap text-sm text-card-foreground">{row.description}</p>
                   ) : null}
-                  {row.budget ? <p className="mt-2 text-xs text-muted-foreground">Budget : {row.budget}</p> : null}
                   {row.reply ? (
                     <p className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
                       Réponse pro : {row.reply}

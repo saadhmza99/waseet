@@ -665,7 +665,7 @@ const FeedPost = ({
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1">
-            <button onClick={handleProfileClick} className="min-w-0 truncate text-left text-xl font-semibold leading-tight text-neutral-950 transition-opacity hover:opacity-80">
+            <button onClick={handleProfileClick} className="min-w-0 truncate text-left text-lg font-semibold leading-tight text-neutral-950 transition-opacity hover:opacity-80">
               {displayName}
             </button>
             <VerifiedBadge verified={isVerified} className="h-[18px] w-[18px] shrink-0" />
@@ -804,7 +804,7 @@ const FeedPost = ({
           }}
         >
           <p
-            className={`text-[1.0625rem] leading-6 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden ${
+            className={`text-base leading-6 text-neutral-800 whitespace-pre-wrap break-words overflow-hidden ${
               captionExpanded ? "" : "line-clamp-4"
             }`}
           >
@@ -1008,7 +1008,7 @@ const FeedPost = ({
                   />
                 </button>
                 <div className="flex min-w-0 items-center gap-1">
-                  <button type="button" onClick={handleProfileClick} className="truncate text-lg font-semibold">
+                  <button type="button" onClick={handleProfileClick} className="truncate text-base font-semibold">
                     {displayName}
                   </button>
                   <VerifiedBadge verified={isVerified} className="h-[17px] w-[17px]" />
@@ -1018,7 +1018,7 @@ const FeedPost = ({
                 <>
                   <p
                     ref={viewerCaptionRef}
-                    className={`whitespace-pre-wrap break-words text-base leading-5 ${viewerCaptionExpanded ? "max-h-[40vh] overflow-y-auto" : "line-clamp-2"}`}
+                    className={`whitespace-pre-wrap break-words text-sm leading-5 ${viewerCaptionExpanded ? "max-h-[40vh] overflow-y-auto" : "line-clamp-2"}`}
                   >
                     <TaggedText text={displayDescription} />
                   </p>

@@ -14,6 +14,7 @@ import {
   guessProType,
 } from "@/lib/devisCatalog";
 import { isCompletePhone } from "@/lib/phone";
+import { isPromotionImmobiliere, quoteOutcomeCopy } from "@/lib/profileContact";
 import { isValidEmail, readVisitorContact, storeVisitorContact } from "@/lib/visitorContact";
 import { devisService } from "@/services/devisService";
 import { profileService } from "@/services/profileService";
@@ -72,6 +73,9 @@ const Devis = () => {
   const [contactReady, setContactReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [sellerProfession, setSellerProfession] = useState("");
+  const [sellerPhone, setSellerPhone] = useState("");
+  const [sellerHasEmail, setSellerHasEmail] = useState(false);
+  const [sellerChecked, setSellerChecked] = useState(!sellerId);
 
   const projectType = devisProjectTypeById(projectTypeId);
   const extraFields = useMemo(() => {
@@ -101,6 +105,7 @@ const Devis = () => {
     visibleSteps.findIndex((s) => s.id === step),
   );
   const progress = step === "done" ? 100 : ((stepIndex + 1) / visibleSteps.length) * 100;
+  const promoterBlocked = sellerChecked && Boolean(sellerId) && isPromotionImmobiliere(sellerProfession);
 
   useEffect(() => {
     if (lockedTypeId && step === "type") setStep("details");
@@ -114,12 +119,18 @@ const Devis = () => {
       .then((profile) => {
         if (cancelled || !profile) return;
         setSellerProfession(profile.profession || "");
+        const channels = profile as { has_contact_email?: boolean; channel_phone?: string | null };
+        setSellerPhone(channels.channel_phone || profile.phone || "");
+        setSellerHasEmail(Boolean(channels.has_contact_email));
         if (!presetProType && (lockedTypeId === "trouver-un-pro" || !lockedTypeId)) {
           const guessed = guessProType(profile.profession);
           if (guessed) setExtras((prev) => ({ ...prev, proType: prev.proType || guessed }));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setSellerChecked(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -277,11 +288,15 @@ const Devis = () => {
 
         <div className="mb-8 text-center sm:mb-10">
           <h1 className="mb-3 text-3xl font-semibold tracking-tight text-[#0f2f3d] md:text-4xl">
-            Demandez un devis gratuit
+            {sellerChecked && isPromotionImmobiliere(sellerProfession)
+              ? "Demande de contact"
+              : "Demandez un devis gratuit"}
           </h1>
           <p className="text-base text-neutral-500">
-            Décrivez votre projet en quelques étapes
-            {sellerName ? (
+            {sellerChecked && isPromotionImmobiliere(sellerProfession)
+              ? "Ce promoteur ne passe pas par ce formulaire. Utilisez Demander un contact sur son profil."
+              : "Décrivez votre projet en quelques étapes"}
+            {sellerChecked && isPromotionImmobiliere(sellerProfession) ? null : sellerName ? (
               <>
                 {" "}
                 pour <span className="font-semibold text-neutral-800">{sellerName}</span>
@@ -289,10 +304,22 @@ const Devis = () => {
             ) : (
               " et recevez des réponses de professionnels vérifiés"
             )}
-            .
+            {sellerChecked && isPromotionImmobiliere(sellerProfession) ? null : "."}
           </p>
         </div>
 
+        {promoterBlocked ? (
+          <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-center shadow-sm sm:p-8">
+            <button
+              type="button"
+              onClick={() => navigate(`/profile/${sellerId}`)}
+              className="h-11 rounded-lg bg-[#174f43] px-5 text-sm font-semibold text-white"
+            >
+              Retour au profil
+            </button>
+          </div>
+        ) : (
+        <>
         <div className="mb-8 sm:mb-10">
           <div className="mb-4 flex items-center justify-between">
             {visibleSteps.map((item, index) => {
@@ -645,9 +672,11 @@ const Devis = () => {
               <CheckCircle2 className="mx-auto h-14 w-14 text-[#174f43]" />
               <h2 className="mt-4 text-2xl font-semibold text-neutral-900">Demande envoyée</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-neutral-500">
-                {sellerName
-                  ? `${sellerName} a bien reçu votre demande de devis.`
-                  : "Votre demande est enregistrée. Des professionnels vérifiés pourront vous recontacter."}
+                {sellerId && !isPromotionImmobiliere(sellerProfession)
+                  ? quoteOutcomeCopy({ hasEmail: sellerHasEmail, phone: sellerPhone })
+                  : sellerName
+                    ? `${sellerName} a bien reçu votre demande de devis.`
+                    : "Votre demande est enregistrée. Des professionnels vérifiés pourront vous recontacter."}
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-2">
                 <button
@@ -668,6 +697,8 @@ const Devis = () => {
             </div>
           ) : null}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

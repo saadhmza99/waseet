@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowLeft, Ban, Edit, Flag, Info, LogOut, MapPin, MessageSquare, MoreVertical, Phone, Settings, Share2, Tags, UserPlus, UserCheck, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { RecruitService } from "./InviteToJobModal";
@@ -13,11 +14,17 @@ import { WhatsAppIcon } from "@/components/PostActionIcons";
 import { USERNAMES_ENABLED } from "@/lib/profileHandle";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { getDefaultAvatar } from "@/lib/avatar";
 import { clampBio } from "@/lib/bio";
-import { devisPath } from "@/services/devisService";
+import { isCompletePhone } from "@/lib/phone";
+import { isInstitutionProfession, isLandlinePhone, isPromotionImmobiliere } from "@/lib/profileContact";
+import { readVisitorContact } from "@/lib/visitorContact";
+import { devisPath, devisService } from "@/services/devisService";
 import { showFollowButton } from "@/services/followService";
 import { guessProType } from "@/lib/devisCatalog";
+import { profileService } from "@/services/profileService";
+import { visitorService } from "@/services/visitorService";
 
 /** Kill-switch: hide cover photos. */
 export const COVER_PHOTOS_ENABLED = false;
@@ -116,13 +123,18 @@ const ProfileHeader = ({
   services: _services = [],
 }: ProfileHeaderProps) => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const { requestVisitor, visitorProfile } = useVisitorGate();
+  const [sendingContact, setSendingContact] = useState(false);
   const hasPhone = Boolean(phone && digitsOnly(phone).length >= 6);
   const name =
     (fullName || "").trim() ||
     (USERNAMES_ENABLED ? (username || "").trim() : "") ||
     "Profil";
   const agency = (profession || "").trim();
+  const contactRequest = isPromotionImmobiliere(profession);
+  const hideQuoteButton = isInstitutionProfession(profession);
+  const landline = isLandlinePhone(phone);
   const place = locationSummary(location);
   const bioText = clampBio(bio);
 
@@ -148,6 +160,63 @@ const ProfileHeader = ({
       return;
     }
     window.location.href = `sms:${digitsOnly(phone)}`;
+  };
+
+  const requestPromoterContact = async () => {
+    if (!profileId || sendingContact) return;
+    const account = await requestVisitor("contact");
+    if (!account) return;
+    setSendingContact(true);
+    try {
+      const stored = readVisitorContact();
+      let requesterName = stored.name.trim();
+      let requesterPhone = stored.phone.trim();
+      let requesterEmail = stored.email.trim();
+      if (user && account.id === user.id) {
+        const mine = await profileService.getProfile(user.id);
+        requesterName = (mine?.full_name || "").trim() || requesterName;
+        requesterPhone = (mine?.phone || "").trim() || requesterPhone;
+        requesterEmail = (mine?.email || user.email || "").trim() || requesterEmail;
+      } else {
+        const details = visitorProfile ?? (await visitorService.getMine(account.id).catch(() => null));
+        requesterName = details?.name?.trim() || requesterName;
+        requesterPhone = details?.phone?.trim() || requesterPhone;
+        requesterEmail = details?.email?.trim() || requesterEmail;
+      }
+      if (!requesterName || !isCompletePhone(requesterPhone)) {
+        toast({
+          title: "Coordonnées manquantes",
+          description: "Ajoutez votre nom et votre téléphone pour envoyer la demande.",
+        });
+        return;
+      }
+      const placeLine = (location || "").split(/\n+/).map((item) => item.trim()).find(Boolean) || "";
+      const city = placeLine.split(",")[0]?.trim() || "Non précisée";
+      await devisService.create({
+        projectTypeId: "demande-contact",
+        projectTypeLabel: "Demande de contact",
+        city,
+        name: requesterName,
+        phone: requesterPhone,
+        email: requesterEmail,
+        whatsapp: false,
+        sellerId: profileId,
+        sellerName: name,
+        source: "profile",
+        sourcePath: `/profile/${username}`,
+        sourceLabel: "Demande de contact",
+        description: "Demande de contact promoteur, à traiter manuellement.",
+      });
+      toast({
+        title: "Demande envoyée",
+        description: "Votre demande de contact a été transmise. Elle sera traitée manuellement.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Erreur", description: "Impossible d'envoyer la demande. Réessayez." });
+    } finally {
+      setSendingContact(false);
+    }
   };
 
   const shareProfile = async () => {
@@ -350,10 +419,15 @@ const ProfileHeader = ({
 
           const primaryActions = (
             <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:gap-2.5">
-              {!isOwnProfile ? (
+              {!isOwnProfile && !hideQuoteButton ? (
                 <button
                   type="button"
-                  onClick={() =>
+                  disabled={sendingContact}
+                  onClick={() => {
+                    if (contactRequest) {
+                      void requestPromoterContact();
+                      return;
+                    }
                     navigate(
                       devisPath({
                         sellerId: profileId,
@@ -361,14 +435,24 @@ const ProfileHeader = ({
                         proType: guessProType(profession),
                         fromLabel: "Profil",
                       }),
-                    )
-                  }
-                  className={`${actionPill} border-emerald-800 bg-emerald-800 text-white shadow-md hover:bg-emerald-900`}
+                    );
+                  }}
+                  className={`${actionPill} border-emerald-800 bg-emerald-800 text-white shadow-md hover:bg-emerald-900 disabled:opacity-60`}
                 >
-                  <span className="truncate">Demander devis</span>
+                  <span className="truncate">{contactRequest ? "Demander un contact" : "Demander devis"}</span>
                 </button>
               ) : null}
-              {!isOwnProfile ? (
+              {!isOwnProfile && landline ? (
+                <button
+                  type="button"
+                  onClick={openCall}
+                  className={`${actionPill} border-border bg-white text-foreground hover:bg-muted`}
+                >
+                  <Phone className="h-5 w-5 shrink-0" />
+                  <span className="truncate">Appel</span>
+                </button>
+              ) : null}
+              {!isOwnProfile && !landline ? (
                 <button
                   type="button"
                   onClick={openWhatsApp}
