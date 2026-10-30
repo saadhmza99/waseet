@@ -255,9 +255,9 @@ export const FeedPartnersRail = ({ firms = RECOMMENDED_FIRMS }: { firms?: Spotli
   const featuredFirms = firms.length ? firms : RECOMMENDED_FIRMS;
 
   return (
-    <aside className="hidden w-[22rem] shrink-0 xl:block">
-      <div className="sticky top-1 flex max-h-[calc(100vh-0.25rem)] flex-col gap-8 pb-8">
-        <section className="shrink-0 pt-20">
+    <aside className="hidden w-[22rem] shrink-0 self-start xl:block">
+      <div className="flex flex-col gap-8 pb-8">
+        <section className="pt-20">
           <SectionHeader title="Associations" caption />
           <ul className="grid grid-cols-3 gap-2">
             {FEED_PARTNERS.map((partner) => (
@@ -274,14 +274,14 @@ export const FeedPartnersRail = ({ firms = RECOMMENDED_FIRMS }: { firms?: Spotli
           </ul>
         </section>
 
-        <section className="flex min-h-0 flex-1 flex-col">
+        <section>
           <SectionHeader
             title="Entreprises recommandées"
             actionLabel="Voir toutes"
             onAction={() => navigate("/explore")}
             caption
           />
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]">
+          <div className="flex flex-col gap-2.5">
             {featuredFirms.map((firm) => (
               <SpotlightFirmCard key={firm.id} firm={firm} />
             ))}
