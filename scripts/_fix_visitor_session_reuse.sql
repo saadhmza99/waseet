@@ -104,7 +104,13 @@ END;
 $$;
 
 -- Count distinct browsers for "active" / sessions (not duplicated rows).
-CREATE OR REPLACE FUNCTION public.admin_visitor_analytics(p_range TEXT DEFAULT 'today')
+-- p_active_minutes drives "Navigateurs actifs" (15, 30, then each hour up to 24).
+DROP FUNCTION IF EXISTS public.admin_visitor_analytics(TEXT);
+
+CREATE OR REPLACE FUNCTION public.admin_visitor_analytics(
+  p_range TEXT DEFAULT 'today',
+  p_active_minutes INTEGER DEFAULT 15
+)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -114,7 +120,8 @@ DECLARE
   v_uid UUID := auth.uid();
   v_from TIMESTAMPTZ;
   v_to TIMESTAMPTZ := NOW();
-  v_active_cut TIMESTAMPTZ := NOW() - INTERVAL '15 minutes';
+  v_minutes INTEGER := LEAST(1440, GREATEST(15, COALESCE(p_active_minutes, 15)));
+  v_active_cut TIMESTAMPTZ := NOW() - (v_minutes * INTERVAL '1 minute');
   v_result JSONB;
 BEGIN
   IF v_uid IS NULL OR NOT EXISTS (
@@ -210,6 +217,7 @@ BEGIN
     'from', v_from,
     'to', v_to,
     'generated_at', NOW(),
+    'active_minutes', v_minutes,
     'active_sessions', (
       SELECT count(DISTINCT client_key)::int
       FROM public.visitor_sessions
@@ -237,3 +245,7 @@ BEGIN
   RETURN v_result;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.admin_visitor_analytics(TEXT, INTEGER) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_visitor_analytics(TEXT, INTEGER) TO authenticated;
+NOTIFY pgrst, 'reload schema';

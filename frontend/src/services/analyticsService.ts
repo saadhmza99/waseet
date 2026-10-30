@@ -21,6 +21,7 @@ export type VisitorAnalytics = {
   from: string;
   to: string;
   generated_at: string;
+  active_minutes: number;
   active_sessions: number;
   sessions: number;
   visitors: number;
@@ -36,9 +37,10 @@ export type VisitorAnalytics = {
 };
 
 export const analyticsService = {
-  async getOverview(range: AnalyticsRange): Promise<VisitorAnalytics> {
+  async getOverview(range: AnalyticsRange, activeMinutes = 15): Promise<VisitorAnalytics> {
     const { data, error } = await supabase.rpc("admin_visitor_analytics", {
       p_range: range,
+      p_active_minutes: activeMinutes,
     });
     if (error) throw error;
     const row = (data || {}) as Partial<VisitorAnalytics>;
@@ -47,6 +49,7 @@ export const analyticsService = {
       from: String(row.from || ""),
       to: String(row.to || ""),
       generated_at: String(row.generated_at || ""),
+      active_minutes: Number(row.active_minutes || activeMinutes),
       active_sessions: Number(row.active_sessions || 0),
       sessions: Number(row.sessions || 0),
       visitors: Number(row.visitors || 0),

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { moderationService } from "@/services/moderationService";
@@ -17,6 +17,21 @@ const RANGES: Array<{ id: AnalyticsRange; label: string }> = [
   { id: "week", label: "7 jours" },
   { id: "month", label: "30 jours" },
 ];
+
+/** 15 min, 30 min, then every hour through 24 h. */
+const ACTIVE_WINDOWS = [15, 30, ...Array.from({ length: 24 }, (_, hour) => (hour + 1) * 60)];
+
+const activeWindowLabel = (minutes: number) => {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return hours === 1 ? "1 h" : `${hours} h`;
+};
+
+const activeWindowPhrase = (minutes: number) => {
+  if (minutes < 60) return `les ${minutes} dernières minutes`;
+  if (minutes === 60) return "la dernière heure";
+  return `les ${minutes / 60} dernières heures`;
+};
 
 const formatDuration = (ms: number) => {
   const totalSec = Math.max(0, Math.round(Number(ms || 0) / 1000));
@@ -42,30 +57,38 @@ const AdminAnalytics = () => {
   const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<AnalyticsRange>("today");
+  const [activeMinutes, setActiveMinutes] = useState(15);
   const [data, setData] = useState<VisitorAnalytics | null>(null);
+  const requestSeq = useRef(0);
 
-  const load = async (nextRange: AnalyticsRange = range) => {
+  const load = async (nextRange: AnalyticsRange = range, minutes: number = activeMinutes) => {
     if (!user) return;
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const moderator = await moderationService.isModerator(user.id);
+      if (seq !== requestSeq.current) return;
       setIsModerator(moderator);
       if (!moderator) {
         setData(null);
         return;
       }
-      setData(await analyticsService.getOverview(nextRange));
+      const next = await analyticsService.getOverview(nextRange, minutes);
+      if (seq !== requestSeq.current) return;
+      setData(next);
     } catch (error) {
+      if (seq !== requestSeq.current) return;
       console.error("Error loading analytics:", error);
       toast({ title: "Erreur", description: "Impossible de charger les statistiques visiteurs." });
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    void load(range);
-  }, [user?.id, range]);
+    const timer = window.setTimeout(() => void load(range, activeMinutes), 180);
+    return () => window.clearTimeout(timer);
+  }, [user?.id, range, activeMinutes]);
 
   if (!user) {
     return <div className="p-6 text-muted-foreground">Connexion requise.</div>;
@@ -94,7 +117,7 @@ const AdminAnalytics = () => {
           <Button asChild variant="outline">
             <Link to="/admin/moderation">Modération</Link>
           </Button>
-          <Button type="button" variant="outline" onClick={() => void load(range)} disabled={loading}>
+          <Button type="button" variant="outline" onClick={() => void load(range, activeMinutes)} disabled={loading}>
             Actualiser
           </Button>
         </div>
@@ -122,11 +145,38 @@ const AdminAnalytics = () => {
       ) : data ? (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard
-              label="Navigateurs actifs"
-              value={data.active_sessions}
-              hint="Navigateurs distincts vus dans les 15 dernières minutes (localhost compte aussi)"
-            />
+            <div className="col-span-2 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Navigateurs actifs</p>
+                  <p className="mt-2 text-3xl font-semibold tabular-nums text-neutral-950">{data.active_sessions}</p>
+                </div>
+                <p className="text-sm font-semibold text-[#174f43]">{activeWindowLabel(activeMinutes)}</p>
+              </div>
+              <label className="mt-4 block">
+                <span className="sr-only">Fenêtre des navigateurs actifs</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={ACTIVE_WINDOWS.length - 1}
+                  step={1}
+                  value={Math.max(0, ACTIVE_WINDOWS.indexOf(activeMinutes))}
+                  onChange={(event) => setActiveMinutes(ACTIVE_WINDOWS[Number(event.target.value)] ?? 15)}
+                  aria-valuetext={activeWindowLabel(activeMinutes)}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-neutral-200 accent-[#174f43]"
+                />
+              </label>
+              <div className="mt-1 flex justify-between text-[11px] font-medium text-neutral-400">
+                <span>15 min</span>
+                <span>1 h</span>
+                <span>6 h</span>
+                <span>12 h</span>
+                <span>24 h</span>
+              </div>
+              <p className="mt-2 text-xs text-neutral-500">
+                Navigateurs distincts vus pendant {activeWindowPhrase(activeMinutes)} (localhost compte aussi)
+              </p>
+            </div>
             <StatCard
               label={range === "active" ? "Navigateurs (période)" : "Sessions (navigateurs)"}
               value={data.sessions}
