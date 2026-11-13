@@ -166,7 +166,7 @@ const ServicePage = () => {
                 }
                 className="h-11 rounded-lg bg-[#174f43] text-base font-semibold text-white"
               >
-                {isOwn ? "Modifier" : "Demander un devis"}
+                {isOwn ? "Modifier" : "Demande devis gratuit"}
               </button>
               <button type="button" onClick={() => setContactOpen(true)} className="h-11 rounded-lg border border-neutral-300 text-base font-semibold">
                 Demander plus d'informations
@@ -237,25 +237,6 @@ const ServicePage = () => {
                 ))}
               </div>
             ) : null}
-            {(profile?.phone || profile?.email) && (
-              <div className="rounded-xl border border-neutral-200 bg-[#f8faf8] px-4 py-3 text-base text-neutral-700">
-                <p className="font-semibold text-neutral-900">Contact</p>
-                {profile.phone ? (
-                  <p className="mt-1.5">
-                    <a href={`tel:${profile.phone}`} className="font-medium text-[#174f43]">
-                      {profile.phone}
-                    </a>
-                  </p>
-                ) : null}
-                {profile.email ? (
-                  <p className="mt-1">
-                    <a href={`mailto:${profile.email}`} className="font-medium text-[#174f43]">
-                      {profile.email}
-                    </a>
-                  </p>
-                ) : null}
-              </div>
-            )}
             <InquiryDialog
               open={contactOpen}
               onOpenChange={setContactOpen}

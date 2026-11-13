@@ -110,7 +110,7 @@ export const ServiceCard = ({
           onClick={isOwn ? () => navigate(`/service/${row.id}/modifier`) : openDevis}
           className="h-10 rounded-lg bg-[#174f43] text-sm font-semibold text-white"
         >
-          {isOwn ? "Modifier" : "Demander devis"}
+          {isOwn ? "Modifier" : "Demande devis gratuit"}
         </button>
         <button type="button" onClick={() => setContactOpen(true)} className="h-10 rounded-lg border border-neutral-300 text-sm font-semibold">
           Demander plus d'informations

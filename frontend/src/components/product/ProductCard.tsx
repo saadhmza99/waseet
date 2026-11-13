@@ -103,7 +103,7 @@ export const ProductCard = ({ row, onDeleted }: ProductCardProps) => {
             }
             className="h-10 w-full rounded-lg bg-[#174f43] text-sm font-semibold text-white sm:h-11 sm:text-base"
           >
-            Demander devis
+            Demande devis gratuit
           </button>
         )}
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:gap-2.5">

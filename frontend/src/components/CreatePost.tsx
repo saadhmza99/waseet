@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Building2, FolderKanban, Images, LayoutGrid, Package, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import PartnerDemandDialog, { PAID_PLAN_REQUEST } from "@/components/PartnerDemandDialog";
+import PartnerDemandDialog from "@/components/PartnerDemandDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisitorGate } from "@/contexts/VisitorGateContext";
 import { catalogService } from "@/services/catalogService";
@@ -104,7 +104,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
   const particulier = Boolean(visitorUser && !user);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(startOpen);
-  const [postType, setPostType] = useState<CreateKind>("standard");
+  const [postType, setPostType] = useState<CreateKind>("service");
   const [publishTo, setPublishTo] = useState<PublishDestination>("both");
   const [postText, setPostText] = useState("");
   const [title, setTitle] = useState("");
@@ -158,9 +158,12 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
   const visiblePostTypes = useMemo(() => {
     if (particulier) return postTypes.filter((type) => type.id === "property");
+    if (!user) return postTypes;
     if (!profileSections) return [];
-    return postTypes.filter((type) => createKindAllowed(type.id, profileSections));
-  }, [particulier, profileSections]);
+    const allowed = postTypes.filter((type) => createKindAllowed(type.id, profileSections));
+    if (allowed.some((type) => type.id === "standard")) return allowed;
+    return [postTypes[0], ...allowed];
+  }, [particulier, user, profileSections]);
 
   useEffect(() => {
     if (!visiblePostTypes.length) return;
@@ -183,7 +186,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
     setCity("");
     setSelectedImages([]);
     setSelectedFiles([]);
-    setPostType("standard");
+    setPostType("service");
     setPublishTo("both");
     setIsOpen(false);
     onClose?.();
@@ -283,45 +286,21 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
   if (!isOpen) {
     if (hideLauncher) return null;
-    if (isGuest) {
-      return (
-        <div className="border-b border-neutral-200 bg-white px-3 py-3 sm:px-4 sm:py-4">
-          <div className="mx-auto max-w-2xl space-y-2.5 rounded-xl border border-[#174f43]/20 bg-[#174f43]/5 p-3 sm:space-y-3.5 sm:p-5">
-            <p className="px-0.5 text-[15px] leading-relaxed text-neutral-700 sm:text-base">
-              {PAID_PLAN_REQUEST}
-            </p>
-            <button
-              type="button"
-              onClick={() => setPartnerOpen(true)}
-              className="flex w-full items-center gap-2.5 rounded-xl bg-[#174f43] px-3.5 py-2.5 text-left text-white shadow-sm transition hover:bg-[#123d34] sm:gap-3.5 sm:px-5 sm:py-4"
-            >
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-12 sm:w-12">
-                <Plus className="h-4 w-4 sm:h-6 sm:w-6" strokeWidth={2.5} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold sm:text-lg">Demander les détails du plan</span>
-              </span>
-            </button>
-          </div>
-          <PartnerDemandDialog open={partnerOpen} onOpenChange={setPartnerOpen} />
-        </div>
-      );
-    }
     return (
       <div className="border-b border-neutral-200 bg-white px-3 py-3 sm:px-4">
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-xl bg-[#174f43] px-4 py-3 text-left text-white shadow-sm transition hover:bg-[#123d34]"
+          className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-xl bg-[#174f43] px-4 py-4 text-left text-white shadow-sm transition hover:bg-[#123d34]"
         >
           <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
             <Plus className="h-5 w-5" strokeWidth={2.5} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold sm:text-base">
+            <span className="block text-base font-semibold">
               {particulier ? "Publier un bien" : "Créer une publication"}
             </span>
-            <span className="block truncate text-xs text-white/80">
+            <span className="block truncate text-sm text-white/80">
               {particulier ? "Jusqu’à 3 biens dans votre portfolio" : "Publication, projet, service, produit…"}
             </span>
           </span>
@@ -386,7 +365,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8">
         <div className="mx-auto max-w-2xl space-y-5">
-          {!particulier ? (
+          {!particulier && postType !== "standard" && postType !== "service" && postType !== "project" && postType !== "product" ? (
           <div>
             <p className="mb-2 text-sm font-semibold text-card-foreground">Ajouter des photos</p>
             <div className="flex flex-wrap gap-2">
@@ -463,9 +442,9 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 Un particulier publie jusqu'à 3 biens, uniquement dans son portfolio.
               </p>
-            ) : !profileSections ? (
+            ) : !user ? null : !profileSections ? (
               <p className="mt-2 text-xs leading-snug text-muted-foreground">Chargement des types disponibles…</p>
-            ) : !visiblePostTypes.length ? (
+            ) : postType === "standard" ? null : !visiblePostTypes.length ? (
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 La publication sur le fil est réservée aux profils vérifiés (badge bleu). Les autres types dépendent de vos spécialités.
               </p>
@@ -476,7 +455,18 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
             ) : null}
           </div>
 
-          {!particulier && (postType === "property" || postType === "project") ? (
+          {!particulier && postType === "standard" ? (
+            <div className="space-y-3">
+              <p className="text-base font-semibold text-neutral-900">Réservé à nos partenaires</p>
+              <button
+                type="button"
+                onClick={() => setPartnerOpen(true)}
+                className="flex h-11 w-full items-center justify-center rounded-xl bg-[#174f43] text-sm font-semibold text-white hover:bg-[#123d34]"
+              >
+                Devenir notre partenaire
+              </button>
+            </div>
+          ) : !particulier && (postType === "property" || postType === "project") ? (
             <div>
               <p className="mb-2 text-sm font-semibold text-card-foreground">Où publier ?</p>
               <div className="grid grid-cols-3 gap-2">
@@ -499,7 +489,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
             </div>
           ) : null}
 
-          {postType === "property" ? (
+          {postType === "standard" || postType === "service" || postType === "project" || postType === "product" ? null : postType === "property" ? (
             <PropertyListingWizard
               onCancel={resetForm}
               submitLabel="Publier"
@@ -588,7 +578,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
         </div>
       </div>
 
-      {postType !== "property" ? (
+      {postType === "realisation" ? (
         <div className="border-t border-border px-4 py-4 sm:px-8">
           <div className="mx-auto flex max-w-2xl items-center justify-center gap-3">
             <Button type="button" variant="outline" onClick={resetForm}>
@@ -624,6 +614,7 @@ const CreatePost = ({ onPostCreated, hideLauncher = false, startOpen = false, on
         </form>
       </DialogContent>
     </Dialog>
+    <PartnerDemandDialog open={partnerOpen} onOpenChange={setPartnerOpen} title="Devenir notre partenaire" />
     </>,
     document.body
   );

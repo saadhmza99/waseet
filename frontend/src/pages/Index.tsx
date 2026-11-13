@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import FeedPost from "@/components/FeedPost";
 import CreatePost from "@/components/CreatePost";
 import SponsoredBanner from "@/components/SponsoredBanner";
@@ -26,6 +26,7 @@ import { FEED_BANNER_ROTATION_MS, feedBannerService } from "@/services/feedBanne
 import { profileService } from "@/services/profileService";
 import discoverCoast from "@/assets/discover-coast.jpg";
 import discoverKasbah from "@/assets/discover-kasbah.jpg";
+import { CategoryPicker, PRIVATE_MARKET_CATEGORIES } from "@/components/CategoryPicker";
 import { FilterChips } from "@/components/FilterChips";
 import FeedDesktopRail from "@/components/FeedDesktopRail";
 import { FeedFirmsStrip, FeedPartnersRail, RECOMMENDED_FIRMS } from "@/components/FeedSpotlight";
@@ -72,7 +73,7 @@ const givenName = (value: string) => {
   return first;
 };
 
-type FeedView = "all" | "projets" | "biens" | "services" | "marche";
+type FeedView = "all" | "prive" | "projets" | "biens" | "services" | "marche";
 
 type TaxonomyPost = {
   post_type?: string | null;
@@ -117,6 +118,43 @@ const isPressePost = (post: any) => {
   return Boolean(username) && PRESSE_USERNAMES.has(username);
 };
 
+const isTgccPost = (post: any) =>
+  String(post?.profiles?.username || post?.username || "")
+    .trim()
+    .toLowerCase() === "tgcc";
+
+/** Accueil publications: hide company and particulier posts for now. TGCC stays, pinned fourth. */
+const isHiddenEnterprisePost = (post: any) => {
+  if (isTgccPost(post)) return false;
+  const type = post?.profiles?.profile_type;
+  if (type !== "enterprise" && type !== "individual") return false;
+  return !isPressePost(post);
+};
+
+const isBtpNewsPost = (post: any) =>
+  String(post?.profiles?.username || post?.username || "")
+    .trim()
+    .toLowerCase() === "btp-news";
+
+/** Accueil: the BTP News post leads the feed. */
+const withBtpNewsFirst = <T,>(posts: T[]): T[] => {
+  const idx = posts.findIndex((post) => isBtpNewsPost(post));
+  if (idx <= 0) return posts;
+  const next = posts.slice();
+  const [lead] = next.splice(idx, 1);
+  next.unshift(lead);
+  return next;
+};
+
+const withTgccFourth = <T,>(posts: T[]): T[] => {
+  const idx = posts.findIndex((post) => isTgccPost(post));
+  if (idx < 0) return posts;
+  const next = posts.slice();
+  const [tgcc] = next.splice(idx, 1);
+  next.splice(Math.min(3, next.length), 0, tgcc);
+  return next;
+};
+
 /** [lead non-presse][presse][rest…] when a presse post is available. */
 const withPresseSecond = <T,>(posts: T[]): T[] => {
   if (posts.length < 2) return posts;
@@ -149,7 +187,7 @@ const Index = () => {
   const vue = searchParams.get("vue");
   const feedFil = searchParams.get("fil") === "articles" ? "articles" : "publications";
   const feedView: FeedView =
-    vue === "projets" || vue === "biens" || vue === "services" || vue === "marche" ? vue : "all";
+    vue === "prive" || vue === "projets" || vue === "biens" || vue === "services" || vue === "marche" ? vue : "all";
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [projectsUnlockOpen, setProjectsUnlockOpen] = useState(false);
   const [projectStageIdx, setProjectStageIdx] = useState(0);
@@ -500,8 +538,8 @@ const Index = () => {
   const buildFeed = (): ReactElement[] => {
     const feed: ReactElement[] = [];
     const banners = getSponsoredBanners();
-    const matched = allPosts.filter(matchesPost);
-    const posts = feedView === "all" ? withPresseSecond(matched) : matched;
+    const matched = allPosts.filter((post) => matchesPost(post) && !isHiddenEnterprisePost(post));
+    const posts = feedView === "all" ? withTgccFourth(withBtpNewsFirst(withPresseSecond(matched))) : matched;
     if (feedView === "services") {
       const annonces = feedListings;
       if (!annonces.length) return [];
@@ -632,6 +670,48 @@ const Index = () => {
     return feed;
   };
 
+  const openHomeSection = (id: "all" | "prive" | "projets" | "marche" | "opportunites" | "federations" | "contact") => {
+    if (id === "federations") {
+      navigate("/federations");
+      return;
+    }
+    if (id === "contact") {
+      navigate("/contact");
+      return;
+    }
+    if (id === "opportunites") {
+      navigate("/opportunites");
+      return;
+    }
+    if (id === "prive") {
+      const next = new URLSearchParams(searchParams);
+      if (feedView === "prive") next.delete("vue");
+      else next.set("vue", "prive");
+      next.delete("fil");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (id === "marche") {
+      navigate("/produits");
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    if (id === "all") next.delete("vue");
+    else if (feedView === id) next.delete("vue");
+    else next.set("vue", id);
+    setSearchParams(next, { replace: true });
+  };
+
+  const homeSections = [
+    { id: "all" as const, label: "Accueil", desktopLabel: "Accueil" },
+    { id: "prive" as const, label: "Marché privé", desktopLabel: "Marché privé" },
+    { id: "opportunites" as const, label: "Opportunités", desktopLabel: "Opportunités du marché" },
+    ...(isAdmin
+      ? [{ id: "federations" as const, label: "Fédérations", desktopLabel: "Fédérations", desktopOnly: true as const }]
+      : []),
+    { id: "contact" as const, label: "Contactez-nous", desktopLabel: "Contactez-nous", desktopOnly: true as const },
+  ];
+
   return (
     <div
       className="min-h-screen bg-white pb-4 lg:pb-0"
@@ -648,62 +728,20 @@ const Index = () => {
         }`}
       >
       <div className="flex min-w-0 w-full flex-col xl:flex-1">
-        <div className="order-1 mb-[1.5vh] border-b border-neutral-200 px-[1vh] lg:mb-4 lg:px-0">
-          <div className="flex min-w-0 items-end overflow-x-auto [scrollbar-width:none] lg:gap-1 [&::-webkit-scrollbar]:hidden">
-            {[
-              { id: "all" as const, label: "Accueil", order: "order-1" },
-              { id: "projets" as const, label: "Projets", order: "order-2" },
-              { id: "marche" as const, label: "Matériaux", mobileLabel: "Produits", order: "order-3" },
-              { id: "opportunites" as const, label: "Opportunités", order: "order-4" },
-              ...(isAdmin
-                ? [{ id: "federations" as const, label: "Fédérations", order: "order-5", desktopOnly: true }]
-                : []),
-              { id: "contact" as const, label: "Contactez-nous", order: "order-6", desktopOnly: true },
-            ].map((item) => {
-              const active = item.id !== "opportunites" && item.id !== "federations" && item.id !== "contact" && feedView === item.id;
+        <div className="order-1 mb-[1.5vh] border-b border-neutral-200 px-[1vh] lg:hidden">
+          <div className="flex min-w-0 items-end overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {homeSections.filter((item) => !("desktopOnly" in item && item.desktopOnly)).map((item) => {
+              const active = item.id === "prive" ? feedView === "prive" || feedView === "projets" : item.id !== "opportunites" && feedView === item.id;
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => {
-                    if (item.id === "federations") {
-                      navigate("/federations");
-                      return;
-                    }
-                    if (item.id === "contact") {
-                      navigate("/contact");
-                      return;
-                    }
-                    if (item.id === "opportunites") {
-                      navigate("/opportunites");
-                      return;
-                    }
-                    if (item.id === "marche") {
-                      navigate("/produits");
-                      return;
-                    }
-                    const next = new URLSearchParams(searchParams);
-                    if (item.id === "all") {
-                      next.delete("vue");
-                    } else if (feedView === item.id) {
-                      next.delete("vue");
-                    } else {
-                      next.set("vue", item.id);
-                    }
-                    setSearchParams(next, { replace: true });
-                  }}
-                  className={`${"desktopOnly" in item && item.desktopOnly ? "hidden lg:flex" : "flex"} flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.45vh] py-[1.75vh] text-[1.8vh] font-semibold lg:flex-none lg:shrink-0 lg:px-3.5 lg:py-3.5 lg:text-lg ${item.order} ${
-                    active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-900"
+                  onClick={() => openHomeSection(item.id)}
+                  className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-[0.45vh] py-[1.75vh] text-[1.8vh] font-semibold ${
+                    active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500"
                   }`}
                 >
-                  {"mobileLabel" in item && item.mobileLabel ? (
-                    <>
-                      <span className="lg:hidden">{item.mobileLabel}</span>
-                      <span className="hidden lg:inline">{item.label}</span>
-                    </>
-                  ) : (
-                    item.label
-                  )}
+                  {item.label}
                 </button>
               );
             })}
@@ -742,7 +780,58 @@ const Index = () => {
         </section>
         ) : null}
 
-        <div className={`order-3${feedView === "all" ? " xl:-ml-[46px] 2xl:ml-[calc(31.56rem_-_36vw_+_2px)]" : ""}`}>
+        <div
+          className={`order-2 mb-4 hidden gap-3 lg:grid ${
+            homeSections.length >= 6 ? "lg:grid-cols-3 xl:grid-cols-6" : homeSections.length === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"
+          } ${
+            feedView !== "projets"
+              ? "xl:-ml-[54px] xl:w-[calc(100%_+_4rem_-_2px)] 2xl:ml-[calc(31.06rem_-_36vw_+_2px)] 2xl:w-[calc(100%_+_36vw_-_30.56rem_-_2px)]"
+              : ""
+          }`}
+        >
+          {homeSections.map((item) => {
+            const active =
+              item.id === "prive"
+                ? feedView === "prive" || feedView === "projets"
+                : item.id !== "opportunites" && item.id !== "federations" && item.id !== "contact" && feedView === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openHomeSection(item.id)}
+                className={`flex min-h-[6.75rem] items-center justify-center rounded-xl border px-4 py-4 text-center text-lg font-medium leading-snug ${
+                  active
+                    ? "border-[#174f43] bg-[#174f43] text-white"
+                    : "border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50"
+                }`}
+              >
+                {item.desktopLabel}
+              </button>
+            );
+          })}
+        </div>
+
+        {feedView === "prive" ? (
+          <div className="order-3 px-3 pb-8 lg:px-0">
+            <CategoryPicker
+              open
+              embedded
+              showTrigger={false}
+              showAll={false}
+              size="lg"
+              comfortable
+              onToggle={() => openHomeSection("prive")}
+              selectedLabel={null}
+              categories={PRIVATE_MARKET_CATEGORIES}
+              onSelect={(id) => {
+                if (id === "materiaux") navigate("/produits");
+                else if (id === "projets") navigate("/?vue=projets");
+              }}
+            />
+          </div>
+        ) : null}
+
+        <div className={`order-3${feedView === "prive" ? " hidden" : ""}${feedView === "all" ? " xl:-ml-[46px] 2xl:ml-[calc(31.56rem_-_36vw_+_2px)]" : ""}`}>
         {/* Create Post */}
         {feedView === "all" || feedView === "services" ? (
           <CreatePost
@@ -828,24 +917,27 @@ const Index = () => {
         ) : null}
         {feedView === "projets" ? (
           <div className="space-y-3 px-3 pb-4 lg:relative lg:left-1/2 lg:w-[min(80rem,calc(100vw-19rem))] lg:-translate-x-1/2 lg:px-0">
+            <button
+              type="button"
+              onClick={() => navigate("/?vue=prive")}
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#174f43]"
+              aria-label="Retour"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              Retour
+            </button>
             <div>
               <div className="flex flex-col items-start gap-3 lg:flex-row">
                 <div className="min-w-0 w-full flex-1 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 sm:px-5">
                   <p className="text-sm leading-relaxed text-amber-950 lg:text-lg">
-                    Sélection limitée : seuls 40 projets sont affichés ici.
-                  </p>
-                  <p className="mt-3 text-sm leading-relaxed text-amber-950 lg:text-lg">
-                    Débloquez l'accès complet aux fiches de <span className="font-bold">477</span> projets, aux documents et aux équipes BTP ayant participé.
-                  </p>
-                  <p className="mt-3 text-sm leading-relaxed text-amber-950 lg:text-lg">
-                    Accédez en priorité aux opportunités de participation sur les projets sur plan ou en cours de construction.
+                    Accédez en priorité aux opportunités de participation sur les projets sur plan ou en cours de construction. Débloquez l'accès complet aux fiches de <span className="font-bold">477</span> projets, CPS et détails.
                   </p>
                   <button
                     type="button"
                     onClick={() => setProjectsUnlockOpen(true)}
                     className="mt-3 inline-flex items-center justify-center rounded-xl bg-[#174f43] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123d34]"
                   >
-                    Demander les détails du plan payant
+                    Accéder en priorité
                   </button>
                 </div>
               </div>

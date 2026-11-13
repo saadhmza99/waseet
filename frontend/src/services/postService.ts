@@ -102,24 +102,65 @@ const mapFeedRow = (row: any) => ({
 const withAuthorTypes = async (posts: any[]) => {
   const ids = [...new Set(posts.map((post) => post.user_id).filter(Boolean))];
   if (!ids.length) return posts;
-  const { data, error } = await supabase.from("profiles").select("id, profile_type").in("id", ids);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, profile_type, institution_kind")
+    .in("id", ids);
   if (error || !data) return posts;
-  const types = new Map(data.map((row) => [row.id, row.profile_type]));
-  return posts.map((post) => ({
-    ...post,
-    profiles: {
-      ...(post.profiles || {}),
-      profile_type: types.get(post.user_id) ?? post.profiles?.profile_type ?? null,
-    },
-  }));
+  const authors = new Map(data.map((row) => [row.id, row]));
+  return posts.map((post) => {
+    const author = authors.get(post.user_id);
+    return {
+      ...post,
+      profiles: {
+        ...(post.profiles || {}),
+        profile_type: author?.profile_type ?? post.profiles?.profile_type ?? null,
+        institution_kind: author?.institution_kind ?? post.profiles?.institution_kind ?? null,
+      },
+    };
+  });
 };
+
+/** Temporary Accueil filter: institutions, plus known media accounts. */
+const MEDIA_USERNAMES = [
+  "industrie-du-maroc",
+  "btp-news",
+  "leconomiste",
+  "medias24",
+  "challenge",
+  "la-vie-eco",
+  "les-inspirations-eco",
+];
+
+const latestPostByUsername = async (username: string) => {
+  const { data, error } = await supabase
+    .from("visible_feed_posts")
+    .select(FEED_ROW_SELECT)
+    .eq("username", username)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error || !data?.[0]) return null;
+  return mapFeedRow(data[0]);
+};
+
+const institutionFeedAuthorIds = async () => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .or(`profile_type.eq.institution,username.in.(${MEDIA_USERNAMES.join(",")})`);
+  if (error || !data) return null;
+  return [...new Set(data.map((row) => row.id).filter(Boolean))];
+};
+
+const FEED_ROW_SELECT =
+  "id, user_id, description, before_image_url, after_image_url, single_image_url, images, likes_count, comments_count, shares_count, is_sponsored, created_at, post_type, price, surface, beds, baths, city, phone, username, full_name, avatar_url, location, profession, is_verified";
 
 // feed_page can return no rows when every visible post is from someone the viewer
 // follows and the database function still uses the old slot mix. Read the view directly.
 const fallbackFeedPage = async (limit: number): Promise<FeedPage | null> => {
   const { data, error } = await supabase
     .from('visible_feed_posts')
-    .select('id, user_id, description, before_image_url, after_image_url, single_image_url, images, likes_count, comments_count, shares_count, is_sponsored, created_at, post_type, price, surface, beds, baths, city, phone, username, full_name, avatar_url, location, profession, is_verified')
+    .select(FEED_ROW_SELECT)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error || !data?.length) return null;
@@ -163,6 +204,31 @@ export const postService = {
 
   // One page of visible posts. Blocked and muted authors are excluded in SQL.
   async getFeedPage(limit = FEED_PAGE_SIZE, offset = 0): Promise<FeedPage> {
+    const authorIds = await institutionFeedAuthorIds();
+    if (authorIds) {
+      if (!authorIds.length) return { posts: [], hasMore: false };
+      const { data, error: feedError } = await supabase
+        .from("visible_feed_posts")
+        .select(FEED_ROW_SELECT)
+        .in("user_id", authorIds)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (!feedError && data) {
+        const rows = data.map(mapFeedRow);
+        if (offset === 0 && !rows.some((post) => post.profiles?.username === "btp-news")) {
+          const btpNews = await latestPostByUsername("btp-news");
+          if (btpNews) rows.push(btpNews);
+        }
+        if (offset === 0 && !rows.some((post) => post.profiles?.username === "tgcc")) {
+          const tgcc = await latestPostByUsername("tgcc");
+          if (tgcc) rows.push(tgcc);
+        }
+        return {
+          hasMore: data.length === limit,
+          posts: await withAuthorTypes(await attachPortfolioLinks(rows)),
+        };
+      }
+    }
     const { data, error } = await supabase.rpc('feed_page', { p_limit: limit, p_offset: offset });
     if (error) throw error;
     const rows = data || [];

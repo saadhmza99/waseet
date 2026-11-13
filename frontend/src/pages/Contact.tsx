@@ -11,8 +11,7 @@ import { contactService, type ContactTopic } from "@/services/contactService";
 
 const TABS = [
   { id: "all", label: "Accueil" },
-  { id: "projets", label: "Projets" },
-  { id: "marche", label: "Matériaux" },
+  { id: "prive", label: "Marché privé" },
   { id: "opportunites", label: "Opportunités" },
   { id: "federations", label: "Fédérations" },
   { id: "contact", label: "Contactez-nous" },
@@ -60,8 +59,8 @@ const Contact = () => {
       navigate("/opportunites");
       return;
     }
-    if (id === "marche") {
-      navigate("/produits");
+    if (id === "prive") {
+      navigate("/?vue=prive");
       return;
     }
     if (id === "all") {

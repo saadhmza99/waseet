@@ -110,7 +110,7 @@ const FeedDesktopRail = () => {
         </button>
         <button type="button" onClick={() => navigate("/devis")} className={itemClass(path.startsWith("/devis"))}>
           <ClipboardList className="h-5 w-5" strokeWidth={2} />
-          Demander devis
+          Demande devis gratuit
         </button>
         <div className="my-3" aria-hidden />
         <button type="button" onClick={() => navigate("/courses")} className={itemClass(path.startsWith("/courses"))}>

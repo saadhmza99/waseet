@@ -349,7 +349,7 @@ const ProductPage = () => {
                 isOwn ? "bg-[#174f43] hover:bg-[#123d34]" : "bg-[#e07a32] hover:bg-[#d06c28]"
               }`}
             >
-              {isOwn ? "Modifier" : "Demander un devis →"}
+              {isOwn ? "Modifier" : "Demande devis gratuit →"}
             </button>
           </div>
         </div>

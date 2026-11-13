@@ -7,6 +7,7 @@ import {
   BrickWall,
   Building2,
   Check,
+  ArrowLeft,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -555,7 +556,16 @@ const Products = () => {
         className="min-h-screen bg-white pb-20 lg:pb-0"
         contentClassName={railContentClass}
       >
-        <div className="mx-auto w-full pt-4 lg:pt-0">
+        <div className="mx-auto w-full pt-8 lg:pt-14">
+          <button
+            type="button"
+            onClick={() => navigate("/?vue=prive")}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#174f43]"
+            aria-label="Retour"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Retour
+          </button>
           <CategoryPicker
             open
             columns={3}
@@ -576,7 +586,16 @@ const Products = () => {
 
   return (
     <DesktopRailFrame className="min-h-screen bg-[#f6f5f3] pb-20 lg:pb-0" contentClassName={railContentClass}>
-      <div className="mx-auto w-full pb-6 pt-4 lg:pt-0">
+      <div className="mx-auto w-full pb-6 pt-8 lg:pt-14">
+        <button
+          type="button"
+          onClick={() => navigate("/?vue=prive")}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#174f43]"
+          aria-label="Retour"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          Retour
+        </button>
         <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-5xl">Sifarah Matériaux</h1>
         <p
           className={`mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600 sm:mt-2.5 sm:text-base ${
@@ -810,7 +829,7 @@ const Products = () => {
                           onClick={() => openDevis(pro)}
                           className="w-full rounded-full bg-[#174f43] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#123d34] sm:text-base"
                         >
-                          Demander devis
+                          Demande devis gratuit
                         </button>
                         <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                           <button

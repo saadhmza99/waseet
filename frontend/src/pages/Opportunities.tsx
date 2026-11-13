@@ -141,7 +141,7 @@ const Opportunities = () => {
 
   return (
     <DesktopRailFrame className="min-h-screen bg-[#f6f5f3] pb-20 lg:pb-0">
-      <div className="mx-auto w-full max-w-2xl px-4 pb-6 pt-1 lg:mx-0 lg:max-w-none lg:px-0 lg:pt-0">
+      <div className="mx-auto w-full max-w-2xl px-4 pb-6 pt-20 lg:mx-0 lg:max-w-none lg:px-0 lg:pt-24">
         {/* <p className="mb-3 text-lg font-semibold leading-relaxed text-neutral-800">
 
           Sifarah — «Ambassade» de l’écosystème immobilier, construction & BTP  au marché et au monde. Pour construire le futur ensemble.

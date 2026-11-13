@@ -235,22 +235,29 @@ const CardList = ({
   serviceRows,
   projectRows,
   lockDossiers = false,
+  matchFeatured = false,
 }: {
   items: MockItem[];
   onOpen: (item: MockItem) => void;
   serviceRows: ServiceRow[];
   projectRows: any[];
   lockDossiers?: boolean;
+  /** Two cards per row, same width as À la une. */
+  matchFeatured?: boolean;
 }) => {
   const wideGrid =
     items.length > 0 && items.every((item) => item.kind === "projet" || item.kind === "annonce");
   return (
   <ul
-    className={`mt-3 grid items-start gap-3 lg:relative lg:left-1/2 lg:-translate-x-1/2 ${
-      wideGrid
-        ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 lg:w-[min(96rem,calc(100vw-19rem))]"
-        : "grid-cols-1 lg:grid-cols-2 lg:w-[min(80rem,calc(100vw-19rem))]"
-    }`}
+    className={
+      matchFeatured
+        ? "mt-3 grid grid-cols-1 items-start gap-3 px-3 sm:px-0 md:grid-cols-2"
+        : `mt-3 grid items-start gap-3 lg:relative lg:left-1/2 lg:-translate-x-1/2 ${
+            wideGrid
+              ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 lg:w-[min(96rem,calc(100vw-19rem))]"
+              : "grid-cols-1 lg:grid-cols-2 lg:w-[min(80rem,calc(100vw-19rem))]"
+          }`
+    }
   >
     {items.map((item) => {
       if (item.kind === "projet") {
@@ -921,6 +928,7 @@ const Explore = () => {
                 serviceRows={liveServices}
                 projectRows={[]}
                 lockDossiers={showDossierGate}
+                matchFeatured
               />
               <InfiniteScrollSentinel hasMore={hasMoreForTab} loading={loadingMore || loadingServices} onLoadMore={loadMoreForTab} />
             </>

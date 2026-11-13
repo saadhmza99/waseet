@@ -46,6 +46,9 @@ const applyServicesFilters = <
   } else {
     next = next.eq("profiles.directory_visible", true);
   }
+  // Notaires (internal category 6.4.1, id 124) stay out of Discover Services.
+  // neq alone drops rows whose category is null, so keep those explicitly.
+  next = next.or("internal_category_id.is.null,internal_category_id.neq.124");
   if (fournisseurOnly) {
     next = next.like("internal_categories.code", "8.5.%");
   } else if (internalCodes.length) {
@@ -314,7 +317,8 @@ export const serviceService = {
     const { data, error } = await supabase
       .from("services")
       .select(SERVICE_LIST_SELECT)
-      .in("user_id", ids);
+      .in("user_id", ids)
+      .or("internal_category_id.is.null,internal_category_id.neq.124");
     if (error) throw error;
     const order = new Map(ids.map((id, index) => [id, index]));
     return ((data || []) as ServiceRow[]).sort(

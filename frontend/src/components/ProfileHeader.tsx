@@ -439,7 +439,7 @@ const ProfileHeader = ({
                   }}
                   className={`${actionPill} border-emerald-800 bg-emerald-800 text-white shadow-md hover:bg-emerald-900 disabled:opacity-60`}
                 >
-                  <span className="truncate">{contactRequest ? "Demander un contact" : "Demander devis"}</span>
+                  <span className="truncate">{contactRequest ? "Demander un contact" : "Demande devis gratuit"}</span>
                 </button>
               ) : null}
               {!isOwnProfile && landline ? (

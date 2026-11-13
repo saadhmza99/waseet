@@ -39,6 +39,19 @@ export const FEED_PICKER_CATEGORIES: CategoryOption[] = [
   },
 ];
 
+export const PRIVATE_MARKET_CATEGORIES: CategoryOption[] = [
+  {
+    id: "materiaux",
+    label: "Matériaux de construction et fournisseurs",
+    Icon: Package,
+  },
+  {
+    id: "projets",
+    label: "Projets immobiliers",
+    Icon: Building2,
+  },
+];
+
 export const CategoryPicker = ({
   open,
   onToggle,
@@ -47,6 +60,10 @@ export const CategoryPicker = ({
   onSelect,
   columns = 2,
   size = "md",
+  showTrigger = true,
+  showAll = true,
+  embedded = false,
+  comfortable = false,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -57,17 +74,29 @@ export const CategoryPicker = ({
   columns?: 2 | 3;
   /** Card size — lg = bigger cards & text for product taxonomy. */
   size?: "md" | "lg";
+  showTrigger?: boolean;
+  showAll?: boolean;
+  /** Skip the full-viewport centering used when the picker is the whole page. */
+  embedded?: boolean;
+  /** Taller cards on a phone. Used by Marché privé. */
+  comfortable?: boolean;
 }) => {
   const large = size === "lg";
-  const gridClass = columns === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2";
+  const gridClass = columns === 3 ? "grid-cols-1 sm:grid-cols-3" : showAll ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2";
   // Mobile: compact title-only cards. sm+: roomier + hover descriptions.
-  const cardClass = large
+  const cardClass = comfortable
+    ? "flex h-full min-h-[7.5rem] w-full animate-category-pop items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-5 text-base font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43] sm:min-h-32 sm:gap-4 sm:px-5 sm:py-6 sm:text-xl"
+    : large
     ? "flex h-full min-h-0 w-full animate-category-pop gap-2 rounded-xl border border-neutral-200 bg-white px-2.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43] sm:min-h-32 sm:gap-4 sm:rounded-2xl sm:px-5 sm:py-6 sm:text-xl"
     : "flex h-full min-h-0 w-full animate-category-pop gap-2 rounded-xl border border-neutral-200 bg-white px-2.5 py-2.5 text-sm font-semibold text-neutral-900 shadow-sm hover:border-[#174f43] hover:text-[#174f43] sm:min-h-[4.75rem] sm:gap-2.5 sm:rounded-2xl sm:px-3.5 sm:py-[1.35vh] sm:text-base";
-  const iconClass = large
+  const iconClass = comfortable
+    ? "h-6 w-6 shrink-0 sm:h-9 sm:w-9"
+    : large
     ? "mt-0.5 h-4 w-4 shrink-0 sm:mt-0 sm:h-9 sm:w-9"
     : "mt-0.5 h-4 w-4 shrink-0 sm:mt-0 sm:h-6 sm:w-6";
-  const labelClass = large
+  const labelClass = comfortable
+    ? "block text-base leading-snug sm:text-[20px]"
+    : large
     ? "block text-[12px] leading-snug sm:text-[20px]"
     : "block text-[12px] leading-snug sm:text-lg";
   const triggerClass = large
@@ -75,13 +104,16 @@ export const CategoryPicker = ({
     : "flex h-12 w-full items-center justify-center rounded-2xl border border-neutral-200 bg-white px-3.5 text-sm font-semibold text-neutral-900 shadow-sm transition duration-150 hover:scale-[0.97] hover:border-[#174f43] hover:text-[#174f43] sm:h-14 sm:text-base";
 
   return (
-    <div className={open ? "flex min-h-[calc(100dvh-9.5rem)] items-center justify-center" : ""}>
+    <div className={open && !embedded ? "flex min-h-[calc(100dvh-9.5rem)] items-center justify-center" : ""}>
       <div className="w-full">
-        <button type="button" onClick={onToggle} className={triggerClass}>
-          {selectedLabel ? `Catégorie : ${selectedLabel}` : "Catégories"}
-        </button>
+        {showTrigger ? (
+          <button type="button" onClick={onToggle} className={triggerClass}>
+            {selectedLabel ? `Catégorie : ${selectedLabel}` : "Catégories"}
+          </button>
+        ) : null}
         {open ? (
-          <div className={`mt-3 grid items-stretch gap-2 sm:gap-3 ${gridClass}`}>
+          <div className={`grid items-stretch gap-2 sm:gap-3 ${showTrigger ? "mt-3" : ""} ${gridClass}`}>
+            {showAll ? (
             <button
               type="button"
               onClick={() => onSelect("tout")}
@@ -90,6 +122,7 @@ export const CategoryPicker = ({
               <LayoutGrid className={large ? "h-4 w-4 shrink-0 sm:h-9 sm:w-9" : "h-4 w-4 shrink-0 sm:h-6 sm:w-6"} />
               <span className={`text-center ${labelClass}`}>Tout</span>
             </button>
+            ) : null}
             {categories.map((item, index) => (
               <button
                 key={item.id}

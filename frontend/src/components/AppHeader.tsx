@@ -46,10 +46,10 @@ export const CreateAndBell = ({
         type="button"
         onClick={() => navigate("/devis")}
         className={`hidden items-center justify-center gap-1.5 rounded-full bg-[#174f43] px-3.5 py-1.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#123d34] lg:inline-flex ${pillClassName}`}
-        aria-label="Demander un devis"
+        aria-label="Demande devis gratuit"
       >
         <ClipboardList className="h-5 w-5" strokeWidth={2.2} />
-        <span className="truncate">Demander un devis</span>
+        <span className="truncate">Demande devis gratuit</span>
       </button>
 
       {/* Mobile: aesthetic three-line menu */}
@@ -74,7 +74,7 @@ export const CreateAndBell = ({
             className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-neutral-800 transition hover:bg-[#174f43]/5 hover:text-[#174f43]"
           >
             <ClipboardList className="h-4 w-4 shrink-0 text-[#174f43]" strokeWidth={2.2} />
-            Demander un devis
+            Demande devis gratuit
           </button>
           <button
             type="button"
