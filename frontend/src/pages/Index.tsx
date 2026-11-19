@@ -781,9 +781,7 @@ const Index = () => {
         ) : null}
 
         <div
-          className={`order-2 mb-4 hidden gap-3 lg:grid ${
-            homeSections.length >= 6 ? "lg:grid-cols-3 xl:grid-cols-6" : homeSections.length === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"
-          } ${
+          className={`order-2 mb-4 hidden items-end border-b border-neutral-200 lg:flex ${
             feedView !== "projets"
               ? "xl:-ml-[54px] xl:w-[calc(100%_+_4rem_-_2px)] 2xl:ml-[calc(31.06rem_-_36vw_+_2px)] 2xl:w-[calc(100%_+_36vw_-_30.56rem_-_2px)]"
               : ""
@@ -799,10 +797,8 @@ const Index = () => {
                 key={item.id}
                 type="button"
                 onClick={() => openHomeSection(item.id)}
-                className={`flex min-h-[6.75rem] items-center justify-center rounded-xl border px-4 py-4 text-center text-lg font-medium leading-snug ${
-                  active
-                    ? "border-[#174f43] bg-[#174f43] text-white"
-                    : "border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50"
+                className={`flex flex-1 items-center justify-center whitespace-nowrap border-b-2 px-3 py-3 text-center text-lg font-semibold ${
+                  active ? "border-[#174f43] text-[#174f43]" : "border-transparent text-neutral-500 hover:text-neutral-800"
                 }`}
               >
                 {item.desktopLabel}
